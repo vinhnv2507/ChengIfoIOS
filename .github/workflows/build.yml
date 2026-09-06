@@ -25,7 +25,7 @@ jobs:
           make package FINALPACKAGE=1 2>&1 | tee "$RUNNER_TEMP/rootful-build.log"
           build_status=${PIPESTATUS[0]}
           if [ "$build_status" -ne 0 ]; then
-            tail -n 120 "$RUNNER_TEMP/rootful-build.log" | while IFS= read -r line; do echo "::error::$line"; done
+            grep -Ei "error:|fatal error|undefined symbol|ld:" "$RUNNER_TEMP/rootful-build.log" | head -n 20 | while IFS= read -r line; do echo "::error::$line"; done
             exit "$build_status"
           fi
           set -e
