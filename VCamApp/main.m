@@ -433,8 +433,9 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
                 return;
             }
             NSString *path = VCamMediaFile(@"jpg");
-            if (![jpeg writeToFile:path options:NSDataWritingAtomic error:&error]) {
-                [self showMessage:error.localizedDescription ?: @"Không lưu được ảnh đã chọn."];
+            NSError *writeError = nil;
+            if (![jpeg writeToFile:path options:NSDataWritingAtomic error:&writeError]) {
+                [self showMessage:writeError.localizedDescription ?: @"Không lưu được ảnh đã chọn."];
                 return;
             }
             [self applySelectedMediaAtPath:path];
