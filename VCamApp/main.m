@@ -2,6 +2,8 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import <Photos/Photos.h>
 #import <AVFoundation/AVFoundation.h>
+#import <CoreImage/CoreImage.h>
+#import <ImageIO/ImageIO.h>
 #import "../VCamPaths.h"
 #include <math.h>
 #include <spawn.h>
@@ -57,12 +59,43 @@ static NSData *VCamNormalizedJPEG(UIImage *image) {
     // entirely black preview even though the source image is valid.
     NSData *jpeg = UIImageJPEGRepresentation(image, 0.90);
     if (jpeg.length > 0) return jpeg;
+    // UIImagePicker may return HEIC as a CIImage-only UIImage. Materialize it
+    // through Core Image, applying the source orientation first.
+    if (image.CIImage) {
+        CIImage *ci = [image.CIImage imageByApplyingOrientation:(int)image.imageOrientation];
+        CGRect extent = ci.extent;
+        if (extent.size.width > 0 && extent.size.height > 0) {
+            CIContext *ctx = [CIContext contextWithOptions:nil];
+            CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+            CGImageRef cg = [ctx createCGImage:ci fromRect:extent format:kCIFormatRGBA8 colorSpace:space];
+            CGColorSpaceRelease(space);
+            if (cg) {
+                UIImage *materialized = [[UIImage alloc] initWithCGImage:cg scale:1.0 orientation:UIImageOrientationUp];
+                NSData *result = UIImageJPEGRepresentation(materialized, 0.90);
+                CGImageRelease(cg);
+                if (result.length > 0) return result;
+            }
+        }
+    }
     if (image.CGImage) {
         UIImage *fallback = [[UIImage alloc] initWithCGImage:image.CGImage
             scale:1.0 orientation:UIImageOrientationUp];
         return UIImageJPEGRepresentation(fallback, 0.90);
     }
     return nil;
+}
+
+static NSData *VCamNormalizedJPEGFromURL(NSURL *url) {
+    if (!url.isFileURL) return nil;
+    CGImageSourceRef source = CGImageSourceCreateWithURL((__bridge CFURLRef)url, NULL);
+    if (!source) return nil;
+    CGImageRef cg = CGImageSourceCreateImageAtIndex(source, 0, NULL);
+    CFRelease(source);
+    if (!cg) return nil;
+    UIImage *image = [[UIImage alloc] initWithCGImage:cg scale:1.0 orientation:UIImageOrientationUp];
+    NSData *result = UIImageJPEGRepresentation(image, 0.90);
+    CGImageRelease(cg);
+    return result;
 }
 
 typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
@@ -461,6 +494,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
         NSError *error = nil;
         UIImage *image = info[UIImagePickerControllerOriginalImage];
         NSData *data = VCamNormalizedJPEG(image);
+        if (!data) data = VCamNormalizedJPEGFromURL(info[UIImagePickerControllerImageURL]);
         NSString *destination = VCamMediaFile(@"jpg");
         if (!data || ![data writeToFile:destination options:NSDataWritingAtomic error:&error]) {
             destination = nil;
