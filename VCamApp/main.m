@@ -4,7 +4,6 @@
 #import <AVFoundation/AVFoundation.h>
 #import <CoreImage/CoreImage.h>
 #import <ImageIO/ImageIO.h>
-#import <MobileCoreServices/MobileCoreServices.h>
 #import "../VCamPaths.h"
 #include <math.h>
 #include <spawn.h>
@@ -101,7 +100,7 @@ static NSData *VCamJPEGFromPhotoData(NSData *data) {
     if (!image) return nil;
     NSMutableData *output = [NSMutableData data];
     CGImageDestinationRef destination = CGImageDestinationCreateWithData((__bridge CFMutableDataRef)output,
-        kUTTypeJPEG, 1, NULL);
+        (__bridge CFStringRef)@"public.jpeg", 1, NULL);
     if (destination) {
         CGImageDestinationAddImage(destination, image, (__bridge CFDictionaryRef)@{(id)kCGImageDestinationLossyCompressionQuality:@0.90});
         CGImageDestinationFinalize(destination);
