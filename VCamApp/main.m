@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <Photos/Photos.h>
+#import <PhotosUI/PhotosUI.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreImage/CoreImage.h>
 #import <ImageIO/ImageIO.h>
@@ -187,7 +188,7 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
 
 @end
 
-@interface VCamViewController : UIViewController <UIImagePickerControllerDelegate, UINavigationControllerDelegate>
+@interface VCamViewController : UIViewController <UIImagePickerControllerDelegate, UINavigationControllerDelegate, PHPickerViewControllerDelegate>
 @property(nonatomic, strong) UISwitch *enabledSwitch;
 @property(nonatomic, strong) UILabel *statusLabel;
 @property(nonatomic, strong) UILabel *daemonStatusLabel;
@@ -411,7 +412,34 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
 }
 
 - (void)selectImage {
-    [self presentPickerForMediaType:VCamImageMediaType];
+    PHPickerConfiguration *configuration = [[PHPickerConfiguration alloc] initWithPhotoLibrary:[PHPhotoLibrary sharedPhotoLibrary]];
+    configuration.filter = [PHPickerFilter imagesFilter];
+    configuration.selectionLimit = 1;
+    PHPickerViewController *picker = [[PHPickerViewController alloc] initWithConfiguration:configuration];
+    picker.delegate = self;
+    [self presentViewController:picker animated:YES completion:nil];
+}
+
+- (void)picker:(PHPickerViewController *)picker didFinishPicking:(NSArray<PHPickerResult *> *)results {
+    [picker dismissViewControllerAnimated:YES completion:nil];
+    PHPickerResult *result = results.firstObject;
+    if (!result) return;
+    NSItemProvider *provider = result.itemProvider;
+    [provider loadObjectOfClass:[UIImage class] completionHandler:^(UIImage *image, NSError *error) {
+        NSData *jpeg = VCamNormalizedJPEG(image);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!jpeg.length) {
+                [self showMessage:error.localizedDescription ?: @"Không đọc được ảnh từ Photos."];
+                return;
+            }
+            NSString *path = VCamMediaFile(@"jpg");
+            if (![jpeg writeToFile:path options:NSDataWritingAtomic error:&error]) {
+                [self showMessage:error.localizedDescription ?: @"Không lưu được ảnh đã chọn."];
+                return;
+            }
+            [self applySelectedMediaAtPath:path];
+        });
+    }];
 }
 
 - (void)selectVideo {
