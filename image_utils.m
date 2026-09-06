@@ -142,18 +142,7 @@ static BOOL loadImageMedia(NSString *path) {
     NSString *resolvedPath = resolveMediaPath(path);
     if (!resolvedPath) return NO;
     CGImageSourceRef source = CGImageSourceCreateWithURL((__bridge CFURLRef)[NSURL fileURLWithPath:resolvedPath], NULL);
-    if (!source) {
-        // A few Photos exports have an unusual/ missing UTI even though
-        // UIImage can decode the file.  Keep image selection reliable by
-        // falling back to UIKit's decoder before declaring the media invalid.
-        UIImage *fallback = [UIImage imageWithContentsOfFile:resolvedPath];
-        if (fallback.CGImage) {
-            replacementImage = CGImageRetain(fallback.CGImage);
-            currentMode = VCamModeImage;
-            return YES;
-        }
-        return NO;
-    }
+    if (!source) return NO;
     // iPhone 7 camera daemons have a tight memory budget. A 4K decoded JPEG
     // alone can occupy over 50 MB, so keep the source near preview resolution.
     CGImageRef image = CGImageSourceCreateThumbnailAtIndex(source, 0, (__bridge CFDictionaryRef)@{
