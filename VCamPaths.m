@@ -20,7 +20,12 @@ NSString *VCamSharedDirectory(void) {
 #if VCAM_HAS_ROOTHIDE
     return jbroot(@"/var/tmp");
 #else
-    return @"/private/var/tmp";
+    // /var/tmp is the canonical shared temporary directory visible to both
+    // the sandboxed VCam app and camera daemons on iOS 15.  Using the
+    // /private/var/tmp spelling can resolve to different jailbreak mount
+    // namespaces, leaving mediaserverd with a separate preferences/media
+    // file and making the app appear configured while Camera sees nothing.
+    return @"/var/tmp";
 #endif
 }
 
