@@ -34,6 +34,7 @@ static CGImageRef currentVideoImage = NULL;
 static NSUInteger videoFrameIndex = 0;
 static CFAbsoluteTime nextVideoFrameTime = 0;
 static CIContext *sharedCIContext = NULL;
+static CIContext *softwareCIContext = NULL;
 static NSLock *vcamLock = NULL;
 static NSMutableDictionary<NSString *, id> *renderedFrameCache = nil;
 static CGColorSpaceRef sharedColorSpace = NULL;
@@ -207,6 +208,9 @@ void loadReplacementMedia(void) {
     // 4) Ensure CIContext exists once.
     if (sharedCIContext == NULL) {
         sharedCIContext = [CIContext context];
+    }
+    if (softwareCIContext == NULL) {
+        softwareCIContext = [CIContext contextWithOptions:@{ kCIContextUseSoftwareRenderer : @YES }];
     }
     if (renderedFrameCache == nil) {
         renderedFrameCache = [NSMutableDictionary dictionary];
@@ -485,8 +489,8 @@ BOOL drawReplacementOntoBuffer(CVPixelBufferRef targetBuffer) {
                 (__bridge CFDictionaryRef)attributes, &bgra) == kCVReturnSuccess && bgra) {
             BOOL rendered = NO;
             @try {
-                [sharedCIContext render:final toCVPixelBuffer:bgra bounds:targetRect
-                             colorSpace:sharedColorSpace];
+                [softwareCIContext render:final toCVPixelBuffer:bgra bounds:targetRect
+                                colorSpace:sharedColorSpace];
                 rendered = YES;
             } @catch (NSException *exception) {}
             if (rendered) copied = convertBGRAIntoYUV(bgra, targetBuffer);
