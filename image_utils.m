@@ -479,10 +479,18 @@ BOOL drawReplacementOntoBuffer(CVPixelBufferRef targetBuffer) {
     BOOL isYUV = pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange ||
                  pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange;
     BOOL copied = NO;
-    // iPhone 7 camera clients commonly expose 420v/420f.  Core Image's
-    // direct YUV renderer is not reliable for those buffers, so use a BGRA
-    // intermediate and explicit conversion for deterministic image output.
-    if (isYUV) {
+    // Fast path: Core Image can write directly to many camera buffers.  This
+    // avoids a full CPU RGB->YUV pass on every video frame.
+    BOOL directRendered = NO;
+    @try {
+        [sharedCIContext render:final toCVPixelBuffer:renderedBuffer
+                         bounds:targetRect colorSpace:sharedColorSpace];
+        directRendered = YES;
+    } @catch (NSException *exception) {}
+    copied = directRendered && copyRenderedBuffer(renderedBuffer, targetBuffer);
+    if (!copied && isYUV) {
+        // Slow fallback only for devices/formats where direct CI rendering is
+        // rejected.  The resulting target buffer is cached for this frame.
         CVPixelBufferRef bgra = NULL;
         if (CVPixelBufferCreate(kCFAllocatorDefault, (size_t)targetWidth,
                 (size_t)targetHeight, kCVPixelFormatType_32BGRA,
@@ -513,16 +521,8 @@ BOOL drawReplacementOntoBuffer(CVPixelBufferRef targetBuffer) {
             }
             CVPixelBufferRelease(bgra);
         }
-    } else {
-        BOOL rendered = NO;
-        @try {
-            [sharedCIContext render:final toCVPixelBuffer:renderedBuffer
-                             bounds:targetRect colorSpace:sharedColorSpace];
-            rendered = YES;
-        } @catch (NSException *exception) {}
-        copied = rendered && copyRenderedBuffer(renderedBuffer, targetBuffer);
     }
-    if (copied && !isYUV) renderedFrameCache[cacheKey] = (__bridge id)renderedBuffer;
+    if (copied && directRendered) renderedFrameCache[cacheKey] = (__bridge id)renderedBuffer;
     CVPixelBufferRelease(renderedBuffer);
 
     [vcamLock unlock];
