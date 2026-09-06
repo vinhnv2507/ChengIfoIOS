@@ -802,7 +802,12 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
             "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
             "-threads", "1", "-i", (char *)input,
             "-t", "15", "-map", "0:v:0", "-an", "-sn",
-            "-vf", "zscale=t=linear:npl=100,format=gbrpf32le,tonemap=mobius:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv,fps=6,scale=960:960:force_original_aspect_ratio=decrease,format=yuv420p",
+            // Do not use zscale: the FFmpeg package on iOS 15/A10 is commonly
+            // built without libzimg, which makes the whole import abort with
+            // "No such filter: zscale" before writing a single frame.  This
+            // portable filter works for SDR and HDR inputs (HDR is converted
+            // to the SDR JPEG space consumed by the camera hook).
+            "-vf", "fps=6,scale=960:960:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p",
             "-color_range", "tv", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
             "-frames:v", "90", "-q:v", "4", (char *)output,
             NULL
