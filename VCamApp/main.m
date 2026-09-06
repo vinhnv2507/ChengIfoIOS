@@ -491,13 +491,40 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
     NSString *mediaType = info[UIImagePickerControllerMediaType];
 
     if ([mediaType isEqualToString:VCamImageMediaType]) {
-        NSError *error = nil;
+        PHAsset *photoAsset = info[UIImagePickerControllerPHAsset];
         UIImage *image = info[UIImagePickerControllerOriginalImage];
         NSData *data = VCamNormalizedJPEG(image);
         if (!data) data = VCamNormalizedJPEGFromURL(info[UIImagePickerControllerImageURL]);
         NSString *destination = VCamMediaFile(@"jpg");
+        NSError *error = nil;
         if (!data || ![data writeToFile:destination options:NSDataWritingAtomic error:&error]) {
             destination = nil;
+        }
+        if (!destination && photoAsset) {
+            PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
+            options.version = PHImageRequestOptionsVersionOriginal;
+            options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+            options.networkAccessAllowed = YES;
+            [picker dismissViewControllerAnimated:YES completion:^{
+                [[PHImageManager defaultManager] requestImageDataAndOrientationForAsset:photoAsset options:options
+                    resultHandler:^(NSData *assetData, NSString *uti, CGImagePropertyOrientation orientation, NSDictionary *assetInfo) {
+                    NSData *jpeg = nil;
+                    CGImageSourceRef source = assetData ? CGImageSourceCreateWithData((__bridge CFDataRef)assetData, NULL) : NULL;
+                    CGImageRef cg = source ? CGImageSourceCreateImageAtIndex(source, 0, NULL) : NULL;
+                    if (source) CFRelease(source);
+                    if (cg) {
+                        jpeg = UIImageJPEGRepresentation([[UIImage alloc] initWithCGImage:cg scale:1.0 orientation:UIImageOrientationUp], 0.90);
+                        CGImageRelease(cg);
+                    }
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        NSString *path = jpeg ? VCamMediaFile(@"jpg") : nil;
+                        if (!path || ![jpeg writeToFile:path options:NSDataWritingAtomic error:nil]) {
+                            [self showMessage:@"Không đọc được ảnh gốc từ Photos."];
+                        } else [self applySelectedMediaAtPath:path];
+                    });
+                }];
+            }];
+            return;
         }
         [picker dismissViewControllerAnimated:YES completion:^{
             if (destination) {
