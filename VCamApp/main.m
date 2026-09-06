@@ -4,6 +4,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <CoreImage/CoreImage.h>
 #import <ImageIO/ImageIO.h>
+#import <MobileCoreServices/MobileCoreServices.h>
 #import "../VCamPaths.h"
 #include <math.h>
 #include <spawn.h>
@@ -83,6 +84,31 @@ static NSData *VCamNormalizedJPEG(UIImage *image) {
         return UIImageJPEGRepresentation(fallback, 0.90);
     }
     return nil;
+}
+
+static NSData *VCamJPEGFromPhotoData(NSData *data) {
+    if (!data.length) return nil;
+    CGImageSourceRef source = CGImageSourceCreateWithData((__bridge CFDataRef)data, NULL);
+    if (!source) return nil;
+    NSDictionary *opts = @{
+        (id)kCGImageSourceCreateThumbnailFromImageAlways: @YES,
+        (id)kCGImageSourceCreateThumbnailWithTransform: @YES,
+        (id)kCGImageSourceThumbnailMaxPixelSize: @1280,
+        (id)kCGImageSourceShouldCacheImmediately: @YES
+    };
+    CGImageRef image = CGImageSourceCreateThumbnailAtIndex(source, 0, (__bridge CFDictionaryRef)opts);
+    CFRelease(source);
+    if (!image) return nil;
+    NSMutableData *output = [NSMutableData data];
+    CGImageDestinationRef destination = CGImageDestinationCreateWithData((__bridge CFMutableDataRef)output,
+        kUTTypeJPEG, 1, NULL);
+    if (destination) {
+        CGImageDestinationAddImage(destination, image, (__bridge CFDictionaryRef)@{(id)kCGImageDestinationLossyCompressionQuality:@0.90});
+        CGImageDestinationFinalize(destination);
+        CFRelease(destination);
+    }
+    CGImageRelease(image);
+    return output.length ? output : nil;
 }
 
 static NSData *VCamNormalizedJPEGFromURL(NSURL *url) {
@@ -493,14 +519,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
     if ([mediaType isEqualToString:VCamImageMediaType]) {
         PHAsset *photoAsset = info[UIImagePickerControllerPHAsset];
         UIImage *image = info[UIImagePickerControllerOriginalImage];
-        NSData *data = VCamNormalizedJPEG(image);
-        if (!data) data = VCamNormalizedJPEGFromURL(info[UIImagePickerControllerImageURL]);
-        NSString *destination = VCamMediaFile(@"jpg");
-        NSError *error = nil;
-        if (!data || ![data writeToFile:destination options:NSDataWritingAtomic error:&error]) {
-            destination = nil;
-        }
-        if (!destination && photoAsset) {
+        if (photoAsset) {
             PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
             options.version = PHImageRequestOptionsVersionOriginal;
             options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
@@ -508,14 +527,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
             [picker dismissViewControllerAnimated:YES completion:^{
                 [[PHImageManager defaultManager] requestImageDataAndOrientationForAsset:photoAsset options:options
                     resultHandler:^(NSData *assetData, NSString *uti, CGImagePropertyOrientation orientation, NSDictionary *assetInfo) {
-                    NSData *jpeg = nil;
-                    CGImageSourceRef source = assetData ? CGImageSourceCreateWithData((__bridge CFDataRef)assetData, NULL) : NULL;
-                    CGImageRef cg = source ? CGImageSourceCreateImageAtIndex(source, 0, NULL) : NULL;
-                    if (source) CFRelease(source);
-                    if (cg) {
-                        jpeg = UIImageJPEGRepresentation([[UIImage alloc] initWithCGImage:cg scale:1.0 orientation:UIImageOrientationUp], 0.90);
-                        CGImageRelease(cg);
-                    }
+                    NSData *jpeg = VCamJPEGFromPhotoData(assetData);
                     dispatch_async(dispatch_get_main_queue(), ^{
                         NSString *path = jpeg ? VCamMediaFile(@"jpg") : nil;
                         if (!path || ![jpeg writeToFile:path options:NSDataWritingAtomic error:nil]) {
@@ -526,6 +538,11 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
             }];
             return;
         }
+        NSData *data = VCamNormalizedJPEG(image);
+        if (!data) data = VCamNormalizedJPEGFromURL(info[UIImagePickerControllerImageURL]);
+        NSString *destination = VCamMediaFile(@"jpg");
+        NSError *error = nil;
+        if (!data || ![data writeToFile:destination options:NSDataWritingAtomic error:&error]) destination = nil;
         [picker dismissViewControllerAnimated:YES completion:^{
             if (destination) {
                 [self applySelectedMediaAtPath:destination];
