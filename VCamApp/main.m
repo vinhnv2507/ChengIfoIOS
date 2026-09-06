@@ -501,7 +501,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
             options.networkAccessAllowed = YES;
             [picker dismissViewControllerAnimated:YES completion:^{
                 [[PHImageManager defaultManager] requestImageDataForAsset:photoAsset options:options
-                    resultHandler:^(NSData *assetData, NSString *uti, NSDictionary *assetInfo) {
+                    resultHandler:^(NSData *assetData, NSString *uti, UIImageOrientation orientation, NSDictionary *assetInfo) {
                     NSData *jpeg = nil;
                     CGImageSourceRef source = assetData ? CGImageSourceCreateWithData((__bridge CFDataRef)assetData, NULL) : NULL;
                     CGImageRef cg = source ? CGImageSourceCreateImageAtIndex(source, 0, NULL) : NULL;
