@@ -1,7 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
-#import <CoreVideo/CoreVideo.h>
 #import <CoreImage/CoreImage.h>
 #import <ImageIO/ImageIO.h>
 #import "VCamPaths.h"
@@ -318,72 +317,6 @@ static BOOL copyRenderedBuffer(CVPixelBufferRef source, CVPixelBufferRef destina
     return copied;
 }
 
-// Core Image cannot render directly into every YUV variant exposed by
-// mediaserverd (notably the 420v/420f buffers used by some iPhone 7 camera
-// clients).  Render once into BGRA, then convert that cached frame to the
-// target bi-planar buffer.  This path is only used when direct CI rendering
-// fails, so normal formats keep the faster GPU path.
-static BOOL convertBGRAToBiPlanar(CVPixelBufferRef bgra, CVPixelBufferRef yuv) {
-    if (!bgra || !yuv || CVPixelBufferGetPlaneCount(yuv) != 2 ||
-        CVPixelBufferGetWidth(bgra) != CVPixelBufferGetWidth(yuv) ||
-        CVPixelBufferGetHeight(bgra) != CVPixelBufferGetHeight(yuv)) return NO;
-    CVReturn a = CVPixelBufferLockBaseAddress(bgra, kCVPixelBufferLock_ReadOnly);
-    if (a != kCVReturnSuccess) return NO;
-    CVReturn b = CVPixelBufferLockBaseAddress(yuv, 0);
-    if (b != kCVReturnSuccess) {
-        CVPixelBufferUnlockBaseAddress(bgra, kCVPixelBufferLock_ReadOnly);
-        return NO;
-    }
-    const size_t width = CVPixelBufferGetWidth(yuv), height = CVPixelBufferGetHeight(yuv);
-    const size_t bgraStride = CVPixelBufferGetBytesPerRow(bgra);
-    const size_t yStride = CVPixelBufferGetBytesPerRowOfPlane(yuv, 0);
-    const size_t uvStride = CVPixelBufferGetBytesPerRowOfPlane(yuv, 1);
-    const uint8_t *src = CVPixelBufferGetBaseAddress(bgra);
-    uint8_t *dstY = CVPixelBufferGetBaseAddressOfPlane(yuv, 0);
-    uint8_t *dstUV = CVPixelBufferGetBaseAddressOfPlane(yuv, 1);
-    BOOL fullRange = CVPixelBufferGetPixelFormatType(yuv) == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange;
-    if (!src || !dstY || !dstUV) {
-        CVPixelBufferUnlockBaseAddress(yuv, 0);
-        CVPixelBufferUnlockBaseAddress(bgra, kCVPixelBufferLock_ReadOnly);
-        return NO;
-    }
-    for (size_t yy = 0; yy < height; yy++) {
-        const uint8_t *row = src + yy * bgraStride;
-        uint8_t *out = dstY + yy * yStride;
-        for (size_t xx = 0; xx < width; xx++) {
-            double B = row[xx * 4 + 0], G = row[xx * 4 + 1], R = row[xx * 4 + 2];
-            double Y = fullRange ? (0.114 * B + 0.587 * G + 0.299 * R)
-                                 : (16.0 + 0.098 * B + 0.504 * G + 0.257 * R);
-            out[xx] = (uint8_t)MAX(0.0, MIN(255.0, Y + 0.5));
-        }
-    }
-    for (size_t yy = 0; yy < height; yy += 2) {
-        uint8_t *out = dstUV + (yy / 2) * uvStride;
-        for (size_t xx = 0; xx < width; xx += 2) {
-            double sumU = 0, sumV = 0; int count = 0;
-            for (size_t sy = yy; sy < MIN(yy + 2, height); sy++) {
-                const uint8_t *row = src + sy * bgraStride;
-                for (size_t sx = xx; sx < MIN(xx + 2, width); sx++) {
-                    double B = row[sx * 4 + 0], G = row[sx * 4 + 1], R = row[sx * 4 + 2];
-                    if (fullRange) {
-                        sumU += -0.169 * R - 0.331 * G + 0.500 * B + 128.0;
-                        sumV +=  0.500 * R - 0.419 * G - 0.081 * B + 128.0;
-                    } else {
-                        sumU += 128.0 - 0.148 * R - 0.291 * G + 0.439 * B;
-                        sumV += 128.0 + 0.439 * R - 0.368 * G - 0.071 * B;
-                    }
-                    count++;
-                }
-            }
-            out[(xx / 2) * 2 + 0] = (uint8_t)MAX(0.0, MIN(255.0, sumU / count + 0.5));
-            out[(xx / 2) * 2 + 1] = (uint8_t)MAX(0.0, MIN(255.0, sumV / count + 0.5));
-        }
-    }
-    CVPixelBufferUnlockBaseAddress(yuv, 0);
-    CVPixelBufferUnlockBaseAddress(bgra, kCVPixelBufferLock_ReadOnly);
-    return YES;
-}
-
 BOOL drawReplacementOntoBuffer(CVPixelBufferRef targetBuffer) {
     if (!targetBuffer) return NO;
 
@@ -502,43 +435,8 @@ BOOL drawReplacementOntoBuffer(CVPixelBufferRef targetBuffer) {
     } @catch (NSException *exception) {
         rendered = NO;
     }
-    BOOL directCopied = rendered && copyRenderedBuffer(renderedBuffer, targetBuffer);
-    BOOL copied = directCopied;
-    if (!copied && (pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange ||
-                    pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)) {
-        // Re-render into a universally supported 32-bit buffer and perform a
-        // CPU YUV conversion.  The converted result is cached below, so this
-        // cost is paid only when the image/video frame changes.
-        CVPixelBufferRef bgra = NULL;
-        CVReturn bgraResult = CVPixelBufferCreate(kCFAllocatorDefault,
-            (size_t)targetWidth, (size_t)targetHeight, kCVPixelFormatType_32BGRA,
-            (__bridge CFDictionaryRef)attributes, &bgra);
-        if (bgraResult == kCVReturnSuccess && bgra) {
-            BOOL bgraRendered = NO;
-            @try {
-                [sharedCIContext render:final toCVPixelBuffer:bgra bounds:targetRect
-                             colorSpace:sharedColorSpace];
-                bgraRendered = YES;
-            } @catch (NSException *exception) {
-                bgraRendered = NO;
-            }
-            if (bgraRendered) copied = convertBGRAToBiPlanar(bgra, targetBuffer);
-            if (copied) {
-                // Keep a target-format copy in the cache for subsequent
-                // camera samples; the BGRA scratch buffer can be discarded.
-                CVPixelBufferRef cachedTarget = NULL;
-                if (CVPixelBufferCreate(kCFAllocatorDefault, (size_t)targetWidth,
-                        (size_t)targetHeight, pixelFormat,
-                        (__bridge CFDictionaryRef)attributes, &cachedTarget) == kCVReturnSuccess &&
-                    cachedTarget && convertBGRAToBiPlanar(bgra, cachedTarget)) {
-                    renderedFrameCache[cacheKey] = (__bridge id)cachedTarget;
-                    CVPixelBufferRelease(cachedTarget);
-                }
-            }
-            CVPixelBufferRelease(bgra);
-        }
-    }
-    if (directCopied) renderedFrameCache[cacheKey] = (__bridge id)renderedBuffer;
+    BOOL copied = rendered && copyRenderedBuffer(renderedBuffer, targetBuffer);
+    if (copied) renderedFrameCache[cacheKey] = (__bridge id)renderedBuffer;
     CVPixelBufferRelease(renderedBuffer);
 
     [vcamLock unlock];
