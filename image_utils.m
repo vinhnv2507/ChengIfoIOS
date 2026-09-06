@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
+#import <CoreVideo/CoreVideo.h>
 #import <CoreImage/CoreImage.h>
 #import <ImageIO/ImageIO.h>
 #import "VCamPaths.h"
@@ -306,6 +307,63 @@ static BOOL copyRenderedBuffer(CVPixelBufferRef source, CVPixelBufferRef destina
     return copied;
 }
 
+static BOOL convertBGRAIntoYUV(CVPixelBufferRef bgra, CVPixelBufferRef yuv) {
+    if (!bgra || !yuv || CVPixelBufferGetPlaneCount(yuv) != 2 ||
+        CVPixelBufferGetWidth(bgra) != CVPixelBufferGetWidth(yuv) ||
+        CVPixelBufferGetHeight(bgra) != CVPixelBufferGetHeight(yuv)) return NO;
+    if (CVPixelBufferLockBaseAddress(bgra, kCVPixelBufferLock_ReadOnly) != kCVReturnSuccess) return NO;
+    if (CVPixelBufferLockBaseAddress(yuv, 0) != kCVReturnSuccess) {
+        CVPixelBufferUnlockBaseAddress(bgra, kCVPixelBufferLock_ReadOnly);
+        return NO;
+    }
+    size_t width = CVPixelBufferGetWidth(yuv), height = CVPixelBufferGetHeight(yuv);
+    const uint8_t *src = CVPixelBufferGetBaseAddress(bgra);
+    uint8_t *dstY = CVPixelBufferGetBaseAddressOfPlane(yuv, 0);
+    uint8_t *dstUV = CVPixelBufferGetBaseAddressOfPlane(yuv, 1);
+    size_t srcStride = CVPixelBufferGetBytesPerRow(bgra);
+    size_t yStride = CVPixelBufferGetBytesPerRowOfPlane(yuv, 0);
+    size_t uvStride = CVPixelBufferGetBytesPerRowOfPlane(yuv, 1);
+    BOOL full = CVPixelBufferGetPixelFormatType(yuv) == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange;
+    BOOL ok = src && dstY && dstUV;
+    if (ok) {
+        for (size_t y = 0; y < height; y++) {
+            const uint8_t *row = src + y * srcStride;
+            uint8_t *out = dstY + y * yStride;
+            for (size_t x = 0; x < width; x++) {
+                double B = row[x * 4], G = row[x * 4 + 1], R = row[x * 4 + 2];
+                double value = full ? (0.114 * B + 0.587 * G + 0.299 * R)
+                                    : (16.0 + 0.098 * B + 0.504 * G + 0.257 * R);
+                out[x] = (uint8_t)MAX(0.0, MIN(255.0, value + 0.5));
+            }
+        }
+        for (size_t y = 0; y < height; y += 2) {
+            const uint8_t *row0 = src + y * srcStride;
+            const uint8_t *row1 = src + MIN(y + 1, height - 1) * srcStride;
+            uint8_t *out = dstUV + (y / 2) * uvStride;
+            for (size_t x = 0; x < width; x += 2) {
+                double su = 0, sv = 0;
+                for (int sample = 0; sample < 4; sample++) {
+                    const uint8_t *row = (sample < 2) ? row0 : row1;
+                    size_t sx = MIN(x + (sample & 1), width - 1);
+                    double B = row[sx * 4], G = row[sx * 4 + 1], R = row[sx * 4 + 2];
+                    if (full) {
+                        su += -0.169 * R - 0.331 * G + 0.500 * B + 128.0;
+                        sv +=  0.500 * R - 0.419 * G - 0.081 * B + 128.0;
+                    } else {
+                        su += 128.0 - 0.148 * R - 0.291 * G + 0.439 * B;
+                        sv += 128.0 + 0.439 * R - 0.368 * G - 0.071 * B;
+                    }
+                }
+                out[(x / 2) * 2] = (uint8_t)MAX(0.0, MIN(255.0, su * 0.25 + 0.5));
+                out[(x / 2) * 2 + 1] = (uint8_t)MAX(0.0, MIN(255.0, sv * 0.25 + 0.5));
+            }
+        }
+    }
+    CVPixelBufferUnlockBaseAddress(yuv, 0);
+    CVPixelBufferUnlockBaseAddress(bgra, kCVPixelBufferLock_ReadOnly);
+    return ok;
+}
+
 BOOL drawReplacementOntoBuffer(CVPixelBufferRef targetBuffer) {
     if (!targetBuffer) return NO;
 
@@ -414,18 +472,46 @@ BOOL drawReplacementOntoBuffer(CVPixelBufferRef targetBuffer) {
         return NO;
     }
 
-    BOOL rendered = NO;
-    @try {
-        [sharedCIContext render:final
-                toCVPixelBuffer:renderedBuffer
-                         bounds:targetRect
-                     colorSpace:sharedColorSpace];
-        rendered = YES;
-    } @catch (NSException *exception) {
-        rendered = NO;
+    BOOL isYUV = pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange ||
+                 pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange;
+    BOOL copied = NO;
+    // iPhone 7 camera clients commonly expose 420v/420f.  Core Image's
+    // direct YUV renderer is not reliable for those buffers, so use a BGRA
+    // intermediate and explicit conversion for deterministic image output.
+    if (isYUV) {
+        CVPixelBufferRef bgra = NULL;
+        if (CVPixelBufferCreate(kCFAllocatorDefault, (size_t)targetWidth,
+                (size_t)targetHeight, kCVPixelFormatType_32BGRA,
+                (__bridge CFDictionaryRef)attributes, &bgra) == kCVReturnSuccess && bgra) {
+            BOOL rendered = NO;
+            @try {
+                [sharedCIContext render:final toCVPixelBuffer:bgra bounds:targetRect
+                             colorSpace:sharedColorSpace];
+                rendered = YES;
+            } @catch (NSException *exception) {}
+            if (rendered) copied = convertBGRAIntoYUV(bgra, targetBuffer);
+            if (copied) {
+                CVPixelBufferRef cachedTarget = NULL;
+                if (CVPixelBufferCreate(kCFAllocatorDefault, (size_t)targetWidth,
+                        (size_t)targetHeight, pixelFormat,
+                        (__bridge CFDictionaryRef)attributes, &cachedTarget) == kCVReturnSuccess &&
+                    cachedTarget && convertBGRAIntoYUV(bgra, cachedTarget)) {
+                    renderedFrameCache[cacheKey] = (__bridge id)cachedTarget;
+                    CVPixelBufferRelease(cachedTarget);
+                }
+            }
+            CVPixelBufferRelease(bgra);
+        }
+    } else {
+        BOOL rendered = NO;
+        @try {
+            [sharedCIContext render:final toCVPixelBuffer:renderedBuffer
+                             bounds:targetRect colorSpace:sharedColorSpace];
+            rendered = YES;
+        } @catch (NSException *exception) {}
+        copied = rendered && copyRenderedBuffer(renderedBuffer, targetBuffer);
     }
-    BOOL copied = rendered && copyRenderedBuffer(renderedBuffer, targetBuffer);
-    if (copied) renderedFrameCache[cacheKey] = (__bridge id)renderedBuffer;
+    if (copied && !isYUV) renderedFrameCache[cacheKey] = (__bridge id)renderedBuffer;
     CVPixelBufferRelease(renderedBuffer);
 
     [vcamLock unlock];
