@@ -489,10 +489,17 @@ BOOL drawReplacementOntoBuffer(CVPixelBufferRef targetBuffer) {
                 (__bridge CFDictionaryRef)attributes, &bgra) == kCVReturnSuccess && bgra) {
             BOOL rendered = NO;
             @try {
-                [softwareCIContext render:final toCVPixelBuffer:bgra bounds:targetRect
-                                colorSpace:sharedColorSpace];
+                [sharedCIContext render:final toCVPixelBuffer:bgra bounds:targetRect
+                             colorSpace:sharedColorSpace];
                 rendered = YES;
             } @catch (NSException *exception) {}
+            if (!rendered && softwareCIContext) {
+                @try {
+                    [softwareCIContext render:final toCVPixelBuffer:bgra bounds:targetRect
+                                    colorSpace:sharedColorSpace];
+                    rendered = YES;
+                } @catch (NSException *exception) {}
+            }
             if (rendered) copied = convertBGRAIntoYUV(bgra, targetBuffer);
             if (copied) {
                 CVPixelBufferRef cachedTarget = NULL;

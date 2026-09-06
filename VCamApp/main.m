@@ -49,6 +49,25 @@ static NSString *VCamDescribeError(NSError *error) {
     return [parts componentsJoinedByString:@"\n↳ "];
 }
 
+static NSData *VCamNormalizedJPEG(UIImage *image) {
+    if (!image || !image.CGImage) return nil;
+    // Photos from the iPhone camera are often HEIC/Display-P3 and can carry
+    // orientation metadata that mediaserverd's Core Image path does not
+    // accept.  Draw into a bounded 8-bit sRGB bitmap so every captured photo
+    // has the same format as a downloaded JPEG.
+    CGFloat longest = MAX(image.size.width, image.size.height);
+    CGFloat scale = longest > 1600.0 ? 1600.0 / longest : 1.0;
+    CGSize size = CGSizeMake(MAX(1.0, floor(image.size.width * scale)),
+                             MAX(1.0, floor(image.size.height * scale)));
+    UIGraphicsBeginImageContextWithOptions(size, YES, 1.0);
+    [[UIColor blackColor] setFill];
+    UIRectFill((CGRect){CGPointZero, size});
+    [image drawInRect:(CGRect){CGPointZero, size}];
+    UIImage *normalized = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return normalized ? UIImageJPEGRepresentation(normalized, 0.90) : nil;
+}
+
 typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
 
 @interface VCamVideoPickerController : UIViewController <UITableViewDataSource, UITableViewDelegate>
@@ -444,7 +463,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
     if ([mediaType isEqualToString:VCamImageMediaType]) {
         NSError *error = nil;
         UIImage *image = info[UIImagePickerControllerOriginalImage];
-        NSData *data = UIImageJPEGRepresentation(image, 0.92);
+        NSData *data = VCamNormalizedJPEG(image);
         NSString *destination = VCamMediaFile(@"jpg");
         if (!data || ![data writeToFile:destination options:NSDataWritingAtomic error:&error]) {
             destination = nil;
