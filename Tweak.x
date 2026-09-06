@@ -1,5 +1,6 @@
 #import <CoreMedia/CoreMedia.h>
 #import <CoreFoundation/CoreFoundation.h>
+#import <Foundation/Foundation.h>
 #import <objc/message.h>
 #import "image_utils.h"
 #import "VCamPaths.h"
@@ -9,14 +10,76 @@
 // Track whether media was loaded for the current prefs; reload when it changes.
 static BOOL vcam_needsLoad = YES;
 static uint64_t vcam_liveStamp = 0;
+static CFAbsoluteTime vcam_lastLiveCheck = 0;
+static NSString *vcam_observedMediaPath = nil;
+static BOOL vcam_observedEnabled = YES;
+static BOOL vcam_hasObservedPreferences = NO;
+static CFAbsoluteTime vcam_perfWindowStart = 0;
+static double vcam_perfTotal = 0;
+static NSUInteger vcam_perfCount = 0;
+static NSUInteger vcam_perfSlowCount = 0;
+
+static void vcam_recordPerformance(CFAbsoluteTime elapsed, BOOL replaced) {
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    if (vcam_perfWindowStart == 0) vcam_perfWindowStart = now;
+    // A failed draw is still useful diagnostically, but don't classify it as
+    // a slow render (there was no replacement work to measure).
+    vcam_perfTotal += replaced ? elapsed : 0.0;
+    vcam_perfCount++;
+    if (elapsed > 0.040) vcam_perfSlowCount++;
+    if ((now - vcam_perfWindowStart) < 5.0 || vcam_perfCount < 30) return;
+
+    double averageMS = (vcam_perfTotal / (double)vcam_perfCount) * 1000.0;
+    NSUInteger slow = vcam_perfSlowCount;
+    BOOL anyReplacement = vcam_perfTotal > 0.0;
+    vcam_perfWindowStart = now;
+    vcam_perfTotal = 0;
+    vcam_perfCount = 0;
+    vcam_perfSlowCount = 0;
+    // Keep this diagnostic deliberately infrequent; never touch the plist on
+    // every camera callback.  It lets the app show whether rendering is
+    // taking long enough to make the UI feel laggy.
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        NSDictionary *status = @{
+            @"loaded": @(anyReplacement),
+            @"message": anyReplacement
+                ? [NSString stringWithFormat:@"Hiá»‡u nÄƒng: %.1f ms/frame (%lu cháº­m)", averageMS, (unsigned long)slow]
+                : @"KhÃ´ng ghi Ä‘Æ°á»£c frame vÃ o camera",
+            @"timestamp": [NSDate date]
+        };
+        [status writeToFile:VCamStatusFile() atomically:YES];
+    });
+}
 
 static void vcam_ensureLoaded(void) {
     // Live video updates a single JPEG many times per second.  Do not make the
     // app rewrite preferences (and post a Darwin notification) for every
     // frame; detect the file's nanosecond mtime directly from the camera hook.
+    // Stat the live JPEG at most ~12 times per second.  mediaserverd can call
+    // this method for every camera sample (30+ times/sec); doing a plist/stat
+    // read and decoding a new JPEG for each callback makes the A10 UI feel
+    // stuck even though the replacement image itself is valid.
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    if (!vcam_needsLoad && (now - vcam_lastLiveCheck) < (1.0 / 12.0)) {
+        return;
+    }
+    vcam_lastLiveCheck = now;
+    // Also compare the preference values themselves.  This makes selecting a
+    // new still image reliable even if a particular jailbreak build drops a
+    // Darwin notification while mediaserverd is already running.
+    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:VCamPreferencesFile()];
+    NSString *mediaPath = [prefs[@"mediaPath"] isKindOfClass:[NSString class]] ? prefs[@"mediaPath"] : nil;
+    id enabledValue = prefs[@"enabled"];
+    BOOL enabled = enabledValue == nil ? YES : [enabledValue boolValue];
+    if (!vcam_hasObservedPreferences || ![mediaPath isEqualToString:vcam_observedMediaPath] ||
+        enabled != vcam_observedEnabled) {
+        vcam_observedMediaPath = [mediaPath copy];
+        vcam_observedEnabled = enabled;
+        vcam_hasObservedPreferences = YES;
+        vcam_needsLoad = YES;
+    }
     if (!vcam_needsLoad) {
-        NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:VCamPreferencesFile()];
-        NSString *path = prefs[@"mediaPath"];
+        NSString *path = mediaPath;
         NSString *livePath = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
         if ([path isEqualToString:livePath]) {
             struct stat st;
@@ -42,6 +105,8 @@ static void vcamPrefsChanged(CFNotificationCenterRef center, void *observer,
                              CFStringRef name, const void *object, CFDictionaryRef userInfo) {
     vcam_needsLoad = YES;
     vcam_liveStamp = 0;
+    vcam_lastLiveCheck = 0;
+    vcam_hasObservedPreferences = NO;
 }
 
 static void vcamAdjustmentsChanged(CFNotificationCenterRef center, void *observer,
@@ -70,14 +135,17 @@ static void vcamAdjustmentsChanged(CFNotificationCenterRef center, void *observe
     // Camera callbacks may run without a short-lived autorelease pool. Core
     // Image creates temporary objects for every frame, so drain them here and
     // never let an unsupported buffer exception terminate the camera daemon.
+    CFAbsoluteTime drawStart = CFAbsoluteTimeGetCurrent();
+    BOOL replaced = NO;
     @autoreleasepool {
         @try {
-            drawReplacementOntoBuffer(originalImageBuffer);
+            replaced = drawReplacementOntoBuffer(originalImageBuffer);
         } @catch (NSException *exception) {
             // Leave the real camera frame untouched when Core Image rejects a
             // transient/auxiliary pixel-buffer format.
         }
     }
+    vcam_recordPerformance(CFAbsoluteTimeGetCurrent() - drawStart, replaced);
 
     %orig(sampleBuffer);
 }

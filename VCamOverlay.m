@@ -394,19 +394,21 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     const char *executable = ffmpeg.fileSystemRepresentation;
     const char *input = urlString.UTF8String;
     const char *output = destination.fileSystemRepresentation;
-    const char *filter = useToneMap
-        ? "zscale=t=linear:npl=100,format=gbrpf32le,tonemap=mobius:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv,fps=30,scale=640:640:force_original_aspect_ratio=decrease,format=yuv420p"
-        // JPEG is full-range. Expand the MP4's limited-range YUV before
-        // encoding so blacks/highlights and contrast are not washed out when
-        // Core Image reads the JPEG as sRGB.
-        : "fps=30,scale=640:640:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
+    // Do not use zscale here.  The Procursus FFmpeg shipped on many iOS 15
+    // jailbreaks (including iPhone 7/A10) is built without libzimg, so merely
+    // mentioning zscale makes FFmpeg abort before producing its first frame.
+    // This filter is available in the small FFmpeg package and is also much
+    // lighter on the A10 while keeping a steady 20 FPS for the camera hook.
+    // JPEG is full-range, therefore expand limited-range movie YUV explicitly.
+    const char *filter =
+        "fps=20,scale=640:640:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
     char *const arguments[] = {
         (char *)executable, "-nostdin", "-hide_banner", "-loglevel", "error",
         "-threads", "1", "-stream_loop", "-1", "-re", "-i", (char *)input,
         "-map", "0:v:0", "-an", "-sn",
-        // The sample MP4 is HLG/Bt.2020 (HDR). Convert it to the Bt.709 SDR
-        // space used by the camera buffer before writing JPEG; otherwise the
-        // implicit JPEG conversion washes out highlights and shifts contrast.
+        // The camera hook consumes SDR JPEG/YUV buffers.  HDR metadata cannot
+        // be carried through that interface; the compatible conversion above
+        // is intentional and avoids a decoder crash on devices without zimg.
         "-vf", (char *)filter,
         "-color_range", "tv", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
         "-q:v", "2", "-f", "image2", "-update", "1", "-y", (char *)output, NULL
@@ -420,7 +422,8 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     posix_spawn_file_actions_destroy(&actions);
     if (result == 0) {
         self.remoteFFmpegPID = pid;
-        self.remoteFFmpegMode = useToneMap ? 1 : 2;
+        // Mode 2 means the universally-supported path is already active.
+        self.remoteFFmpegMode = 2;
         self.remoteFFmpegStartedAt = [NSDate date];
         self.sourceStatusLabel.text = @"Đang kết nối video live…";
     } else {
@@ -435,15 +438,8 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         if (waitpid(self.remoteFFmpegPID, &status, WNOHANG) == self.remoteFFmpegPID) {
             self.remoteFFmpegPID = 0;
             self.remoteFFmpegStartedAt = nil;
-            if (self.remoteFFmpegMode == 1) {
-                // Some Procursus FFmpeg builds omit libzimg/zscale. Retry the
-                // same source with a universally supported SDR conversion.
-                [self startRemoteFFmpegAtURL:urlString useToneMap:NO];
-                self.sourceStatusLabel.text = @"Đang kết nối video live (tương thích)…";
-            } else {
-                self.remoteFFmpegMode = 3;
-                self.sourceStatusLabel.text = @"Video live bị ngắt hoặc URL không hỗ trợ";
-            }
+            self.remoteFFmpegMode = 3;
+            self.sourceStatusLabel.text = @"Video live bị ngắt hoặc URL không hỗ trợ";
             return;
         }
     }
@@ -461,13 +457,8 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
             kill(self.remoteFFmpegPID, SIGTERM);
             waitpid(self.remoteFFmpegPID, NULL, WNOHANG);
             self.remoteFFmpegPID = 0;
-            if (self.remoteFFmpegMode == 1) {
-                [self startRemoteFFmpegAtURL:urlString useToneMap:NO];
-                self.sourceStatusLabel.text = @"Đang kết nối video live (tương thích)…";
-            } else {
-                self.remoteFFmpegMode = 3;
-                self.sourceStatusLabel.text = @"Video live không tạo được frame";
-            }
+            self.remoteFFmpegMode = 3;
+            self.sourceStatusLabel.text = @"Video live không tạo được frame";
         }
         return;
     }
