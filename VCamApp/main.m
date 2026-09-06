@@ -85,30 +85,6 @@ static NSData *VCamNormalizedJPEG(UIImage *image) {
     return nil;
 }
 
-static NSData *VCamJPEGFromPhotoData(NSData *data) {
-    if (!data.length) return nil;
-    CGImageSourceRef source = CGImageSourceCreateWithData((__bridge CFDataRef)data, NULL);
-    if (!source) return nil;
-    NSDictionary *opts = @{
-        (id)kCGImageSourceCreateThumbnailFromImageAlways: @YES,
-        (id)kCGImageSourceCreateThumbnailWithTransform: @YES,
-        (id)kCGImageSourceThumbnailMaxPixelSize: @1280,
-        (id)kCGImageSourceShouldCacheImmediately: @YES
-    };
-    CGImageRef image = CGImageSourceCreateThumbnailAtIndex(source, 0, (__bridge CFDictionaryRef)opts);
-    CFRelease(source);
-    if (!image) return nil;
-    NSMutableData *output = [NSMutableData data];
-    CGImageDestinationRef destination = CGImageDestinationCreateWithData((__bridge CFMutableDataRef)output,
-        (__bridge CFStringRef)@"public.jpeg", 1, NULL);
-    if (destination) {
-        CGImageDestinationAddImage(destination, image, (__bridge CFDictionaryRef)@{(id)kCGImageDestinationLossyCompressionQuality:@0.90});
-        CGImageDestinationFinalize(destination);
-        CFRelease(destination);
-    }
-    CGImageRelease(image);
-    return output.length ? output : nil;
-}
 
 static NSData *VCamNormalizedJPEGFromURL(NSURL *url) {
     if (!url.isFileURL) return nil;
@@ -526,7 +502,14 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
             [picker dismissViewControllerAnimated:YES completion:^{
                 [[PHImageManager defaultManager] requestImageDataForAsset:photoAsset options:options
                     resultHandler:^(NSData *assetData, NSString *uti, NSDictionary *assetInfo) {
-                    NSData *jpeg = VCamJPEGFromPhotoData(assetData);
+                    NSData *jpeg = nil;
+                    CGImageSourceRef source = assetData ? CGImageSourceCreateWithData((__bridge CFDataRef)assetData, NULL) : NULL;
+                    CGImageRef cg = source ? CGImageSourceCreateImageAtIndex(source, 0, NULL) : NULL;
+                    if (source) CFRelease(source);
+                    if (cg) {
+                        jpeg = UIImageJPEGRepresentation([[UIImage alloc] initWithCGImage:cg scale:1.0 orientation:UIImageOrientationUp], 0.90);
+                        CGImageRelease(cg);
+                    }
                     dispatch_async(dispatch_get_main_queue(), ^{
                         NSString *path = jpeg ? VCamMediaFile(@"jpg") : nil;
                         if (!path || ![jpeg writeToFile:path options:NSDataWritingAtomic error:nil]) {
