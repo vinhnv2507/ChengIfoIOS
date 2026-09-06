@@ -2,7 +2,6 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import <Photos/Photos.h>
 #import <AVFoundation/AVFoundation.h>
-#import <CoreImage/CoreImage.h>
 #import "../VCamPaths.h"
 #include <math.h>
 #include <spawn.h>
@@ -52,30 +51,18 @@ static NSString *VCamDescribeError(NSError *error) {
 
 static NSData *VCamNormalizedJPEG(UIImage *image) {
     if (!image) return nil;
-    // Photos from the iPhone camera are often HEIC/Display-P3 and can carry
-    // orientation metadata that mediaserverd's Core Image path does not
-    // accept.  Draw into a bounded 8-bit sRGB bitmap so every captured photo
-    // has the same format as a downloaded JPEG.
-    CIImage *ciImage = image.CIImage;
-    if (!ciImage && image.CGImage) ciImage = [CIImage imageWithCGImage:image.CGImage];
-    if (!ciImage) return nil;
-    CGRect extent = ciImage.extent;
-    CGFloat sourceW = extent.size.width, sourceH = extent.size.height;
-    CGFloat longest = MAX(sourceW, sourceH);
-    CGFloat scale = longest > 1600.0 ? 1600.0 / longest : 1.0;
-    CGSize size = CGSizeMake(MAX(1.0, floor(sourceW * scale)), MAX(1.0, floor(sourceH * scale)));
-    CIContext *context = [CIContext contextWithOptions:nil];
-    CGColorSpaceRef sRGB = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
-    CGImageRef cg = [context createCGImage:ciImage fromRect:extent format:kCIFormatRGBA8 colorSpace:sRGB];
-    CGColorSpaceRelease(sRGB);
-    if (!cg) return nil;
-    UIGraphicsBeginImageContextWithOptions(size, YES, 1.0);
-    UIImage *normalized = [[UIImage alloc] initWithCGImage:cg scale:1.0 orientation:UIImageOrientationUp];
-    [normalized drawInRect:(CGRect){CGPointZero, size}];
-    UIImage *result = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
-    CGImageRelease(cg);
-    return result ? UIImageJPEGRepresentation(result, 0.90) : nil;
+    // UIKit's JPEG encoder correctly handles HEIC/Display-P3 camera photos
+    // and preserves their decoded orientation.  Avoid an extra Core Image
+    // colorspace conversion here; on iPhone 7 that conversion can yield an
+    // entirely black preview even though the source image is valid.
+    NSData *jpeg = UIImageJPEGRepresentation(image, 0.90);
+    if (jpeg.length > 0) return jpeg;
+    if (image.CGImage) {
+        UIImage *fallback = [[UIImage alloc] initWithCGImage:image.CGImage
+            scale:1.0 orientation:UIImageOrientationUp];
+        return UIImageJPEGRepresentation(fallback, 0.90);
+    }
+    return nil;
 }
 
 typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
