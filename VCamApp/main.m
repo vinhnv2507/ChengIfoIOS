@@ -496,20 +496,16 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
         UIImage *image = info[UIImagePickerControllerOriginalImage];
         if (photoAsset) {
             PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
-            options.version = PHImageRequestOptionsVersionOriginal;
+            options.version = PHImageRequestOptionsVersionCurrent;
             options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+            options.resizeMode = PHImageRequestOptionsResizeModeFast;
             options.networkAccessAllowed = YES;
             [picker dismissViewControllerAnimated:YES completion:^{
-                [[PHImageManager defaultManager] requestImageDataForAsset:photoAsset options:options
-                    resultHandler:^(NSData *assetData, NSString *uti, UIImageOrientation orientation, NSDictionary *assetInfo) {
-                    NSData *jpeg = nil;
-                    CGImageSourceRef source = assetData ? CGImageSourceCreateWithData((__bridge CFDataRef)assetData, NULL) : NULL;
-                    CGImageRef cg = source ? CGImageSourceCreateImageAtIndex(source, 0, NULL) : NULL;
-                    if (source) CFRelease(source);
-                    if (cg) {
-                        jpeg = UIImageJPEGRepresentation([[UIImage alloc] initWithCGImage:cg scale:1.0 orientation:UIImageOrientationUp], 0.90);
-                        CGImageRelease(cg);
-                    }
+                [[PHImageManager defaultManager] requestImageForAsset:photoAsset
+                    targetSize:CGSizeMake(1280.0, 1280.0)
+                    contentMode:PHImageContentModeAspectFit options:options
+                    resultHandler:^(UIImage *resultImage, NSDictionary *assetInfo) {
+                    NSData *jpeg = VCamNormalizedJPEG(resultImage);
                     dispatch_async(dispatch_get_main_queue(), ^{
                         NSString *path = jpeg ? VCamMediaFile(@"jpg") : nil;
                         if (!path || ![jpeg writeToFile:path options:NSDataWritingAtomic error:nil]) {
