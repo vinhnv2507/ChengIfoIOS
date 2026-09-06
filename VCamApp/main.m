@@ -520,13 +520,18 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
         UIImage *image = info[UIImagePickerControllerOriginalImage];
         if (photoAsset) {
             PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
-            options.version = PHImageRequestOptionsVersionOriginal;
+            options.version = PHImageRequestOptionsVersionCurrent;
             options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+            options.resizeMode = PHImageRequestOptionsResizeModeFast;
             options.networkAccessAllowed = YES;
             [picker dismissViewControllerAnimated:YES completion:^{
-                [[PHImageManager defaultManager] requestImageDataAndOrientationForAsset:photoAsset options:options
-                    resultHandler:^(NSData *assetData, NSString *uti, CGImagePropertyOrientation orientation, NSDictionary *assetInfo) {
-                    NSData *jpeg = VCamJPEGFromPhotoData(assetData);
+                CGSize target = CGSizeMake(1280.0, 1280.0);
+                [[PHImageManager defaultManager] requestImageForAsset:photoAsset targetSize:target
+                    contentMode:PHImageContentModeAspectFit options:options
+                    resultHandler:^(UIImage *resultImage, NSDictionary *assetInfo) {
+                    NSData *jpeg = VCamNormalizedJPEG(resultImage);
+                    BOOL degraded = [assetInfo[PHImageResultIsDegradedKey] boolValue];
+                    if (degraded && !resultImage.CGImage) return;
                     dispatch_async(dispatch_get_main_queue(), ^{
                         NSString *path = jpeg ? VCamMediaFile(@"jpg") : nil;
                         if (!path || ![jpeg writeToFile:path options:NSDataWritingAtomic error:nil]) {
