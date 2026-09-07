@@ -442,8 +442,11 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         if (waitpid(self.remoteFFmpegPID, &status, WNOHANG) == self.remoteFFmpegPID) {
             self.remoteFFmpegPID = 0;
             self.remoteFFmpegStartedAt = nil;
-            self.remoteFFmpegMode = 3;
-            self.sourceStatusLabel.text = @"Video live bị ngắt hoặc URL không hỗ trợ";
+            // FaceLab recreates its HTTP listener when a viewer disconnects.
+            // Return to mode 0 so the next poll reconnects automatically
+            // instead of permanently disabling the live source.
+            self.remoteFFmpegMode = 0;
+            self.sourceStatusLabel.text = @"Đang kết nối lại video live…";
             return;
         }
     }
@@ -461,8 +464,8 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
             kill(self.remoteFFmpegPID, SIGTERM);
             waitpid(self.remoteFFmpegPID, NULL, WNOHANG);
             self.remoteFFmpegPID = 0;
-            self.remoteFFmpegMode = 3;
-            self.sourceStatusLabel.text = @"Video live không tạo được frame";
+            self.remoteFFmpegMode = 0;
+            self.sourceStatusLabel.text = @"Đang thử lại video live…";
         }
         return;
     }
