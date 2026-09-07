@@ -213,13 +213,7 @@ BOOL reloadReplacementLiveFrame(NSString *path) {
             CGImageSourceRef source = CGImageSourceCreateWithURL(
                 (__bridge CFURLRef)[NSURL fileURLWithPath:resolvedPath], NULL);
             if (source) {
-                nextImage = CGImageSourceCreateWithThumbnailAtIndex(source, 0,
-                    (__bridge CFDictionaryRef)@{
-                        (id)kCGImageSourceCreateThumbnailFromImageAlways : @YES,
-                        (id)kCGImageSourceCreateThumbnailWithTransform : @YES,
-                        (id)kCGImageSourceShouldCacheImmediately : @YES,
-                        (id)kCGImageSourceThumbnailMaxPixelSize : @768
-                    });
+                nextImage = CGImageSourceCreateImageAtIndex(source, 0, NULL);
                 CFRelease(source);
             }
         }
