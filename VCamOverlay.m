@@ -409,7 +409,10 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         // -stream_loop closes that live socket (WinError 10054 on the PC).
         // A10 has two fast cores; one FFmpeg thread was the main decoder
         // bottleneck and made the in-app preview visibly stutter.
-        "-threads", "2", "-rw_timeout", "30000000", "-fflags", "+nobuffer+genpts",
+        "-threads", "2", "-rw_timeout", "30000000",
+        // FaceLab serves fragmented MP4 (moof/mdat). `nobuffer` can leave
+        // the iOS demuxer waiting forever for the first fragment.
+        "-probesize", "1M", "-analyzeduration", "500000", "-fflags", "+genpts",
         "-i", (char *)input,
         "-map", "0:v:0", "-an", "-sn",
         // The camera hook consumes SDR JPEG/YUV buffers.  HDR metadata cannot
@@ -461,7 +464,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     NSDate *modified = attributes[NSFileModificationDate];
     if (!modified || [modified isEqualToDate:self.lastRemoteVideoModification]) {
         if (self.remoteFFmpegPID > 0 && self.remoteFFmpegStartedAt &&
-            -self.remoteFFmpegStartedAt.timeIntervalSinceNow > 30.0 && !self.lastRemoteVideoModification) {
+            -self.remoteFFmpegStartedAt.timeIntervalSinceNow > 15.0 && !self.lastRemoteVideoModification) {
             // A decoder that produced no frame is stuck or incompatible.
             kill(self.remoteFFmpegPID, SIGTERM);
             waitpid(self.remoteFFmpegPID, NULL, WNOHANG);
