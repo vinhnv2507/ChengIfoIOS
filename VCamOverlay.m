@@ -34,6 +34,11 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
     UIView *hit = [super hitTest:point withEvent:event];
     if (!hit || hit == self.rootViewController.view) return nil;
+    // UIAlertController is presented by the overlay for live-link entry.
+    // Its private button views are not guaranteed to subclass UIControl, so
+    // the strict pass-through filter below would make only the text field
+    // clickable. A presented alert is modal and must receive all its touches.
+    if (self.rootViewController.presentedViewController != nil) return hit;
     UIView *cursor = hit;
     while (cursor && cursor != self.rootViewController.view) {
         if ([cursor isKindOfClass:[UIControl class]] ||
