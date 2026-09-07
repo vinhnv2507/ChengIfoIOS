@@ -248,6 +248,18 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     NSString *remoteURL = preferences[@"remoteURL"];
     if ([remoteURL isKindOfClass:[NSString class]] && remoteURL.length > 0) {
         NSString *mode = [preferences[@"remoteMode"] isEqualToString:@"video"] ? @"video" : @"image";
+        // Restore the native MediaMTX input after the overlay/app is
+        // recreated. The in-memory fallback URL is otherwise lost on restart.
+        if ([mode isEqualToString:@"video"] && self.remoteFFmpegInputURL.length == 0) {
+            NSURL *savedURL = [NSURL URLWithString:remoteURL];
+            if ([savedURL.scheme.lowercaseString isEqualToString:@"http"] ||
+                [savedURL.scheme.lowercaseString isEqualToString:@"https"]) {
+                self.remoteFFmpegInputURL = [self rtspFaceLabURLFromURL:remoteURL];
+                self.remoteFallbackStage = self.remoteFFmpegInputURL.length > 0 ? 1 : 0;
+            } else {
+                self.remoteFFmpegInputURL = remoteURL;
+            }
+        }
         // The source may be 30 FPS, but the iPhone 7 Plus has to decode the
         // H.264 stream and mediaserverd then consumes the generated JPEG. A
         // 15 FPS / 480px hand-off is the stable point for the A10: noticeably
@@ -455,6 +467,10 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         // FaceLab serves fragmented MP4 (moof/mdat). `nobuffer` can leave
         // the iOS demuxer waiting forever for the first fragment.
         "-probesize", "1M", "-analyzeduration", "500000", "-fflags", "+genpts",
+        // MediaMTX is configured with rtspTransports: [tcp]. For a FaceLab
+        // URL this flag is mandatory; HTTP inputs are still accepted by
+        // FFmpeg and simply ignore the RTSP demuxer option.
+        "-rtsp_transport", "tcp",
         "-i", (char *)input,
         "-map", "0:v:0", "-an", "-sn",
         // The camera hook consumes SDR JPEG/YUV buffers.  HDR metadata cannot
