@@ -64,6 +64,7 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 @property(nonatomic, copy) NSString *remoteFFmpegInputURL;
 @property(nonatomic, assign) NSInteger remoteFallbackStage;
 - (void)refreshFromPreferences;
+- (NSString *)rtspFaceLabURLFromURL:(NSString *)urlString;
 @end
 
 static __weak VCamOverlayController *vcamOverlayController = nil;
@@ -318,6 +319,18 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         self.lastRemoteVideoModification = nil;
         self.remoteFFmpegInputURL = nil;
         self.remoteFallbackStage = 0;
+        if ([mode isEqualToString:@"video"] &&
+            ([url.scheme.lowercaseString isEqualToString:@"http"] ||
+             [url.scheme.lowercaseString isEqualToString:@"https"])) {
+            // FaceLab's public HTTP URL is an HTML WebRTC page. FFmpeg on
+            // iOS cannot consume that page; MediaMTX exposes the H.264 stream
+            // as RTSP for native clients.
+            NSString *rtspURL = [self rtspFaceLabURLFromURL:value];
+            if (rtspURL.length > 0) {
+                self.remoteFFmpegInputURL = rtspURL;
+                self.remoteFallbackStage = 1;
+            }
+        }
         NSMutableDictionary *updated = [[self mainPreferences] mutableCopy];
         updated[@"enabled"] = @YES;
         updated[@"remoteURL"] = value;
