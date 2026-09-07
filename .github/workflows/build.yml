@@ -1,0 +1,46 @@
+name: Build tweak
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  package:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Theos and iOS SDK
+        uses: Randomblock1/theos-action@v1
+
+      - name: Build rootful package
+        run: |
+          make package FINALPACKAGE=1
+          mkdir -p built-packages
+          cp packages/*_iphoneos-arm.deb built-packages/
+
+      - name: Build rootless package
+        run: |
+          make clean
+          sed -i 's/^Architecture:.*/Architecture: iphoneos-arm64/' control
+          make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
+          cp packages/*_iphoneos-arm64.deb built-packages/
+
+      - name: Validate packages
+        run: |
+          for package in built-packages/*.deb; do
+            dpkg-deb --info "$package" >/dev/null
+            dpkg-deb --contents "$package" | grep -q 'OSVersionSpoofer.dylib'
+          done
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: osversionspoofer-packages
+          path: built-packages/*.deb
+          if-no-files-found: error

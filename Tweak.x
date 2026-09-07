@@ -4,7 +4,22 @@
 static NSString *plistPath = @"/private/var/mobile/Library/Preferences/com.fadexz.osversionspooferprefs.plist";
 static NSString *spoofedUserAgent = nil;
 static NSString *storedBuildNumber = nil;
-static NSUUID *sharedUUID = nil;
+
+static NSDictionary *currentPreferences(void) {
+    static NSDictionary *preferences;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        preferences = [NSDictionary dictionaryWithContentsOfFile:plistPath] ?: @{};
+    });
+    return preferences;
+}
+
+static BOOL spoofingEnabled(void) {
+    NSDictionary *preferences = currentPreferences();
+    NSString *bundleIdentifier = [NSBundle mainBundle].bundleIdentifier;
+    return [preferences[@"masterEnabled"] boolValue] && bundleIdentifier.length > 0 &&
+           [preferences[@"spoofedApps"] containsObject:bundleIdentifier];
+}
 
 // Generate randomised build number once
 NSString* getRandomisedBuildNumber() {
@@ -75,13 +90,13 @@ NSString *updateOSVersion(NSString *userAgent) {
 }
 
 NSString *updateAppVersion(NSString *userAgent) {
-    NSString *patternAppVer = @"appver=(\\d+(\\.\\d+)*)";
+    NSString *patternAppVer = @"(?i)(app(?:ver|[-_]version))=(\\d+(?:\\.\\d+)*)";
     NSError *error = nil;
     NSRegularExpression *regexAppVer = [NSRegularExpression regularExpressionWithPattern:patternAppVer options:0 error:&error];
     if (!error && regexAppVer) {
         NSTextCheckingResult *matchAppVer = [regexAppVer firstMatchInString:userAgent options:0 range:NSMakeRange(0, [userAgent length])];
         if (matchAppVer) {
-            NSRange matchRangeAppVer = [matchAppVer rangeAtIndex:1];
+            NSRange matchRangeAppVer = [matchAppVer rangeAtIndex:2];
             NSString *spoofedAppVer = @"2147483647";
             userAgent = [userAgent stringByReplacingCharactersInRange:matchRangeAppVer withString:spoofedAppVer];
         } else {
@@ -103,27 +118,23 @@ NSString *updateVersion(NSString *userAgent) {
 
 // Store if the tweak has been enabled in the preferences file
 BOOL isTweakEnabled() {
-    NSDictionary *plistDict = [NSDictionary dictionaryWithContentsOfFile:plistPath];
-    return [plistDict[@"masterEnabled"] boolValue];
+    return [currentPreferences()[@"masterEnabled"] boolValue];
 }
 
 // Check if the current app has been added in the preferences file as an app to spoof
 BOOL isAppEnabled() {
     NSString *currentAppIdentifier = [[NSBundle mainBundle] bundleIdentifier];
-    NSDictionary *plistDict = [NSDictionary dictionaryWithContentsOfFile:plistPath];
-    NSArray *enabledApps = plistDict[@"spoofedApps"];
-    return [enabledApps containsObject:currentAppIdentifier];
+    return currentAppIdentifier.length > 0 && [currentPreferences()[@"spoofedApps"] containsObject:currentAppIdentifier];
 }
 
 BOOL isAppVersionEnabled() {
-    NSDictionary *plistDict = [NSDictionary dictionaryWithContentsOfFile:plistPath];
-    return [plistDict[@"appVersionEnabled"] boolValue];
+    return [currentPreferences()[@"appVersionEnabled"] boolValue];
 }
 
 // Spoof process provided info
 %hook NSProcessInfo
 -(NSOperatingSystemVersion)operatingSystemVersion {
-    if (isTweakEnabled() && isAppEnabled()) {
+    if (spoofingEnabled()) {
         return getPredictedLatestVersion();
     }
     else {
@@ -131,7 +142,7 @@ BOOL isAppVersionEnabled() {
     }
 }
 -(id)operatingSystemVersionString {
-    if (isTweakEnabled() && isAppEnabled()) {
+    if (spoofingEnabled()) {
         NSOperatingSystemVersion osVersion = getPredictedLatestVersion();
         NSString *changedVersion = [NSString stringWithFormat:@"%ld.%ld", (long)osVersion.majorVersion, (long)osVersion.minorVersion];
         return [NSString stringWithFormat:@"Version %@ (Build %@)", changedVersion, getRandomisedBuildNumber()];
@@ -141,7 +152,7 @@ BOOL isAppVersionEnabled() {
     }
 }
 -(BOOL)isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion)compareOSVersion {
-    if (isTweakEnabled() && isAppEnabled()) {
+    if (spoofingEnabled()) {
         NSOperatingSystemVersion spoofedOSVersion = getPredictedLatestVersion();
         if ((compareOSVersion.majorVersion < spoofedOSVersion.majorVersion) ||
             (compareOSVersion.majorVersion == spoofedOSVersion.majorVersion && compareOSVersion.minorVersion < spoofedOSVersion.minorVersion) ||
