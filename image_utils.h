@@ -16,6 +16,9 @@ FOUNDATION_EXPORT NSString *const kVCamFlipVerticalKey;
 /// Safe to call multiple times; frees previous media first.
 void loadReplacementMedia(void);
 
+/// Reloads one live JPEG without rebuilding media state or writing status.
+BOOL reloadReplacementLiveFrame(NSString *path);
+
 /// Refreshes position, zoom and brightness without reloading the media file.
 void reloadReplacementAdjustments(void);
 

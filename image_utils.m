@@ -182,6 +182,41 @@ static BOOL loadVideoMedia(NSString *path) {
     return YES;
 }
 
+BOOL reloadReplacementLiveFrame(NSString *path) {
+    if (path.length == 0) return NO;
+    ensureVCamLock();
+    [vcamLock lock];
+
+    // The overlay writes media-live.jpg atomically, so ImageIO sees a
+    // complete file. Keep the old frame if decoding the new one fails.
+    NSString *resolvedPath = resolveMediaPath(path);
+    CGImageRef nextImage = NULL;
+    if (resolvedPath) {
+        CGImageSourceRef source = CGImageSourceCreateWithURL(
+            (__bridge CFURLRef)[NSURL fileURLWithPath:resolvedPath], NULL);
+        if (source) {
+            nextImage = CGImageSourceCreateThumbnailAtIndex(source, 0,
+                (__bridge CFDictionaryRef)@{
+                    (id)kCGImageSourceCreateThumbnailFromImageAlways : @YES,
+                    (id)kCGImageSourceCreateThumbnailWithTransform : @YES,
+                    (id)kCGImageSourceShouldCacheImmediately : @YES,
+                    (id)kCGImageSourceThumbnailMaxPixelSize : @1024
+                });
+            CFRelease(source);
+        }
+    }
+    if (!nextImage) {
+        [vcamLock unlock];
+        return NO;
+    }
+    if (replacementImage) CGImageRelease(replacementImage);
+    replacementImage = nextImage;
+    currentMode = VCamModeImage;
+    [renderedFrameCache removeAllObjects];
+    [vcamLock unlock];
+    return YES;
+}
+
 void loadReplacementMedia(void) {
     ensureVCamLock();
     [vcamLock lock];

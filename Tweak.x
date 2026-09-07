@@ -96,7 +96,14 @@ static void vcam_ensureLoaded(void) {
     if (vcam_needsLoad) {
         // Reset the flag before loading so a failure doesn't busy-loop every frame.
         vcam_needsLoad = NO;
-        loadReplacementMedia();
+        NSString *livePath = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+        if ([mediaPath isEqualToString:livePath] && vcam_liveStamp != 0) {
+            // Live frames keep the same preference path. Avoid rebuilding the
+            // whole media state and writing a status plist for every JPEG.
+            if (!reloadReplacementLiveFrame(mediaPath)) vcam_needsLoad = YES;
+        } else {
+            loadReplacementMedia();
+        }
     }
 }
 
