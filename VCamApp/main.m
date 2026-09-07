@@ -193,6 +193,9 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
 @property(nonatomic, strong) UILabel *statusLabel;
 @property(nonatomic, strong) UILabel *daemonStatusLabel;
 @property(nonatomic, strong) UIImageView *previewView;
+@property(nonatomic, strong) NSTimer *livePreviewTimer;
+@property(nonatomic, strong) NSDate *livePreviewModification;
+@property(nonatomic, assign) BOOL livePreviewLoading;
 @property(nonatomic, strong) AVAssetImageGenerator *videoGenerator;
 - (BOOL)prepareSharedStorage:(NSError **)error;
 - (void)applySelectedMediaAtPath:(NSString *)path;
@@ -205,6 +208,9 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
 - (BOOL)copyPickedVideoAtURL:(NSURL *)sourceURL destination:(NSString **)destination error:(NSError **)error;
 - (void)selectImage;
 - (void)selectVideo;
+- (void)stopLivePreview;
+- (void)refreshLivePreview;
+- (void)startLivePreview;
 @end
 
 @implementation VCamViewController
@@ -326,6 +332,46 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
     [self reloadState];
 }
 
+- (void)dealloc {
+    [self stopLivePreview];
+}
+
+- (void)stopLivePreview {
+    [self.livePreviewTimer invalidate];
+    self.livePreviewTimer = nil;
+    self.livePreviewModification = nil;
+    self.livePreviewLoading = NO;
+}
+
+- (void)startLivePreview {
+    if (self.livePreviewTimer) return;
+    // This is intentionally a diagnostic preview, not the camera pipeline.
+    // Decode off the main thread so watching the stream in VCam cannot add
+    // touch/UI lag on the iPhone 7 Plus.
+    self.livePreviewTimer = [NSTimer scheduledTimerWithTimeInterval:(1.0 / 15.0)
+        target:self selector:@selector(refreshLivePreview) userInfo:nil repeats:YES];
+    [self refreshLivePreview];
+}
+
+- (void)refreshLivePreview {
+    if (self.livePreviewLoading) return;
+    NSString *path = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+    NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil];
+    NSDate *modified = attributes[NSFileModificationDate];
+    if (!modified || [modified isEqualToDate:self.livePreviewModification]) return;
+    self.livePreviewLoading = YES;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        UIImage *image = [UIImage imageWithContentsOfFile:path];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.livePreviewLoading = NO;
+            if (!image) return;
+            self.livePreviewModification = modified;
+            self.previewView.image = image;
+            self.previewView.tintColor = nil;
+        });
+    });
+}
+
 - (UIButton *)actionButtonWithTitle:(NSString *)title selector:(SEL)selector {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
     button.translatesAutoresizingMaskIntoConstraints = NO;
@@ -367,22 +413,33 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
 
     NSString *path = preferences[@"mediaPath"];
     if (![path isKindOfClass:[NSString class]] || ![[NSFileManager defaultManager] fileExistsAtPath:path]) {
+        [self stopLivePreview];
         self.statusLabel.text = @"Chưa chọn ảnh hoặc video";
         self.previewView.image = [UIImage systemImageNamed:@"camera.fill"];
         self.previewView.tintColor = [UIColor tertiaryLabelColor];
     } else {
         NSString *ext = path.pathExtension.lowercaseString;
         if ([@[@"jpg", @"jpeg", @"png"] containsObject:ext]) {
+            NSString *livePath = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+            if ([path isEqualToString:livePath]) {
+                self.previewView.tintColor = nil;
+                self.statusLabel.text = @"Live preview VCam (khong qua Camera)";
+                [self startLivePreview];
+                goto preview_status_ready;
+            }
+            [self stopLivePreview];
             self.previewView.image = [UIImage imageWithContentsOfFile:path];
             self.previewView.tintColor = nil;
             self.statusLabel.text = [NSString stringWithFormat:@"Đang dùng ảnh: %@", path.lastPathComponent];
         } else {
+            [self stopLivePreview];
             self.previewView.image = [UIImage systemImageNamed:@"video.fill"];
             self.previewView.tintColor = [UIColor systemBlueColor];
             self.statusLabel.text = [NSString stringWithFormat:@"Đang dùng video: %@", path.lastPathComponent];
         }
     }
 
+preview_status_ready:;
     NSDictionary *daemonStatus = [NSDictionary dictionaryWithContentsOfFile:VCamStatusPath];
     if (daemonStatus) {
         BOOL loaded = [daemonStatus[@"loaded"] boolValue];
