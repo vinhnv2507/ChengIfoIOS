@@ -407,7 +407,9 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         // FaceLab's native endpoint is FFmpeg HTTP listen mode and returns a
         // fragmented MP4 stream, not a seekable file.  Seeking with
         // -stream_loop closes that live socket (WinError 10054 on the PC).
-        "-threads", "1", "-rw_timeout", "30000000", "-fflags", "+nobuffer+genpts",
+        // A10 has two fast cores; one FFmpeg thread was the main decoder
+        // bottleneck and made the in-app preview visibly stutter.
+        "-threads", "2", "-rw_timeout", "30000000", "-fflags", "+nobuffer+genpts",
         "-i", (char *)input,
         "-map", "0:v:0", "-an", "-sn",
         // The camera hook consumes SDR JPEG/YUV buffers.  HDR metadata cannot

@@ -196,6 +196,8 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
 @property(nonatomic, strong) NSTimer *livePreviewTimer;
 @property(nonatomic, strong) NSDate *livePreviewModification;
 @property(nonatomic, assign) BOOL livePreviewLoading;
+@property(nonatomic, assign) NSUInteger livePreviewFrames;
+@property(nonatomic, strong) NSDate *livePreviewWindowStart;
 @property(nonatomic, strong) AVAssetImageGenerator *videoGenerator;
 - (BOOL)prepareSharedStorage:(NSError **)error;
 - (void)applySelectedMediaAtPath:(NSString *)path;
@@ -341,6 +343,8 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
     self.livePreviewTimer = nil;
     self.livePreviewModification = nil;
     self.livePreviewLoading = NO;
+    self.livePreviewFrames = 0;
+    self.livePreviewWindowStart = nil;
 }
 
 - (void)startLivePreview {
@@ -368,6 +372,15 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
             self.livePreviewModification = modified;
             self.previewView.image = image;
             self.previewView.tintColor = nil;
+            self.livePreviewFrames++;
+            NSDate *start = self.livePreviewWindowStart;
+            if (!start) self.livePreviewWindowStart = [NSDate date];
+            else if (-start.timeIntervalSinceNow >= 2.0) {
+                double fps = self.livePreviewFrames / MAX(0.1, -start.timeIntervalSinceNow);
+                self.statusLabel.text = [NSString stringWithFormat:@"Live preview: %.1f FPS", fps];
+                self.livePreviewFrames = 0;
+                self.livePreviewWindowStart = [NSDate date];
+            }
         });
     });
 }
