@@ -61,6 +61,8 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 @property(nonatomic, assign) NSInteger remoteFFmpegMode;
 @property(nonatomic, strong) NSDate *remoteFFmpegStartedAt;
 @property(nonatomic, strong) NSDate *lastRemoteVideoModification;
+@property(nonatomic, copy) NSString *remoteFFmpegInputURL;
+@property(nonatomic, assign) BOOL remoteTriedRawFallback;
 - (void)refreshFromPreferences;
 @end
 
@@ -314,6 +316,8 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         [self stopRemoteFFmpeg];
         self.lastRemoteFrame = nil;
         self.lastRemoteVideoModification = nil;
+        self.remoteFFmpegInputURL = nil;
+        self.remoteTriedRawFallback = NO;
         NSMutableDictionary *updated = [[self mainPreferences] mutableCopy];
         updated[@"enabled"] = @YES;
         updated[@"remoteURL"] = value;
@@ -416,7 +420,8 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     NSString *destination = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
     unlink(destination.fileSystemRepresentation);
     const char *executable = ffmpeg.fileSystemRepresentation;
-    const char *input = urlString.UTF8String;
+    NSString *inputURL = self.remoteFFmpegInputURL.length > 0 ? self.remoteFFmpegInputURL : urlString;
+    const char *input = inputURL.UTF8String;
     const char *output = destination.fileSystemRepresentation;
     // Do not use zscale here.  The Procursus FFmpeg shipped on many iOS 15
     // jailbreaks (including iPhone 7/A10) is built without libzimg, so merely
@@ -464,6 +469,14 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     }
 }
 
+- (NSString *)rawFaceLabURLFromURL:(NSString *)urlString {
+    NSURLComponents *components = [NSURLComponents componentsWithString:urlString];
+    if (!components || ![components.path.pathExtension.lowercaseString isEqualToString:@"mp4"] ||
+        [components.path.lastPathComponent isEqualToString:@"__facelab_live.mp4"]) return nil;
+    components.path = @"/__facelab_live.mp4";
+    return components.URL.absoluteString;
+}
+
 - (void)monitorRemoteVideoAtURL:(NSString *)urlString {
     if (urlString.length == 0) return;
     if (self.remoteFFmpegPID > 0) {
@@ -475,6 +488,14 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
             // Return to mode 0 so the next poll reconnects automatically
             // instead of permanently disabling the live source.
             self.remoteFFmpegMode = 0;
+            if (!self.remoteTriedRawFallback) {
+                NSString *rawURL = [self rawFaceLabURLFromURL:urlString];
+                if (rawURL.length > 0) {
+                    self.remoteFFmpegInputURL = rawURL;
+                    self.remoteTriedRawFallback = YES;
+                    self.sourceStatusLabel.text = @"Äang thá»­ endpoint video thÃ´â€¦";
+                }
+            }
             self.sourceStatusLabel.text = @"Đang kết nối lại video live…";
             return;
         }
@@ -494,6 +515,13 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
             waitpid(self.remoteFFmpegPID, NULL, WNOHANG);
             self.remoteFFmpegPID = 0;
             self.remoteFFmpegMode = 0;
+            if (!self.remoteTriedRawFallback) {
+                NSString *rawURL = [self rawFaceLabURLFromURL:urlString];
+                if (rawURL.length > 0) {
+                    self.remoteFFmpegInputURL = rawURL;
+                    self.remoteTriedRawFallback = YES;
+                }
+            }
             self.sourceStatusLabel.text = @"Đang thử lại video live…";
         }
         return;
