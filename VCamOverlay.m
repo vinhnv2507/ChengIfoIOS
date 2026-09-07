@@ -251,7 +251,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         // H.264 stream and mediaserverd then consumes the generated JPEG. A
         // 15 FPS / 480px hand-off is the stable point for the A10: noticeably
         // smoother than the old 6 FPS path without starving the camera/UI.
-        NSTimeInterval interval = [mode isEqualToString:@"video"] ? (1.0 / 15.0) : 1.0;
+        NSTimeInterval interval = [mode isEqualToString:@"video"] ? (1.0 / 12.0) : 1.0;
         self.sourceStatusLabel.text = [mode isEqualToString:@"video"]
             ? @"Video live độ trễ thấp" : @"Nguồn ảnh live cập nhật mỗi giây";
         if (!self.remoteTimer || ![self.remoteTimerMode isEqualToString:mode]) {
@@ -430,7 +430,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     // lighter on the A10 while keeping a steady 20 FPS for the camera hook.
     // JPEG is full-range, therefore expand limited-range movie YUV explicitly.
     const char *filter =
-        "fps=15,scale=480:480:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
+        "fps=12,scale=360:360:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
     char *const arguments[] = {
         (char *)executable, "-nostdin", "-hide_banner", "-loglevel", "error",
         // FaceLab's native endpoint is FFmpeg HTTP listen mode and returns a

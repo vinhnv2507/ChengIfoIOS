@@ -55,13 +55,13 @@ static void vcam_ensureLoaded(void) {
     // Live video updates a single JPEG many times per second.  Do not make the
     // app rewrite preferences (and post a Darwin notification) for every
     // frame; detect the file's nanosecond mtime directly from the camera hook.
-    // Stat the live JPEG at most ~15 times per second.  mediaserverd can call
+    // Stat the live JPEG at most ~12 times per second.  mediaserverd can call
     // this method for every camera sample (30+ times/sec); doing a plist/stat
     // read and decoding a new JPEG for each callback makes the A10 UI feel
     // stuck even though the replacement image itself is valid.
     CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
     BOOL preferenceReloadRequested = vcam_needsLoad || !vcam_hasObservedPreferences;
-    if (!vcam_needsLoad && (now - vcam_lastLiveCheck) < (1.0 / 15.0)) {
+    if (!vcam_needsLoad && (now - vcam_lastLiveCheck) < (1.0 / 12.0)) {
         return;
     }
     vcam_lastLiveCheck = now;

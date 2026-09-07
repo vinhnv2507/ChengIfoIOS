@@ -360,6 +360,15 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
 - (void)refreshLivePreview {
     if (self.livePreviewLoading) return;
     NSString *path = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+    NSArray *aliases = @[
+        path,
+        [path stringByReplacingOccurrencesOfString:@"/var/jb/var/tmp/" withString:@"/var/tmp/"],
+        [path stringByReplacingOccurrencesOfString:@"/private/var/tmp/" withString:@"/var/tmp/"],
+        [path stringByReplacingOccurrencesOfString:@"/var/tmp/" withString:@"/private/var/tmp/"]
+    ];
+    for (NSString *candidate in aliases) {
+        if ([[NSFileManager defaultManager] fileExistsAtPath:candidate]) { path = candidate; break; }
+    }
     NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil];
     NSDate *modified = attributes[NSFileModificationDate];
     if (!modified || [modified isEqualToDate:self.livePreviewModification]) return;
@@ -426,7 +435,8 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
 
     NSString *path = preferences[@"mediaPath"];
     NSString *livePath = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
-    BOOL isLivePath = [path isKindOfClass:[NSString class]] && [path isEqualToString:livePath];
+    BOOL isLivePath = [path isKindOfClass:[NSString class]] &&
+        ([path isEqualToString:livePath] || [path.lastPathComponent isEqualToString:@"media-live.jpg"]);
     if (![path isKindOfClass:[NSString class]] || (!isLivePath && ![[NSFileManager defaultManager] fileExistsAtPath:path])) {
         [self stopLivePreview];
         self.statusLabel.text = @"Chưa chọn ảnh hoặc video";
