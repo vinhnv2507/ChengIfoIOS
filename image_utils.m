@@ -38,6 +38,11 @@ static CIContext *softwareCIContext = NULL;
 static NSLock *vcamLock = NULL;
 static NSMutableDictionary<NSString *, id> *renderedFrameCache = nil;
 static CGColorSpaceRef sharedColorSpace = NULL;
+// Live JPEG decoding must never run on mediaserverd's camera callback thread.
+// Keep at most one decode in flight; a newer file replaces the pending one on
+// the next callback after the current decode completes.
+static BOOL liveDecodePending = NO;
+static NSUInteger liveDecodeGeneration = 0;
 
 static void ensureVCamLock(void) {
     if (vcamLock == NULL) {
@@ -123,6 +128,7 @@ static BOOL currentPrefsEnabled(void) {
 
 /// Frees all retained media. Must be called with vcamLock held.
 static void freeMedia(void) {
+    liveDecodeGeneration++;
     if (replacementImage) {
         CGImageRelease(replacementImage);
         replacementImage = NULL;
@@ -187,33 +193,48 @@ BOOL reloadReplacementLiveFrame(NSString *path) {
     ensureVCamLock();
     [vcamLock lock];
 
-    // The overlay writes media-live.jpg atomically, so ImageIO sees a
-    // complete file. Keep the old frame if decoding the new one fails.
-    NSString *resolvedPath = resolveMediaPath(path);
-    CGImageRef nextImage = NULL;
-    if (resolvedPath) {
-        CGImageSourceRef source = CGImageSourceCreateWithURL(
-            (__bridge CFURLRef)[NSURL fileURLWithPath:resolvedPath], NULL);
-        if (source) {
-            nextImage = CGImageSourceCreateThumbnailAtIndex(source, 0,
-                (__bridge CFDictionaryRef)@{
-                    (id)kCGImageSourceCreateThumbnailFromImageAlways : @YES,
-                    (id)kCGImageSourceCreateThumbnailWithTransform : @YES,
-                    (id)kCGImageSourceShouldCacheImmediately : @YES,
-                    (id)kCGImageSourceThumbnailMaxPixelSize : @1024
-                });
-            CFRelease(source);
-        }
-    }
-    if (!nextImage) {
+    if (liveDecodePending) {
         [vcamLock unlock];
-        return NO;
+        return YES;
     }
-    if (replacementImage) CGImageRelease(replacementImage);
-    replacementImage = nextImage;
-    currentMode = VCamModeImage;
-    [renderedFrameCache removeAllObjects];
+    liveDecodePending = YES;
+    NSUInteger generation = liveDecodeGeneration;
+    NSString *requestedPath = [path copy];
     [vcamLock unlock];
+
+    // ImageIO JPEG parsing and thumbnail decode can take tens of milliseconds
+    // on an A10. Do it on a utility queue so camera delivery and touch input
+    // remain responsive. The old frame stays active until the new one is
+    // completely decoded.
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        NSString *resolvedPath = resolveMediaPath(requestedPath);
+        CGImageRef nextImage = NULL;
+        if (resolvedPath) {
+            CGImageSourceRef source = CGImageSourceCreateWithURL(
+                (__bridge CFURLRef)[NSURL fileURLWithPath:resolvedPath], NULL);
+            if (source) {
+                nextImage = CGImageSourceCreateWithThumbnailAtIndex(source, 0,
+                    (__bridge CFDictionaryRef)@{
+                        (id)kCGImageSourceCreateThumbnailFromImageAlways : @YES,
+                        (id)kCGImageSourceCreateThumbnailWithTransform : @YES,
+                        (id)kCGImageSourceShouldCacheImmediately : @YES,
+                        (id)kCGImageSourceThumbnailMaxPixelSize : @768
+                    });
+                CFRelease(source);
+            }
+        }
+
+        ensureVCamLock();
+        [vcamLock lock];
+        if (nextImage && generation == liveDecodeGeneration) {
+            if (replacementImage) CGImageRelease(replacementImage);
+            replacementImage = nextImage;
+            currentMode = VCamModeImage;
+            [renderedFrameCache removeAllObjects];
+        }
+        liveDecodePending = NO;
+        [vcamLock unlock];
+    });
     return YES;
 }
 

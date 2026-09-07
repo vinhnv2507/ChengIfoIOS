@@ -60,23 +60,25 @@ static void vcam_ensureLoaded(void) {
     // read and decoding a new JPEG for each callback makes the A10 UI feel
     // stuck even though the replacement image itself is valid.
     CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    BOOL preferenceReloadRequested = vcam_needsLoad || !vcam_hasObservedPreferences;
     if (!vcam_needsLoad && (now - vcam_lastLiveCheck) < (1.0 / 15.0)) {
         return;
     }
     vcam_lastLiveCheck = now;
-    // Also compare the preference values themselves.  This makes selecting a
-    // new still image reliable even if a particular jailbreak build drops a
-    // Darwin notification while mediaserverd is already running.
-    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:VCamPreferencesFile()];
-    NSString *mediaPath = [prefs[@"mediaPath"] isKindOfClass:[NSString class]] ? prefs[@"mediaPath"] : nil;
-    id enabledValue = prefs[@"enabled"];
-    BOOL enabled = enabledValue == nil ? YES : [enabledValue boolValue];
-    if (!vcam_hasObservedPreferences || ![mediaPath isEqualToString:vcam_observedMediaPath] ||
-        enabled != vcam_observedEnabled) {
-        vcam_observedMediaPath = [mediaPath copy];
+    // Preferences are loaded only on the initial pass or after the app's
+    // Darwin notification. A synchronous NSDictionary/plist parse on this
+    // callback was needlessly stealing time from the A10 pipeline on every
+    // live frame.
+    NSString *mediaPath = vcam_observedMediaPath;
+    if (preferenceReloadRequested) {
+        NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:VCamPreferencesFile()];
+        NSString *newPath = [prefs[@"mediaPath"] isKindOfClass:[NSString class]] ? prefs[@"mediaPath"] : nil;
+        id enabledValue = prefs[@"enabled"];
+        BOOL enabled = enabledValue == nil ? YES : [enabledValue boolValue];
+        vcam_observedMediaPath = [newPath copy];
         vcam_observedEnabled = enabled;
         vcam_hasObservedPreferences = YES;
-        vcam_needsLoad = YES;
+        mediaPath = vcam_observedMediaPath;
     }
     if (!vcam_needsLoad) {
         NSString *path = mediaPath;
