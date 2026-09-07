@@ -404,7 +404,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         "fps=20,scale=640:640:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
     char *const arguments[] = {
         (char *)executable, "-nostdin", "-hide_banner", "-loglevel", "error",
-        "-threads", "1", "-stream_loop", "-1", "-re", "-i", (char *)input,
+        "-threads", "1", "-stream_loop", "-1", "-rw_timeout", "30000000", "-i", (char *)input,
         "-map", "0:v:0", "-an", "-sn",
         // The camera hook consumes SDR JPEG/YUV buffers.  HDR metadata cannot
         // be carried through that interface; the compatible conversion above
@@ -452,7 +452,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     NSDate *modified = attributes[NSFileModificationDate];
     if (!modified || [modified isEqualToDate:self.lastRemoteVideoModification]) {
         if (self.remoteFFmpegPID > 0 && self.remoteFFmpegStartedAt &&
-            -self.remoteFFmpegStartedAt.timeIntervalSinceNow > 8.0 && !self.lastRemoteVideoModification) {
+            -self.remoteFFmpegStartedAt.timeIntervalSinceNow > 30.0 && !self.lastRemoteVideoModification) {
             // A decoder that produced no frame is stuck or incompatible.
             kill(self.remoteFFmpegPID, SIGTERM);
             waitpid(self.remoteFFmpegPID, NULL, WNOHANG);
