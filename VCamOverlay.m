@@ -62,7 +62,7 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 @property(nonatomic, strong) NSDate *remoteFFmpegStartedAt;
 @property(nonatomic, strong) NSDate *lastRemoteVideoModification;
 @property(nonatomic, copy) NSString *remoteFFmpegInputURL;
-@property(nonatomic, assign) BOOL remoteTriedRawFallback;
+@property(nonatomic, assign) NSInteger remoteFallbackStage;
 - (void)refreshFromPreferences;
 @end
 
@@ -317,7 +317,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         self.lastRemoteFrame = nil;
         self.lastRemoteVideoModification = nil;
         self.remoteFFmpegInputURL = nil;
-        self.remoteTriedRawFallback = NO;
+        self.remoteFallbackStage = 0;
         NSMutableDictionary *updated = [[self mainPreferences] mutableCopy];
         updated[@"enabled"] = @YES;
         updated[@"remoteURL"] = value;
@@ -477,6 +477,13 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     return components.URL.absoluteString;
 }
 
+- (NSString *)rtspFaceLabURLFromURL:(NSString *)urlString {
+    NSURLComponents *components = [NSURLComponents componentsWithString:urlString];
+    NSString *scheme = components.scheme.lowercaseString;
+    if (!components.host || (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"])) return nil;
+    return [NSString stringWithFormat:@"rtsp://%@:%ld/facelab", components.host, (long)8554];
+}
+
 - (void)monitorRemoteVideoAtURL:(NSString *)urlString {
     if (urlString.length == 0) return;
     if (self.remoteFFmpegPID > 0) {
@@ -488,12 +495,18 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
             // Return to mode 0 so the next poll reconnects automatically
             // instead of permanently disabling the live source.
             self.remoteFFmpegMode = 0;
-            if (!self.remoteTriedRawFallback) {
+            if (self.remoteFallbackStage == 0) {
+                NSString *rtspURL = [self rtspFaceLabURLFromURL:urlString];
+                if (rtspURL.length > 0) {
+                    self.remoteFFmpegInputURL = rtspURL;
+                    self.remoteFallbackStage = 1;
+                    self.sourceStatusLabel.text = @"Äang káº¿t ná»‘i MediaMTX RTSPâ€¦";
+                }
+            } else if (self.remoteFallbackStage == 1) {
                 NSString *rawURL = [self rawFaceLabURLFromURL:urlString];
                 if (rawURL.length > 0) {
                     self.remoteFFmpegInputURL = rawURL;
-                    self.remoteTriedRawFallback = YES;
-                    self.sourceStatusLabel.text = @"Äang thá»­ endpoint video thÃ´â€¦";
+                    self.remoteFallbackStage = 2;
                 }
             }
             self.sourceStatusLabel.text = @"Đang kết nối lại video live…";
@@ -515,11 +528,17 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
             waitpid(self.remoteFFmpegPID, NULL, WNOHANG);
             self.remoteFFmpegPID = 0;
             self.remoteFFmpegMode = 0;
-            if (!self.remoteTriedRawFallback) {
+            if (self.remoteFallbackStage == 0) {
+                NSString *rtspURL = [self rtspFaceLabURLFromURL:urlString];
+                if (rtspURL.length > 0) {
+                    self.remoteFFmpegInputURL = rtspURL;
+                    self.remoteFallbackStage = 1;
+                }
+            } else if (self.remoteFallbackStage == 1) {
                 NSString *rawURL = [self rawFaceLabURLFromURL:urlString];
                 if (rawURL.length > 0) {
                     self.remoteFFmpegInputURL = rawURL;
-                    self.remoteTriedRawFallback = YES;
+                    self.remoteFallbackStage = 2;
                 }
             }
             self.sourceStatusLabel.text = @"Đang thử lại video live…";
