@@ -425,21 +425,20 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
     self.enabledSwitch.on = enabled == nil ? YES : enabled.boolValue;
 
     NSString *path = preferences[@"mediaPath"];
-    if (![path isKindOfClass:[NSString class]] || ![[NSFileManager defaultManager] fileExistsAtPath:path]) {
+    NSString *livePath = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+    BOOL isLivePath = [path isKindOfClass:[NSString class]] && [path isEqualToString:livePath];
+    if (![path isKindOfClass:[NSString class]] || (!isLivePath && ![[NSFileManager defaultManager] fileExistsAtPath:path])) {
         [self stopLivePreview];
         self.statusLabel.text = @"Chưa chọn ảnh hoặc video";
         self.previewView.image = [UIImage systemImageNamed:@"camera.fill"];
         self.previewView.tintColor = [UIColor tertiaryLabelColor];
     } else {
         NSString *ext = path.pathExtension.lowercaseString;
-        if ([@[@"jpg", @"jpeg", @"png"] containsObject:ext]) {
-            NSString *livePath = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
-            if ([path isEqualToString:livePath]) {
-                self.previewView.tintColor = nil;
-                self.statusLabel.text = @"Live preview VCam (khong qua Camera)";
-                [self startLivePreview];
-                goto preview_status_ready;
-            }
+        if (isLivePath) {
+            self.previewView.tintColor = nil;
+            self.statusLabel.text = @"Live preview VCam (khong qua Camera)";
+            [self startLivePreview];
+        } else if ([@[@"jpg", @"jpeg", @"png"] containsObject:ext]) {
             [self stopLivePreview];
             self.previewView.image = [UIImage imageWithContentsOfFile:path];
             self.previewView.tintColor = nil;
@@ -452,7 +451,6 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
         }
     }
 
-preview_status_ready:;
     NSDictionary *daemonStatus = [NSDictionary dictionaryWithContentsOfFile:VCamStatusPath];
     if (daemonStatus) {
         BOOL loaded = [daemonStatus[@"loaded"] boolValue];
