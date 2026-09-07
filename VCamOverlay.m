@@ -17,13 +17,30 @@ extern char **environ;
 static NSString *const VCamOverlayNotification = @"com.yourcompany.vcam.adjustments.changed";
 static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.prefs.changed";
 
+@interface VCamControlPanel : UIView
+@end
+
+@implementation VCamControlPanel
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    UIView *hit = [super hitTest:point withEvent:event];
+    return hit == self ? nil : hit;
+}
+@end
+
 @interface VCamPassThroughWindow : UIWindow
 @end
 
 @implementation VCamPassThroughWindow
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
     UIView *hit = [super hitTest:point withEvent:event];
-    return hit == self.rootViewController.view ? nil : hit;
+    if (!hit || hit == self.rootViewController.view) return nil;
+    UIView *cursor = hit;
+    while (cursor && cursor != self.rootViewController.view) {
+        if ([cursor isKindOfClass:[UIControl class]] ||
+            [cursor isKindOfClass:[VCamControlPanel class]]) return hit;
+        cursor = cursor.superview;
+    }
+    return nil;
 }
 @end
 
@@ -73,8 +90,10 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     [self.floatingButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     self.floatingButton.titleLabel.font = [UIFont boldSystemFontOfSize:14.0];
     [self.floatingButton addTarget:self action:@selector(togglePanel) forControlEvents:UIControlEventTouchUpInside];
-    [self.floatingButton addGestureRecognizer:[[UIPanGestureRecognizer alloc]
-        initWithTarget:self action:@selector(dragButton:)]];
+    UIPanGestureRecognizer *drag = [[UIPanGestureRecognizer alloc]
+        initWithTarget:self action:@selector(dragButton:)];
+    drag.cancelsTouchesInView = NO;
+    [self.floatingButton addGestureRecognizer:drag];
     [self.view addSubview:self.floatingButton];
 
     [self buildPanel];
@@ -84,7 +103,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
 
 - (void)buildPanel {
     CGFloat width = MIN(276.0, CGRectGetWidth(self.view.bounds) - 24.0);
-    self.panel = [[UIView alloc] initWithFrame:CGRectMake(0, 0, width, 410.0)];
+    self.panel = [[VCamControlPanel alloc] initWithFrame:CGRectMake(0, 0, width, 410.0)];
     self.panel.center = self.view.center;
     self.panel.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin |
         UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin |
