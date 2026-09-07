@@ -404,7 +404,11 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         "fps=20,scale=640:640:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
     char *const arguments[] = {
         (char *)executable, "-nostdin", "-hide_banner", "-loglevel", "error",
-        "-threads", "1", "-stream_loop", "-1", "-rw_timeout", "30000000", "-i", (char *)input,
+        // FaceLab's native endpoint is FFmpeg HTTP listen mode and returns a
+        // fragmented MP4 stream, not a seekable file.  Seeking with
+        // -stream_loop closes that live socket (WinError 10054 on the PC).
+        "-threads", "1", "-rw_timeout", "30000000", "-fflags", "+nobuffer+genpts",
+        "-i", (char *)input,
         "-map", "0:v:0", "-an", "-sn",
         // The camera hook consumes SDR JPEG/YUV buffers.  HDR metadata cannot
         // be carried through that interface; the compatible conversion above
