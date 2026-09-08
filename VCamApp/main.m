@@ -354,7 +354,7 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
     // This is intentionally a diagnostic preview, not the camera pipeline.
     // Decode off the main thread so watching the stream in VCam cannot add
     // touch/UI lag on the iPhone 7 Plus.
-    self.livePreviewTimer = [NSTimer scheduledTimerWithTimeInterval:(1.0 / 20.0)
+    self.livePreviewTimer = [NSTimer scheduledTimerWithTimeInterval:(1.0 / 15.0)
         target:self selector:@selector(refreshLivePreview) userInfo:nil repeats:YES];
     [self refreshLivePreview];
 }

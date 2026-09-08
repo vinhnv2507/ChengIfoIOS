@@ -31,21 +31,6 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 @end
 
 @implementation VCamPassThroughWindow
-- (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
-    if (self.rootViewController.presentedViewController != nil) return YES;
-    UIViewController *controller = self.rootViewController;
-    if (!controller || controller.view.hidden) return NO;
-    UIButton *floatingButton = [controller valueForKey:@"floatingButton"];
-    UIView *panel = [controller valueForKey:@"panel"];
-    CGPoint inButton = [self convertPoint:point toView:floatingButton];
-    if ([floatingButton pointInside:inButton withEvent:event]) return YES;
-    if (!panel.hidden) {
-        CGPoint inPanel = [self convertPoint:point toView:panel];
-        if ([panel pointInside:inPanel withEvent:event]) return YES;
-    }
-    return NO;
-}
-
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
     UIView *hit = [super hitTest:point withEvent:event];
     if (!hit || hit == self.rootViewController.view) return nil;
@@ -289,9 +274,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         }
         // The source may be 30 FPS, but the iPhone 7 Plus has to decode the
         // H.264 stream and mediaserverd then consumes the generated JPEG. A
-        // 15 FPS is a practical A10 target: smoother than the old 6 FPS path
-        // without starving the camera/UI.
-        NSTimeInterval interval = [mode isEqualToString:@"video"] ? (1.0 / 15.0) : 1.0;
+        NSTimeInterval interval = [mode isEqualToString:@"video"] ? (1.0 / 12.0) : 1.0;
         self.sourceStatusLabel.text = [mode isEqualToString:@"video"]
             ? @"Video live độ trễ thấp" : @"Nguồn ảnh live cập nhật mỗi giây";
         if (!self.remoteTimer || ![self.remoteTimerMode isEqualToString:mode]) {
@@ -485,7 +468,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     // lighter on the A10 while keeping a steady 20 FPS for the camera hook.
     // JPEG is full-range, therefore expand limited-range movie YUV explicitly.
     const char *filter =
-        "fps=15,scale=360:360:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
+        "fps=12,scale=360:360:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
     BOOL isRTSP = [inputURL.lowercaseString hasPrefix:@"rtsp://"];
     NSMutableArray<NSString *> *argumentStrings = [NSMutableArray arrayWithObjects:
         ffmpeg, @"-nostdin", @"-hide_banner", @"-loglevel", @"error",
@@ -507,7 +490,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         // is intentional and avoids a decoder crash on devices without zimg.
         @"-vf", [NSString stringWithUTF8String:filter],
         @"-color_range", @"tv", @"-colorspace", @"bt709", @"-color_primaries", @"bt709", @"-color_trc", @"bt709",
-        @"-q:v", @"3", @"-f", @"image2", @"-update", @"1", @"-y", destination]];
+        @"-q:v", @"2", @"-f", @"image2", @"-update", @"1", @"-y", destination]];
     char **argv = calloc(argumentStrings.count + 1, sizeof(char *));
     for (NSUInteger i = 0; i < argumentStrings.count; i++) argv[i] = (char *)argumentStrings[i].UTF8String;
     argv[argumentStrings.count] = NULL;
