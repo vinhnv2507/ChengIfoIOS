@@ -69,6 +69,15 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 - (NSString *)hlsFaceLabURLFromURL:(NSString *)urlString;
 @end
 
+static BOOL VCamLooksLikeFaceLabHTTPURL(NSURLComponents *components) {
+    NSInteger port = components.port.integerValue;
+    // FaceLab may move its HTTP listener when a previous debug instance is
+    // still holding 8080 (the current build uses 8084). Keep the mapping
+    // limited to FaceLab's 8080-range ports so ordinary MP4 URLs elsewhere
+    // are still passed to FFmpeg unchanged.
+    return port >= 8080 && port <= 8099;
+}
+
 static __weak VCamOverlayController *vcamOverlayController = nil;
 
 static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *observer,
@@ -520,7 +529,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     if (!components || !components.host) return nil;
     // A normal HTTP MP4 server must be retried at the exact URL supplied by
     // the user. Only FaceLab's web listener needs the special endpoint.
-    if (components.port.integerValue == 8080)
+    if (VCamLooksLikeFaceLabHTTPURL(components))
     {
         components.path = @"/__facelab_live.mp4";
         return components.URL.absoluteString;
@@ -541,7 +550,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     if (!components.host) return nil;
     if ([scheme isEqualToString:@"rtsp"]) return components.URL.absoluteString;
     if (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"]) return nil;
-    if (components.port.integerValue != 8080 &&
+    if (!VCamLooksLikeFaceLabHTTPURL(components) &&
         [components.path.pathExtension.lowercaseString isEqualToString:@"mp4"]) return nil;
     return [NSString stringWithFormat:@"rtsp://%@:%ld/facelab", components.host, (long)8554];
 }
@@ -560,7 +569,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         return [NSString stringWithFormat:@"http://%@:%ld/facelab/index.m3u8", components.host, (long)8888];
     }
     if (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"]) return nil;
-    if (components.port.integerValue != 8080 &&
+    if (!VCamLooksLikeFaceLabHTTPURL(components) &&
         [components.path.pathExtension.lowercaseString isEqualToString:@"mp4"]) return nil;
     return [NSString stringWithFormat:@"http://%@:%ld/facelab/index.m3u8", components.host, (long)8888];
 }
