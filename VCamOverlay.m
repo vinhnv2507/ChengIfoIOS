@@ -502,7 +502,9 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         // Replace the JPEG atomically so the preview and mediaserverd never
         // decode a partially-written frame. This is the only live-output
         // change; connection URLs, fallback stages and overlay are unchanged.
-        @"-q:v", @"2", @"-f", @"image2", @"-update", @"1", @"-atomic_writing", @"1", @"-y", destination]];
+        // Slightly smaller JPEGs reduce filesystem I/O and ImageIO decode
+        // time on the A10 while preserving the same FPS and frame size.
+        @"-q:v", @"3", @"-f", @"image2", @"-update", @"1", @"-atomic_writing", @"1", @"-y", destination]];
     char **argv = calloc(argumentStrings.count + 1, sizeof(char *));
     for (NSUInteger i = 0; i < argumentStrings.count; i++) argv[i] = (char *)argumentStrings[i].UTF8String;
     argv[argumentStrings.count] = NULL;
