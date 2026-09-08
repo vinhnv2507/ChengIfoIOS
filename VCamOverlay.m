@@ -499,7 +499,10 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         // is intentional and avoids a decoder crash on devices without zimg.
         @"-vf", [NSString stringWithUTF8String:filter],
         @"-color_range", @"tv", @"-colorspace", @"bt709", @"-color_primaries", @"bt709", @"-color_trc", @"bt709",
-        @"-q:v", @"2", @"-f", @"image2", @"-update", @"1", @"-y", destination]];
+        // Replace the JPEG atomically so the preview and mediaserverd never
+        // decode a partially-written frame. This is the only live-output
+        // change; connection URLs, fallback stages and overlay are unchanged.
+        @"-q:v", @"2", @"-f", @"image2", @"-update", @"1", @"-atomic_writing", @"1", @"-y", destination]];
     char **argv = calloc(argumentStrings.count + 1, sizeof(char *));
     for (NSUInteger i = 0; i < argumentStrings.count; i++) argv[i] = (char *)argumentStrings[i].UTF8String;
     argv[argumentStrings.count] = NULL;
