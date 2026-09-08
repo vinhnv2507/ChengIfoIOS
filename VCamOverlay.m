@@ -473,30 +473,31 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     // JPEG is full-range, therefore expand limited-range movie YUV explicitly.
     const char *filter =
         "fps=12,scale=360:360:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
-    char *const arguments[] = {
-        (char *)executable, "-nostdin", "-hide_banner", "-loglevel", "error",
+    BOOL isRTSP = [inputURL.lowercaseString hasPrefix:@"rtsp://"];
+    NSMutableArray<NSString *> *argumentStrings = [NSMutableArray arrayWithObjects:
+        ffmpeg, @"-nostdin", @"-hide_banner", @"-loglevel", @"error",
         // FaceLab's native endpoint is FFmpeg HTTP listen mode and returns a
         // fragmented MP4 stream, not a seekable file.  Seeking with
         // -stream_loop closes that live socket (WinError 10054 on the PC).
         // A10 has two fast cores; one FFmpeg thread was the main decoder
         // bottleneck and made the in-app preview visibly stutter.
-        "-threads", "2", "-rw_timeout", "30000000",
+        @"-threads", @"2", @"-rw_timeout", @"30000000",
         // FaceLab serves fragmented MP4 (moof/mdat). `nobuffer` can leave
         // the iOS demuxer waiting forever for the first fragment.
-        "-probesize", "1M", "-analyzeduration", "500000", "-fflags", "+genpts",
-        // MediaMTX is configured with rtspTransports: [tcp]. For a FaceLab
-        // URL this flag is mandatory; HTTP inputs are still accepted by
-        // FFmpeg and simply ignore the RTSP demuxer option.
-        "-rtsp_transport", "tcp",
-        "-i", (char *)input,
-        "-map", "0:v:0", "-an", "-sn",
+        @"-probesize", @"1M", @"-analyzeduration", @"500000", @"-fflags", @"+genpts",
+        nil];
+    if (isRTSP) [argumentStrings addObjectsFromArray:@[@"-rtsp_transport", @"tcp"]];
+    [argumentStrings addObjectsFromArray:@[
+        @"-i", inputURL, @"-map", @"0:v:0", @"-an", @"-sn",
         // The camera hook consumes SDR JPEG/YUV buffers.  HDR metadata cannot
         // be carried through that interface; the compatible conversion above
         // is intentional and avoids a decoder crash on devices without zimg.
-        "-vf", (char *)filter,
-        "-color_range", "tv", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
-        "-q:v", "2", "-f", "image2", "-update", "1", "-y", (char *)output, NULL
-    };
+        @"-vf", [NSString stringWithUTF8String:filter],
+        @"-color_range", @"tv", @"-colorspace", @"bt709", @"-color_primaries", @"bt709", @"-color_trc", @"bt709",
+        @"-q:v", @"2", @"-f", @"image2", @"-update", @"1", @"-y", destination]];
+    char **argv = calloc(argumentStrings.count + 1, sizeof(char *));
+    for (NSUInteger i = 0; i < argumentStrings.count; i++) argv[i] = (char *)argumentStrings[i].UTF8String;
+    argv[argumentStrings.count] = NULL;
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
     posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);
@@ -504,7 +505,8 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, logPath.fileSystemRepresentation,
         O_WRONLY | O_CREAT | O_TRUNC, 0666);
     pid_t pid = 0;
-    int result = posix_spawn(&pid, executable, &actions, NULL, arguments, environ);
+    int result = posix_spawn(&pid, executable, &actions, NULL, argv, environ);
+    free(argv);
     posix_spawn_file_actions_destroy(&actions);
     if (result == 0) {
         self.remoteFFmpegPID = pid;
