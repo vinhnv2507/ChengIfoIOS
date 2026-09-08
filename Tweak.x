@@ -43,8 +43,8 @@ static void vcam_recordPerformance(CFAbsoluteTime elapsed, BOOL replaced) {
         NSDictionary *status = @{
             @"loaded": @(anyReplacement),
             @"message": anyReplacement
-                ? [NSString stringWithFormat:@"Hiá»‡u nÄƒng: %.1f ms/frame (%lu cháº­m)", averageMS, (unsigned long)slow]
-                : @"KhÃ´ng ghi Ä‘Æ°á»£c frame vÃ o camera",
+                ? [NSString stringWithFormat:@"Hiệu năng: %.1f ms/frame (%lu chậm)", averageMS, (unsigned long)slow]
+                : @"Không ghi được frame vào camera",
             @"timestamp": [NSDate date]
         };
         [status writeToFile:VCamStatusFile() atomically:YES];

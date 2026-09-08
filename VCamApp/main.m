@@ -448,7 +448,7 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
         NSString *ext = path.pathExtension.lowercaseString;
         if (isLivePath) {
             self.previewView.tintColor = nil;
-            self.statusLabel.text = @"Live preview VCam (khong qua Camera)";
+            self.statusLabel.text = @"Live preview VCam (không qua Camera)";
             [self startLivePreview];
         } else if ([@[@"jpg", @"jpeg", @"png"] containsObject:ext]) {
             [self stopLivePreview];
@@ -525,7 +525,7 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
 
 - (void)selectLive {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Link live"
-        message:@"Nhap URL anh hoac video live. VCam se tu dong dung RTSP MediaMTX cho FaceLab."
+        message:@"Nhập URL ảnh hoặc video live. VCam tự động dùng HLS MediaMTX cho FaceLab."
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
         field.placeholder = @"http://192.168.x.x:8080/1_ios.mp4";
@@ -535,13 +535,13 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
         NSString *saved = [self preferences][@"remoteURL"];
         if ([saved isKindOfClass:[NSString class]]) field.text = saved;
     }];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Huy" style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Luu" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+    [alert addAction:[UIAlertAction actionWithTitle:@"Hủy" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Lưu" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         NSString *value = [alert.textFields.firstObject.text stringByTrimmingCharactersInSet:
             [NSCharacterSet whitespaceAndNewlineCharacterSet]];
         NSURL *url = [NSURL URLWithString:value];
         if (!url || ![@[@"http", @"https", @"rtsp"] containsObject:url.scheme.lowercaseString]) {
-            self.statusLabel.text = @"Link khong hop le";
+            self.statusLabel.text = @"Link không hợp lệ";
             return;
         }
         NSMutableDictionary *updated = [self preferences];
@@ -549,7 +549,7 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
         updated[@"remoteURL"] = value;
         updated[@"remoteMode"] = @"video";
         [self savePreferences:updated];
-        self.statusLabel.text = @"Dang ket noi video live...";
+        self.statusLabel.text = @"Đang kết nối video live…";
     }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
