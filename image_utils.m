@@ -213,7 +213,17 @@ BOOL reloadReplacementLiveFrame(NSString *path) {
             CGImageSourceRef source = CGImageSourceCreateWithURL(
                 (__bridge CFURLRef)[NSURL fileURLWithPath:resolvedPath], NULL);
             if (source) {
-                nextImage = CGImageSourceCreateImageAtIndex(source, 0, NULL);
+                // Live frames are already small, but asking ImageIO for a
+                // thumbnail avoids allocating a full-resolution intermediate
+                // image and makes repeated RTSP JPEG updates cheaper on A10.
+                NSDictionary *thumbnailOptions = @{
+                    (id)kCGImageSourceCreateThumbnailFromImageAlways : @YES,
+                    (id)kCGImageSourceCreateThumbnailWithTransform : @YES,
+                    (id)kCGImageSourceShouldCacheImmediately : @YES,
+                    (id)kCGImageSourceThumbnailMaxPixelSize : @360
+                };
+                nextImage = CGImageSourceCreateThumbnailAtIndex(
+                    source, 0, (__bridge CFDictionaryRef)thumbnailOptions);
                 CFRelease(source);
             }
         }
