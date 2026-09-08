@@ -483,7 +483,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     // lighter on the A10 while keeping a steady 20 FPS for the camera hook.
     // JPEG is full-range, therefore expand limited-range movie YUV explicitly.
     const char *filter =
-        "fps=24,scale=360:360:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
+        "fps=24,scale=300:300:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
     BOOL isRTSP = [inputURL.lowercaseString hasPrefix:@"rtsp://"];
     NSMutableArray<NSString *> *argumentStrings = [NSMutableArray arrayWithObjects:
         ffmpeg, @"-nostdin", @"-hide_banner", @"-loglevel", @"error",
@@ -510,7 +510,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         // change; connection URLs, fallback stages and overlay are unchanged.
         // Slightly smaller JPEGs reduce filesystem I/O and ImageIO decode
         // time on the A10 while preserving the same FPS and frame size.
-        @"-q:v", @"3", @"-f", @"image2", @"-update", @"1", @"-atomic_writing", @"1", @"-y", destination]];
+        @"-q:v", @"4", @"-f", @"image2", @"-update", @"1", @"-atomic_writing", @"1", @"-y", destination]];
     char **argv = calloc(argumentStrings.count + 1, sizeof(char *));
     for (NSUInteger i = 0; i < argumentStrings.count; i++) argv[i] = (char *)argumentStrings[i].UTF8String;
     argv[argumentStrings.count] = NULL;
