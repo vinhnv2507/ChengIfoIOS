@@ -269,12 +269,15 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
             NSURL *savedURL = [NSURL URLWithString:remoteURL];
             if ([savedURL.scheme.lowercaseString isEqualToString:@"http"] ||
                 [savedURL.scheme.lowercaseString isEqualToString:@"https"]) {
-                self.remoteFFmpegInputURL = [self hlsFaceLabURLFromURL:remoteURL];
-                self.remoteFallbackStage = self.remoteFFmpegInputURL.length > 0 ? 0 : 1;
+                BOOL directHLS = [savedURL.path.pathExtension.lowercaseString isEqualToString:@"m3u8"];
+                self.remoteFFmpegInputURL = directHLS
+                    ? [self hlsFaceLabURLFromURL:remoteURL]
+                    : [self rtspFaceLabURLFromURL:remoteURL];
+                self.remoteFallbackStage = self.remoteFFmpegInputURL.length > 0 ? (directHLS ? 0 : 1) : 0;
             } else {
                 if ([savedURL.scheme.lowercaseString isEqualToString:@"rtsp"]) {
-                    self.remoteFFmpegInputURL = [self hlsFaceLabURLFromURL:remoteURL];
-                    self.remoteFallbackStage = self.remoteFFmpegInputURL.length > 0 ? 0 : 1;
+                    self.remoteFFmpegInputURL = remoteURL;
+                    self.remoteFallbackStage = 1;
                 } else {
                     self.remoteFFmpegInputURL = remoteURL;
                     self.remoteFallbackStage = 2;
@@ -361,10 +364,13 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
             // FaceLab's public HTTP URL is an HTML WebRTC page. FFmpeg on
             // iOS cannot consume that page; MediaMTX exposes the H.264 stream
             // as RTSP for native clients.
-            NSString *hlsURL = [self hlsFaceLabURLFromURL:value];
-            if (hlsURL.length > 0) {
-                self.remoteFFmpegInputURL = hlsURL;
-                self.remoteFallbackStage = 0;
+            BOOL directHLS = [url.path.pathExtension.lowercaseString isEqualToString:@"m3u8"];
+            NSString *liveURL = directHLS
+                ? [self hlsFaceLabURLFromURL:value]
+                : [self rtspFaceLabURLFromURL:value];
+            if (liveURL.length > 0) {
+                self.remoteFFmpegInputURL = liveURL;
+                self.remoteFallbackStage = directHLS ? 0 : 1;
             }
         }
         NSMutableDictionary *updated = [[self mainPreferences] mutableCopy];
@@ -590,14 +596,14 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
             // Return to mode 0 so the next poll reconnects automatically
             // instead of permanently disabling the live source.
             self.remoteFFmpegMode = 0;
-            if (self.remoteFallbackStage == 0) {
-                NSString *rtspURL = [self rtspFaceLabURLFromURL:urlString];
-                if (rtspURL.length > 0) {
-                    self.remoteFFmpegInputURL = rtspURL;
-                    self.remoteFallbackStage = 1;
-                    self.sourceStatusLabel.text = @"Đang kết nối MediaMTX RTSP…";
+            if (self.remoteFallbackStage == 1) {
+                NSString *hlsURL = [self hlsFaceLabURLFromURL:urlString];
+                if (hlsURL.length > 0) {
+                    self.remoteFFmpegInputURL = hlsURL;
+                    self.remoteFallbackStage = 0;
+                    self.sourceStatusLabel.text = @"Đang kết nối MediaMTX HLS…";
                 }
-            } else if (self.remoteFallbackStage == 1) {
+            } else if (self.remoteFallbackStage == 0) {
                 NSString *rawURL = [self rawFaceLabURLFromURL:urlString];
                 if (rawURL.length > 0) {
                     self.remoteFFmpegInputURL = rawURL;
@@ -623,13 +629,13 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
             waitpid(self.remoteFFmpegPID, NULL, WNOHANG);
             self.remoteFFmpegPID = 0;
             self.remoteFFmpegMode = 0;
-            if (self.remoteFallbackStage == 0) {
-                NSString *rtspURL = [self rtspFaceLabURLFromURL:urlString];
-                if (rtspURL.length > 0) {
-                    self.remoteFFmpegInputURL = rtspURL;
-                    self.remoteFallbackStage = 1;
+            if (self.remoteFallbackStage == 1) {
+                NSString *hlsURL = [self hlsFaceLabURLFromURL:urlString];
+                if (hlsURL.length > 0) {
+                    self.remoteFFmpegInputURL = hlsURL;
+                    self.remoteFallbackStage = 0;
                 }
-            } else if (self.remoteFallbackStage == 1) {
+            } else if (self.remoteFallbackStage == 0) {
                 NSString *rawURL = [self rawFaceLabURLFromURL:urlString];
                 if (rawURL.length > 0) {
                     self.remoteFFmpegInputURL = rawURL;
