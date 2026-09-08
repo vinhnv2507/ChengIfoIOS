@@ -463,8 +463,6 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     unlink(destination.fileSystemRepresentation);
     const char *executable = ffmpeg.fileSystemRepresentation;
     NSString *inputURL = self.remoteFFmpegInputURL.length > 0 ? self.remoteFFmpegInputURL : urlString;
-    const char *input = inputURL.UTF8String;
-    const char *output = destination.fileSystemRepresentation;
     // Do not use zscale here.  The Procursus FFmpeg shipped on many iOS 15
     // jailbreaks (including iPhone 7/A10) is built without libzimg, so merely
     // mentioning zscale makes FFmpeg abort before producing its first frame.
