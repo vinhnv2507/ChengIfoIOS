@@ -283,7 +283,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         }
         // The source may be 30 FPS, but the iPhone 7 Plus has to decode the
         // H.264 stream and mediaserverd then consumes the generated JPEG. A
-        NSTimeInterval interval = [mode isEqualToString:@"video"] ? (1.0 / 15.0) : 1.0;
+        NSTimeInterval interval = [mode isEqualToString:@"video"] ? (1.0 / 24.0) : 1.0;
         self.sourceStatusLabel.text = [mode isEqualToString:@"video"]
             ? @"Video live độ trễ thấp" : @"Nguồn ảnh live cập nhật mỗi giây";
         if (!self.remoteTimer || ![self.remoteTimerMode isEqualToString:mode]) {
@@ -477,7 +477,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     // lighter on the A10 while keeping a steady 20 FPS for the camera hook.
     // JPEG is full-range, therefore expand limited-range movie YUV explicitly.
     const char *filter =
-        "fps=15,scale=360:360:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
+        "fps=24,scale=360:360:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
     BOOL isRTSP = [inputURL.lowercaseString hasPrefix:@"rtsp://"];
     NSMutableArray<NSString *> *argumentStrings = [NSMutableArray arrayWithObjects:
         ffmpeg, @"-nostdin", @"-hide_banner", @"-loglevel", @"error",
