@@ -53,6 +53,7 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 @property(nonatomic, strong) UIButton *floatingButton;
 @property(nonatomic, strong) UIView *panel;
 @property(nonatomic, strong) UILabel *sourceStatusLabel;
+@property(nonatomic, strong) UISwitch *enabledSwitch;
 @property(nonatomic, strong) NSTimer *remoteTimer;
 @property(nonatomic, copy) NSString *remoteTimerMode;
 @property(nonatomic, strong) NSData *lastRemoteFrame;
@@ -131,6 +132,9 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     UIButton *close = [self smallButton:@"×" action:@selector(togglePanel)];
     close.frame = CGRectMake(width - 42, 4, 36, 34);
     [self.panel addSubview:close];
+    self.enabledSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(width - 86, 42, 60, 30)];
+    [self.enabledSwitch addTarget:self action:@selector(enabledSwitchChanged:) forControlEvents:UIControlEventValueChanged];
+    [self.panel addSubview:self.enabledSwitch];
 
     CGFloat centerX = width / 2.0;
     UIButton *up = [self smallButton:@"↑" action:@selector(moveUp)];
@@ -235,6 +239,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     NSDictionary *preferences = [self mainPreferences];
     id enabledValue = preferences[@"enabled"];
     BOOL enabled = enabledValue == nil ? YES : [enabledValue boolValue];
+    self.enabledSwitch.on = enabled;
     self.view.hidden = !enabled;
     if (!enabled) {
         self.panel.hidden = YES;
@@ -281,6 +286,13 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         self.sourceStatusLabel.text = @"Chọn ảnh, video hoặc nhập link live";
         [self stopRemoteFFmpeg];
     }
+}
+
+- (void)enabledSwitchChanged:(UISwitch *)sender {
+    NSMutableDictionary *updated = [[self mainPreferences] mutableCopy];
+    updated[@"enabled"] = @(sender.isOn);
+    [self writeMainPreferences:updated];
+    if (!sender.isOn) self.panel.hidden = YES;
 }
 
 - (void)openVCamPath:(NSString *)path {
@@ -483,7 +495,9 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
     posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);
-    posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, "/dev/null", O_WRONLY, 0);
+    NSString *logPath = [VCamSharedDirectory() stringByAppendingPathComponent:@"vcam-live-ffmpeg.log"];
+    posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, logPath.fileSystemRepresentation,
+        O_WRONLY | O_CREAT | O_TRUNC, 0666);
     pid_t pid = 0;
     int result = posix_spawn(&pid, executable, &actions, NULL, arguments, environ);
     posix_spawn_file_actions_destroy(&actions);

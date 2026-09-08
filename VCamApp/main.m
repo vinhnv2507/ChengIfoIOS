@@ -210,6 +210,7 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
 - (BOOL)copyPickedVideoAtURL:(NSURL *)sourceURL destination:(NSString **)destination error:(NSError **)error;
 - (void)selectImage;
 - (void)selectVideo;
+- (void)selectLive;
 - (void)stopLivePreview;
 - (void)refreshLivePreview;
 - (void)startLivePreview;
@@ -273,7 +274,8 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
     UIButton *imageButton = [self actionButtonWithTitle:@"Chọn ảnh" selector:@selector(selectImage)];
     UIButton *videoButton = [self actionButtonWithTitle:@"Chọn video" selector:@selector(selectVideo)];
 
-    UIStackView *buttonStack = [[UIStackView alloc] initWithArrangedSubviews:@[imageButton, videoButton]];
+    UIButton *liveButton = [self actionButtonWithTitle:@"Link live" selector:@selector(selectLive)];
+    UIStackView *buttonStack = [[UIStackView alloc] initWithArrangedSubviews:@[imageButton, videoButton, liveButton]];
     buttonStack.translatesAutoresizingMaskIntoConstraints = NO;
     buttonStack.axis = UILayoutConstraintAxisHorizontal;
     buttonStack.spacing = 12.0;
@@ -519,6 +521,37 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
             [self applySelectedMediaAtPath:path];
         });
     }];
+}
+
+- (void)selectLive {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Link live"
+        message:@"Nhap URL anh hoac video live. VCam se tu dong dung RTSP MediaMTX cho FaceLab."
+        preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+        field.placeholder = @"http://192.168.x.x:8080/1_ios.mp4";
+        field.keyboardType = UIKeyboardTypeURL;
+        field.autocapitalizationType = UITextAutocapitalizationTypeNone;
+        field.autocorrectionType = UITextAutocorrectionTypeNo;
+        NSString *saved = [self preferences][@"remoteURL"];
+        if ([saved isKindOfClass:[NSString class]]) field.text = saved;
+    }];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Huy" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Luu" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        NSString *value = [alert.textFields.firstObject.text stringByTrimmingCharactersInSet:
+            [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        NSURL *url = [NSURL URLWithString:value];
+        if (!url || ![@[@"http", @"https", @"rtsp"] containsObject:url.scheme.lowercaseString]) {
+            self.statusLabel.text = @"Link khong hop le";
+            return;
+        }
+        NSMutableDictionary *updated = [self preferences];
+        updated[@"enabled"] = @YES;
+        updated[@"remoteURL"] = value;
+        updated[@"remoteMode"] = @"video";
+        [self savePreferences:updated];
+        self.statusLabel.text = @"Dang ket noi video live...";
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)selectVideo {
