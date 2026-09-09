@@ -232,7 +232,7 @@ BOOL reloadReplacementLiveFrame(NSString *path) {
                     (id)kCGImageSourceCreateThumbnailFromImageAlways : @YES,
                     (id)kCGImageSourceCreateThumbnailWithTransform : @YES,
                     (id)kCGImageSourceShouldCacheImmediately : @YES,
-                    (id)kCGImageSourceThumbnailMaxPixelSize : @400
+                    (id)kCGImageSourceThumbnailMaxPixelSize : @720
                 };
                 nextImage = CGImageSourceCreateThumbnailAtIndex(
                     source, 0, (__bridge CFDictionaryRef)thumbnailOptions);

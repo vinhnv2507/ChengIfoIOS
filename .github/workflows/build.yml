@@ -175,7 +175,7 @@ jobs:
           else
             gh release create vcam-native-packages built-packages/*.deb \
               --title "VCam native VideoToolbox experiment" \
-              --notes "Experimental web packages. 0.0.102-web-experiment adds an opt-in WKWebView/WebRTC capture path modeled on Safari; FFmpeg/JPEG remains default. The stable Sileo source remains on main/0.0.97."
+              --notes "Experimental web packages. 0.0.103-web-quality uses 720px WebRTC snapshots at up to 24 FPS and higher JPEG quality. FFmpeg/JPEG remains default. The stable Sileo source remains on main/0.0.97."
           fi
 
       - name: Create native APT repository
@@ -204,7 +204,7 @@ jobs:
             echo "Codename: vcam-native"
             echo "Architectures: iphoneos-arm iphoneos-arm64 iphoneos-arm64e"
             echo "Components: main"
-            echo "Description: Experimental VCam WebRTC repository (explicit opt-in)"
+            echo "Description: Experimental VCam WebRTC quality repository (explicit opt-in)"
             cat "$native_checksums"
           } > native-apt/Release
           rm -f "$native_checksums"

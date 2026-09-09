@@ -600,7 +600,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     WKWebViewConfiguration *configuration = [[WKWebViewConfiguration alloc] init];
     configuration.allowsInlineMediaPlayback = YES;
     configuration.mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeNone;
-    WKWebView *web = [[WKWebView alloc] initWithFrame:CGRectMake(-2000, -2000, 640, 360)
+    WKWebView *web = [[WKWebView alloc] initWithFrame:CGRectMake(-2000, -2000, 720, 405)
         configuration:configuration];
     web.backgroundColor = UIColor.blackColor;
     web.opaque = NO;
@@ -612,10 +612,10 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     self.webDecoderActive = YES;
     NSString *whepString = [whepURL.absoluteString stringByReplacingOccurrencesOfString:@"'" withString:@"%27"];
     NSString *html = [NSString stringWithFormat:
-        @"<html><body style='margin:0;background:#000'><video id='v' autoplay muted playsinline style='width:640px;height:360px;object-fit:contain'></video><script>const v=document.getElementById('v');const u='%@';async function go(){try{let p=new RTCPeerConnection({iceServers:[]});p.addTransceiver('video',{direction:'recvonly'});p.ontrack=e=>{v.srcObject=e.streams[0];v.play().catch(()=>{})};let o=await p.createOffer();await p.setLocalDescription(o);let r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/sdp','Accept':'application/sdp'},body:o.sdp,cache:'no-store'});if(!r.ok)throw 0;await p.setRemoteDescription({type:'answer',sdp:await r.text()})}catch(e){setTimeout(go,500)}}go();</script></body></html>", whepString];
+        @"<html><body style='margin:0;background:#000'><video id='v' autoplay muted playsinline style='width:720px;height:405px;object-fit:contain'></video><script>const v=document.getElementById('v');const u='%@';async function go(){try{let p=new RTCPeerConnection({iceServers:[],bundlePolicy:'max-bundle'});p.addTransceiver('video',{direction:'recvonly'});p.ontrack=e=>{v.srcObject=e.streams[0];v.play().catch(()=>{})};let o=await p.createOffer();await p.setLocalDescription(o);let r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/sdp','Accept':'application/sdp'},body:o.sdp,cache:'no-store'});if(!r.ok)throw 0;await p.setRemoteDescription({type:'answer',sdp:await r.text()})}catch(e){setTimeout(go,500)}}go();</script></body></html>", whepString];
     [web loadHTMLString:html baseURL:nil];
     self.webCaptureDisplayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(webCaptureTick:)];
-    self.webCaptureDisplayLink.preferredFramesPerSecond = 15;
+    self.webCaptureDisplayLink.preferredFramesPerSecond = 24;
     [self.webCaptureDisplayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
     NSMutableDictionary *preferences = [[self mainPreferences] mutableCopy];
     preferences[@"enabled"] = @YES;
@@ -629,13 +629,13 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     if (!self.webDecoderActive || self.webCapturePending || !self.webLiveView) return;
     self.webCapturePending = YES;
     WKSnapshotConfiguration *configuration = [[WKSnapshotConfiguration alloc] init];
-    configuration.rect = CGRectMake(0, 0, 640, 360);
-    configuration.snapshotWidth = @640;
+    configuration.rect = CGRectMake(0, 0, 720, 405);
+    configuration.snapshotWidth = @720;
     __weak typeof(self) weakSelf = self;
     [self.webLiveView takeSnapshotWithConfiguration:configuration completionHandler:^(UIImage *image, NSError *error) {
         __strong typeof(weakSelf) self = weakSelf;
         if (image && !error) {
-            NSData *jpeg = UIImageJPEGRepresentation(image, 0.88);
+            NSData *jpeg = UIImageJPEGRepresentation(image, 0.95);
             if (jpeg.length > 0) [jpeg writeToFile:[VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"] options:NSDataWritingAtomic error:nil];
         }
         dispatch_async(dispatch_get_main_queue(), ^{ self.webCapturePending = NO; });
