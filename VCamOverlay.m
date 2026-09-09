@@ -539,7 +539,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     AVPlayerItemVideoOutput *output = [[AVPlayerItemVideoOutput alloc] initWithPixelBufferAttributes:settings];
     AVPlayerItem *item = [AVPlayerItem playerItemWithURL:url];
     item.preferredForwardBufferDuration = 0.10;
-    item.canUseNetworkResourcesForLiveStreaming = YES;
+    item.canUseNetworkResourcesForLiveStreamingWhilePaused = YES;
     [output setDelegate:self queue:dispatch_get_main_queue()];
     [item addOutput:output];
     AVPlayer *player = [AVPlayer playerWithPlayerItem:item];
