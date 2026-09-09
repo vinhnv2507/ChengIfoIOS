@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - main
+      - native-experiment
 
 jobs:
   package:
@@ -113,6 +114,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish raw DEB in Releases
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -125,6 +127,7 @@ jobs:
           fi
 
       - name: Create flat APT repository
+        if: github.ref == 'refs/heads/main'
         run: |
           sudo apt-get update
           sudo apt-get install -y apt-utils dpkg-dev
@@ -154,9 +157,23 @@ jobs:
           rm -f "$release_checksums"
 
       - name: Publish APT repository branch
+        if: github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ github.token }}
           publish_branch: gh-pages
           publish_dir: ./apt-repo
           force_orphan: true
+
+      - name: Publish native experiment release
+        if: github.ref == 'refs/heads/native-experiment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view vcam-native-packages >/dev/null 2>&1; then
+            gh release upload vcam-native-packages built-packages/*.deb --clobber
+          else
+            gh release create vcam-native-packages built-packages/*.deb \
+              --title "VCam native VideoToolbox experiment" \
+              --notes "Experimental 0.0.99-native packages. The stable Sileo source remains on main/0.0.97."
+          fi

@@ -54,7 +54,7 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 }
 @end
 
-@interface VCamOverlayController : UIViewController
+@interface VCamOverlayController : UIViewController <AVPlayerItemOutputPullDelegate>
 @property(nonatomic, strong) UIButton *floatingButton;
 @property(nonatomic, strong) UIView *panel;
 @property(nonatomic, strong) UILabel *sourceStatusLabel;
@@ -77,6 +77,7 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 @property(nonatomic, assign) BOOL nativeEncodePending;
 @property(nonatomic, assign) BOOL nativeDecoderActive;
 @property(nonatomic, assign) NSUInteger nativeFrameCounter;
+@property(nonatomic, assign) CMTime nativeLastItemTime;
 - (void)refreshFromPreferences;
 - (NSString *)rtspFaceLabURLFromURL:(NSString *)urlString;
 - (NSString *)hlsFaceLabURLFromURL:(NSString *)urlString;
@@ -307,16 +308,17 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         self.sourceStatusLabel.text = [mode isEqualToString:@"video"]
             ? @"Video live độ trễ thấp" : @"Nguồn ảnh live cập nhật mỗi giây";
         if ([mode isEqualToString:@"video"] && !self.nativeDecoderActive) {
-            // Native VideoToolbox/NV12 remains experimental. Keep the stable
-            // RTSP -> FFmpeg -> atomic JPEG path as the default until the
-            // AVPlayer live timebase is reliable on iOS 15.
-            [self stopNativeDecoder];
-            NSString *liveJPEG = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
-            if ([preferences[@"mediaPath"] hasSuffix:@"media-live.nv12"]) {
-                NSMutableDictionary *updated = [preferences mutableCopy];
-                updated[@"enabled"] = @YES;
-                updated[@"mediaPath"] = liveJPEG;
-                [self writeMainPreferences:updated];
+            // Prefer the native AVPlayer/VideoToolbox path on this branch.
+            // Non-HLS/invalid sources still fall back to RTSP/FFmpeg below.
+            if (![self startNativeDecoderAtURL:remoteURL]) {
+                [self stopNativeDecoder];
+                NSString *liveJPEG = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+                if ([preferences[@"mediaPath"] hasSuffix:@"media-live.nv12"]) {
+                    NSMutableDictionary *updated = [preferences mutableCopy];
+                    updated[@"enabled"] = @YES;
+                    updated[@"mediaPath"] = liveJPEG;
+                    [self writeMainPreferences:updated];
+                }
             }
         }
         if (!self.remoteTimer || ![self.remoteTimerMode isEqualToString:mode]) {
@@ -519,6 +521,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     self.nativeDecoderActive = NO;
     self.nativeEncodePending = NO;
     self.nativeFrameCounter = 0;
+    self.nativeLastItemTime = kCMTimeInvalid;
 }
 
 - (BOOL)startNativeDecoderAtURL:(NSString *)urlString {
@@ -535,6 +538,9 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     };
     AVPlayerItemVideoOutput *output = [[AVPlayerItemVideoOutput alloc] initWithPixelBufferAttributes:settings];
     AVPlayerItem *item = [AVPlayerItem playerItemWithURL:url];
+    item.preferredForwardBufferDuration = 0.10;
+    item.canUseNetworkResourcesForLiveStreaming = YES;
+    [output setDelegate:self queue:dispatch_get_main_queue()];
     [item addOutput:output];
     AVPlayer *player = [AVPlayer playerWithPlayerItem:item];
     player.actionAtItemEnd = AVPlayerActionAtItemEndNone;
@@ -543,14 +549,30 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     self.nativeCIContext = self.nativeCIContext ?: [CIContext context];
     self.nativeStartedAt = [NSDate date];
     self.nativeDecoderActive = YES;
+    self.nativeLastItemTime = kCMTimeInvalid;
     self.nativeDisplayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(nativeDisplayTick:)];
-    self.nativeDisplayLink.preferredFramesPerSecond = 24;
+    self.nativeDisplayLink.preferredFramesPerSecond = 30;
     [self.nativeDisplayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
     player.automaticallyWaitsToMinimizeStalling = NO;
     [player play];
     player.rate = 1.0;
+    [output requestNotificationOfMediaDataChangeWithAdvanceInterval:0.10];
+    NSMutableDictionary *nativePreferences = [[self mainPreferences] mutableCopy];
+    nativePreferences[@"enabled"] = @YES;
+    nativePreferences[@"mediaPath"] = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.nv12"];
+    [self writeMainPreferences:nativePreferences];
     self.sourceStatusLabel.text = @"Native VideoToolbox…";
-    return YES;
+        return YES;
+}
+
+- (void)outputMediaDataWillChange:(AVPlayerItemOutput *)sender {
+    if (!self.nativeDecoderActive) return;
+    self.nativeDisplayLink.paused = NO;
+    [self.nativeOutput requestNotificationOfMediaDataChangeWithAdvanceInterval:0.10];
+}
+
+- (void)outputSequenceWasFlushed:(AVPlayerItemOutput *)output {
+    self.nativeLastItemTime = kCMTimeInvalid;
 }
 
 - (void)nativeDisplayTick:(CADisplayLink *)link {
@@ -560,9 +582,11 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     // segment, which produces one frame until VCam is toggled. Pull the newest
     // host-time sample instead.
     CMTime itemTime = [self.nativeOutput itemTimeForHostTime:CACurrentMediaTime()];
-    if (!CMTIME_IS_VALID(itemTime) || ![self.nativeOutput hasNewPixelBufferForItemTime:itemTime]) return;
+    if (!CMTIME_IS_VALID(itemTime)) return;
+    if (![self.nativeOutput hasNewPixelBufferForItemTime:itemTime]) return;
     CVPixelBufferRef pixelBuffer = [self.nativeOutput copyPixelBufferForItemTime:itemTime itemTimeForDisplay:NULL];
     if (!pixelBuffer) return;
+    self.nativeLastItemTime = itemTime;
     self.nativeEncodePending = YES;
     BOOL makePreviewJPEG = ((++self.nativeFrameCounter % 4) == 0);
     NSString *destination = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.nv12"];
