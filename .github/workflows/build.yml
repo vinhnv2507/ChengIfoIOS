@@ -175,7 +175,7 @@ jobs:
           else
             gh release create vcam-native-packages built-packages/*.deb \
               --title "VCam native VideoToolbox experiment" \
-              --notes "Experimental web packages. 0.0.108-webrtc-aspect uses a portrait 405x720 WebRTC snapshot canvas for FaceLab's 404x720 output, avoiding baked-in 16:9 black bars."
+              --notes "Experimental web packages. 0.0.109-webrtc-viewport adds a device-width viewport and explicit 405x720 body so WKWebView does not shrink the portrait WebRTC frame into the top-left corner."
           fi
 
       - name: Create native APT repository
@@ -204,7 +204,7 @@ jobs:
             echo "Codename: vcam-native"
             echo "Architectures: iphoneos-arm iphoneos-arm64 iphoneos-arm64e"
             echo "Components: main"
-            echo "Description: Experimental VCam WebRTC aspect-ratio repository (explicit opt-in)"
+            echo "Description: Experimental VCam WebRTC viewport repository (explicit opt-in)"
             cat "$native_checksums"
           } > native-apt/Release
           rm -f "$native_checksums"
