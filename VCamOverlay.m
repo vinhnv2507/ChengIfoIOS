@@ -280,10 +280,13 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
 
     NSString *remoteURL = preferences[@"remoteURL"];
     if ([remoteURL isKindOfClass:[NSString class]] && remoteURL.length > 0) {
-        NSString *mode = [preferences[@"remoteMode"] isEqualToString:@"video"] ? @"video" : @"image";
+        NSString *savedMode = [preferences[@"remoteMode"] isKindOfClass:[NSString class]]
+            ? preferences[@"remoteMode"] : @"image";
+        NSString *mode = ([savedMode isEqualToString:@"video"] || [savedMode isEqualToString:@"native"])
+            ? savedMode : @"image";
         // Restore the native MediaMTX input after the overlay/app is
         // recreated. The in-memory fallback URL is otherwise lost on restart.
-        if ([mode isEqualToString:@"video"] && self.remoteFFmpegInputURL.length == 0) {
+        if (([mode isEqualToString:@"video"] || [mode isEqualToString:@"native"]) && self.remoteFFmpegInputURL.length == 0) {
             NSURL *savedURL = [NSURL URLWithString:remoteURL];
             if ([savedURL.scheme.lowercaseString isEqualToString:@"http"] ||
                 [savedURL.scheme.lowercaseString isEqualToString:@"https"]) {
@@ -304,14 +307,21 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         }
         // The source may be 30 FPS, but the iPhone 7 Plus has to decode the
         // H.264 stream and mediaserverd then consumes the generated JPEG. A
-        NSTimeInterval interval = [mode isEqualToString:@"video"] ? (1.0 / 24.0) : 1.0;
-        self.sourceStatusLabel.text = [mode isEqualToString:@"video"]
-            ? @"Video live độ trễ thấp" : @"Nguồn ảnh live cập nhật mỗi giây";
-        if ([mode isEqualToString:@"video"] && !self.nativeDecoderActive) {
-            // Emergency safe mode: keep the native decoder available for
-            // development, but do not start it automatically. A stalled
-            // AVPlayerItemVideoOutput can block mediaserverd on older A10
-            // devices; the proven FFmpeg/JPEG path must remain the default.
+        BOOL videoMode = [mode isEqualToString:@"video"] || [mode isEqualToString:@"native"];
+        NSTimeInterval interval = videoMode ? (1.0 / 24.0) : 1.0;
+        self.sourceStatusLabel.text = [mode isEqualToString:@"native"]
+            ? @"Video native (thử nghiệm)" : (videoMode
+                ? @"Video live độ trễ thấp" : @"Nguồn ảnh live cập nhật mỗi giây");
+        if ([mode isEqualToString:@"native"] && !self.nativeDecoderActive) {
+            // Native decoding is explicitly opt-in. Never let a failed HLS
+            // output replace the normal video mode silently.
+            if (![self startNativeDecoderAtURL:remoteURL]) {
+                NSMutableDictionary *updated = [preferences mutableCopy];
+                updated[@"remoteMode"] = @"video";
+                [self writeMainPreferences:updated];
+                mode = @"video";
+            }
+        } else if (![mode isEqualToString:@"native"] && self.nativeDecoderActive) {
             [self stopNativeDecoder];
             NSString *liveJPEG = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
             if ([preferences[@"mediaPath"] hasSuffix:@"media-live.nv12"]) {
@@ -382,7 +392,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         NSString *value = [alert.textFields.firstObject.text stringByTrimmingCharactersInSet:
             [NSCharacterSet whitespaceAndNewlineCharacterSet]];
         NSURL *url = [NSURL URLWithString:value];
-        NSArray *schemes = [mode isEqualToString:@"video"]
+        NSArray *schemes = ([mode isEqualToString:@"video"] || [mode isEqualToString:@"native"])
             ? @[@"http", @"https", @"rtsp"] : @[@"http", @"https"];
         if (!url || ![schemes containsObject:url.scheme.lowercaseString]) {
             self.sourceStatusLabel.text = @"Link không hợp lệ";
@@ -394,7 +404,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         self.lastRemoteVideoModification = nil;
         self.remoteFFmpegInputURL = nil;
         self.remoteFallbackStage = 0;
-        if ([mode isEqualToString:@"video"]) {
+        if ([mode isEqualToString:@"video"] || [mode isEqualToString:@"native"]) {
             // FaceLab's public HTTP URL is an HTML WebRTC page. FFmpeg on
             // iOS cannot consume that page; MediaMTX exposes the H.264 stream
             // as RTSP for native clients.
@@ -420,6 +430,8 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Video live" style:UIAlertActionStyleDefault
         handler:^(UIAlertAction *action) { saveRemote(@"video"); }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Video native (thử nghiệm)" style:UIAlertActionStyleDefault
+        handler:^(UIAlertAction *action) { saveRemote(@"native"); }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 
@@ -427,14 +439,21 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     if (self.remoteRequestRunning) return;
     NSDictionary *preferences = [self mainPreferences];
     NSString *urlString = preferences[@"remoteURL"];
-    if ([preferences[@"remoteMode"] isEqualToString:@"video"]) {
+    NSString *remoteMode = preferences[@"remoteMode"];
+    if ([remoteMode isEqualToString:@"video"] || [remoteMode isEqualToString:@"native"]) {
         if (self.nativeDecoderActive) {
             NSString *destination = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
             NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:destination error:nil];
             NSDate *modified = attributes[NSFileModificationDate];
-            if (self.nativeStartedAt && !modified && -self.nativeStartedAt.timeIntervalSinceNow > 8.0) {
+            BOOL hasFreshPreview = modified && self.nativeStartedAt &&
+                [modified compare:self.nativeStartedAt] != NSOrderedAscending;
+            if (self.nativeStartedAt && (!hasFreshPreview) && -self.nativeStartedAt.timeIntervalSinceNow > 8.0) {
                 [self stopNativeDecoder];
-                self.remoteFFmpegMode = 0;
+                if ([remoteMode isEqualToString:@"native"]) {
+                    NSMutableDictionary *updated = [preferences mutableCopy];
+                    updated[@"remoteMode"] = @"video";
+                    [self writeMainPreferences:updated];
+                }
             } else {
                 return;
             }
@@ -531,9 +550,14 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     NSURL *url = [NSURL URLWithString:hlsURL];
     if (!url) return NO;
     unlink([VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.nv12"].fileSystemRepresentation);
+    unlink([VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"].fileSystemRepresentation);
 
     NSDictionary *settings = @{
         (id)kCVPixelBufferPixelFormatTypeKey : @(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange),
+        // Keep the cross-process NV12 file small enough for an A10 device.
+        // The camera hook scales this frame to the target buffer.
+        (id)kCVPixelBufferWidthKey : @640,
+        (id)kCVPixelBufferHeightKey : @360,
         (id)kCVPixelBufferIOSurfacePropertiesKey : @{}
     };
     AVPlayerItemVideoOutput *output = [[AVPlayerItemVideoOutput alloc] initWithPixelBufferAttributes:settings];

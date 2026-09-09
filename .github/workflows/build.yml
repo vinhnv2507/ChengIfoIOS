@@ -175,7 +175,7 @@ jobs:
           else
             gh release create vcam-native-packages built-packages/*.deb \
               --title "VCam native VideoToolbox experiment" \
-              --notes "Experimental native packages. 0.0.100-native-safe keeps the stable FFmpeg/JPEG path as the default on older A10 devices. The stable Sileo source remains on main/0.0.97."
+              --notes "Experimental native packages. 0.0.101-native-optin keeps FFmpeg/JPEG as default; AVPlayer/VideoToolbox runs only after selecting Video native (thử nghiệm). The stable Sileo source remains on main/0.0.97."
           fi
 
       - name: Create native APT repository
@@ -204,7 +204,7 @@ jobs:
             echo "Codename: vcam-native"
             echo "Architectures: iphoneos-arm iphoneos-arm64 iphoneos-arm64e"
             echo "Components: main"
-            echo "Description: Experimental VCam native repository (safe fallback default)"
+            echo "Description: Experimental VCam native repository (explicit opt-in)"
             cat "$native_checksums"
           } > native-apt/Release
           rm -f "$native_checksums"
