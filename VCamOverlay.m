@@ -307,11 +307,15 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         self.sourceStatusLabel.text = [mode isEqualToString:@"video"]
             ? @"Video live độ trễ thấp" : @"Nguồn ảnh live cập nhật mỗi giây";
         if ([mode isEqualToString:@"video"] && !self.nativeDecoderActive) {
-            [self stopRemoteFFmpeg];
-            if ([self startNativeDecoderAtURL:remoteURL]) {
+            // Native VideoToolbox/NV12 remains experimental. Keep the stable
+            // RTSP -> FFmpeg -> atomic JPEG path as the default until the
+            // AVPlayer live timebase is reliable on iOS 15.
+            [self stopNativeDecoder];
+            NSString *liveJPEG = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+            if ([preferences[@"mediaPath"] hasSuffix:@"media-live.nv12"]) {
                 NSMutableDictionary *updated = [preferences mutableCopy];
                 updated[@"enabled"] = @YES;
-                updated[@"mediaPath"] = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.nv12"];
+                updated[@"mediaPath"] = liveJPEG;
                 [self writeMainPreferences:updated];
             }
         }
