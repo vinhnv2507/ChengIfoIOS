@@ -620,8 +620,10 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
 - (BOOL)startWebDecoderAtURL:(NSString *)urlString {
     NSURLComponents *source = [NSURLComponents componentsWithString:urlString];
     if (!source.host) return NO;
-    NSString *whep = [NSString stringWithFormat:@"http://%@:%ld/facelab/whep",
-        source.host, (long)(source.port.integerValue > 0 ? source.port.integerValue + 1 : 8889)];
+    // FaceLab's HTTP listener may be 8080-8099, but MediaMTX WHEP is always
+    // exposed on 8889. Do not derive 8085 from a source URL such as
+    // http://host:8084/1_ios.mp4; that endpoint has no WebRTC handler.
+    NSString *whep = [NSString stringWithFormat:@"http://%@:8889/facelab/whep", source.host];
     NSURL *whepURL = [NSURL URLWithString:whep];
     if (!whepURL) return NO;
     [self stopWebDecoder];
@@ -641,7 +643,9 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     NSString *whepString = [whepURL.absoluteString stringByReplacingOccurrencesOfString:@"'" withString:@"%27"];
     NSString *html = [NSString stringWithFormat:
         @"<html><body style='margin:0;background:#000'><video id='v' autoplay muted playsinline style='width:720px;height:405px;object-fit:contain'></video><script>const v=document.getElementById('v');const u='%@';async function go(){try{let p=new RTCPeerConnection({iceServers:[],bundlePolicy:'max-bundle'});p.addTransceiver('video',{direction:'recvonly'});p.ontrack=e=>{v.srcObject=e.streams[0];v.play().catch(()=>{})};let o=await p.createOffer();await p.setLocalDescription(o);let r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/sdp','Accept':'application/sdp'},body:o.sdp,cache:'no-store'});if(!r.ok)throw 0;await p.setRemoteDescription({type:'answer',sdp:await r.text()})}catch(e){setTimeout(go,500)}}go();</script></body></html>", whepString];
-    [web loadHTMLString:html baseURL:nil];
+    NSURL *originURL = [NSURL URLWithString:[NSString stringWithFormat:@"http://%@:%ld/",
+        source.host, (long)(source.port.integerValue > 0 ? source.port.integerValue : 8080)]];
+    [web loadHTMLString:html baseURL:originURL];
     self.webCaptureDisplayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(webCaptureTick:)];
     // Ask WebKit for a 30 FPS cadence, but keep the single-flight guard
     // below so a slow snapshot never creates a backlog of old frames.

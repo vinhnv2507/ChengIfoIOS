@@ -175,7 +175,7 @@ jobs:
           else
             gh release create vcam-native-packages built-packages/*.deb \
               --title "VCam native VideoToolbox experiment" \
-              --notes "Experimental web packages. 0.0.105-web-smooth uses a 30 FPS single-flight WebRTC capture cadence, faster latest-frame decoding and optimized JPEG work. FFmpeg/JPEG remains default."
+              --notes "Experimental web packages. 0.0.106-webrtc-fix uses the fixed MediaMTX WHEP port 8889 and a real HTTP origin for WKWebView fetch/CORS. FFmpeg/JPEG remains default."
           fi
 
       - name: Create native APT repository
@@ -204,7 +204,7 @@ jobs:
             echo "Codename: vcam-native"
             echo "Architectures: iphoneos-arm iphoneos-arm64 iphoneos-arm64e"
             echo "Components: main"
-            echo "Description: Experimental VCam WebRTC smooth repository (explicit opt-in)"
+            echo "Description: Experimental VCam WebRTC fix repository (explicit opt-in)"
             cat "$native_checksums"
           } > native-apt/Release
           rm -f "$native_checksums"
