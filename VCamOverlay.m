@@ -308,17 +308,17 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         self.sourceStatusLabel.text = [mode isEqualToString:@"video"]
             ? @"Video live độ trễ thấp" : @"Nguồn ảnh live cập nhật mỗi giây";
         if ([mode isEqualToString:@"video"] && !self.nativeDecoderActive) {
-            // Prefer the native AVPlayer/VideoToolbox path on this branch.
-            // Non-HLS/invalid sources still fall back to RTSP/FFmpeg below.
-            if (![self startNativeDecoderAtURL:remoteURL]) {
-                [self stopNativeDecoder];
-                NSString *liveJPEG = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
-                if ([preferences[@"mediaPath"] hasSuffix:@"media-live.nv12"]) {
-                    NSMutableDictionary *updated = [preferences mutableCopy];
-                    updated[@"enabled"] = @YES;
-                    updated[@"mediaPath"] = liveJPEG;
-                    [self writeMainPreferences:updated];
-                }
+            // Emergency safe mode: keep the native decoder available for
+            // development, but do not start it automatically. A stalled
+            // AVPlayerItemVideoOutput can block mediaserverd on older A10
+            // devices; the proven FFmpeg/JPEG path must remain the default.
+            [self stopNativeDecoder];
+            NSString *liveJPEG = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+            if ([preferences[@"mediaPath"] hasSuffix:@"media-live.nv12"]) {
+                NSMutableDictionary *updated = [preferences mutableCopy];
+                updated[@"enabled"] = @YES;
+                updated[@"mediaPath"] = liveJPEG;
+                [self writeMainPreferences:updated];
             }
         }
         if (!self.remoteTimer || ![self.remoteTimerMode isEqualToString:mode]) {
