@@ -483,7 +483,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     // lighter on the A10 while keeping a steady 20 FPS for the camera hook.
     // JPEG is full-range, therefore expand limited-range movie YUV explicitly.
     const char *filter =
-        "fps=24,scale=360:360:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
+        "fps=24,scale=400:400:force_original_aspect_ratio=decrease:in_range=tv:out_range=pc,format=yuvj420p";
     BOOL isRTSP = [inputURL.lowercaseString hasPrefix:@"rtsp://"];
     NSMutableArray<NSString *> *argumentStrings = [NSMutableArray arrayWithObjects:
         ffmpeg, @"-nostdin", @"-hide_banner", @"-loglevel", @"error",
