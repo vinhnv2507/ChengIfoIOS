@@ -634,7 +634,11 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         configuration:configuration];
     web.backgroundColor = UIColor.blackColor;
     web.opaque = NO;
-    web.alpha = 0.01;
+    // Do not make the WebView transparent. WKWebView snapshots preserve the
+    // view's alpha, so the previous 0.01 value produced an almost-black
+    // camera frame even though WebRTC was connected. The view remains fully
+    // off-screen and cannot cover the user's UI.
+    web.alpha = 1.0;
     web.userInteractionEnabled = NO;
     [self.view addSubview:web];
     self.webLiveView = web;
