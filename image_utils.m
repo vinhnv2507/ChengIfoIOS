@@ -218,7 +218,9 @@ BOOL reloadReplacementLiveFrame(NSString *path) {
     // on an A10. Do it on a utility queue so camera delivery and touch input
     // remain responsive. The old frame stays active until the new one is
     // completely decoded.
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+    // This is a single-flight job, so user-initiated QoS reduces frame age
+    // without creating a queue of competing JPEG decodes.
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSString *resolvedPath = resolveMediaPath(requestedPath);
         CGImageRef nextImage = NULL;
         if (resolvedPath) {

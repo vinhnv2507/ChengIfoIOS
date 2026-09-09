@@ -643,7 +643,9 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         @"<html><body style='margin:0;background:#000'><video id='v' autoplay muted playsinline style='width:720px;height:405px;object-fit:contain'></video><script>const v=document.getElementById('v');const u='%@';async function go(){try{let p=new RTCPeerConnection({iceServers:[],bundlePolicy:'max-bundle'});p.addTransceiver('video',{direction:'recvonly'});p.ontrack=e=>{v.srcObject=e.streams[0];v.play().catch(()=>{})};let o=await p.createOffer();await p.setLocalDescription(o);let r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/sdp','Accept':'application/sdp'},body:o.sdp,cache:'no-store'});if(!r.ok)throw 0;await p.setRemoteDescription({type:'answer',sdp:await r.text()})}catch(e){setTimeout(go,500)}}go();</script></body></html>", whepString];
     [web loadHTMLString:html baseURL:nil];
     self.webCaptureDisplayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(webCaptureTick:)];
-    self.webCaptureDisplayLink.preferredFramesPerSecond = 24;
+    // Ask WebKit for a 30 FPS cadence, but keep the single-flight guard
+    // below so a slow snapshot never creates a backlog of old frames.
+    self.webCaptureDisplayLink.preferredFramesPerSecond = 30;
     [self.webCaptureDisplayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
     NSMutableDictionary *preferences = [[self mainPreferences] mutableCopy];
     preferences[@"enabled"] = @YES;
@@ -669,7 +671,10 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         // the home/app-switcher animation and can leave touch input frozen.
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
             @autoreleasepool {
-                NSData *jpeg = (image && !error) ? UIImageJPEGRepresentation(image, 0.95) : nil;
+                // 0.92 is visually indistinguishable at 720 px, while it
+                // reduces A10 JPEG work and file size enough to keep up with
+                // the 30 FPS capture cadence.
+                NSData *jpeg = (image && !error) ? UIImageJPEGRepresentation(image, 0.92) : nil;
                 if (jpeg.length > 0 && generation == self.webCaptureGeneration && self.webDecoderActive) {
                     [jpeg writeToFile:[VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"] options:NSDataWritingAtomic error:nil];
                 }

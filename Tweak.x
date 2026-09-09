@@ -61,7 +61,7 @@ static void vcam_ensureLoaded(void) {
     // stuck even though the replacement image itself is valid.
     CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
     BOOL preferenceReloadRequested = vcam_needsLoad || !vcam_hasObservedPreferences;
-    if (!vcam_needsLoad && (now - vcam_lastLiveCheck) < (1.0 / 24.0)) {
+    if (!vcam_needsLoad && (now - vcam_lastLiveCheck) < (1.0 / 30.0)) {
         return;
     }
     vcam_lastLiveCheck = now;
