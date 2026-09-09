@@ -376,7 +376,25 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
     if (!modified || [modified isEqualToDate:self.livePreviewModification]) return;
     self.livePreviewLoading = YES;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-        UIImage *image = [UIImage imageWithContentsOfFile:path];
+        UIImage *image = nil;
+        CGImageSourceRef source = CGImageSourceCreateWithURL(
+            (__bridge CFURLRef)[NSURL fileURLWithPath:path], NULL);
+        if (source) {
+            NSDictionary *options = @{
+                (id)kCGImageSourceCreateThumbnailFromImageAlways : @YES,
+                (id)kCGImageSourceCreateThumbnailWithTransform : @YES,
+                (id)kCGImageSourceShouldCacheImmediately : @YES,
+                (id)kCGImageSourceThumbnailMaxPixelSize : @400
+            };
+            CGImageRef thumbnail = CGImageSourceCreateThumbnailAtIndex(
+                source, 0, (__bridge CFDictionaryRef)options);
+            if (thumbnail) {
+                image = [UIImage imageWithCGImage:thumbnail scale:1.0
+                    orientation:UIImageOrientationUp];
+                CGImageRelease(thumbnail);
+            }
+            CFRelease(source);
+        }
         dispatch_async(dispatch_get_main_queue(), ^{
             self.livePreviewLoading = NO;
             if (!image) return;
