@@ -555,8 +555,12 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
 
 - (void)nativeDisplayTick:(CADisplayLink *)link {
     if (!self.nativeDecoderActive || self.nativeEncodePending) return;
-    CMTime itemTime = self.nativePlayer.currentTime;
-    if (!CMTIME_IS_VALID(itemTime)) return;
+    // AVPlayerItemVideoOutput's timebase is driven by the host clock for a
+    // live HLS item. Using AVPlayer.currentTime can remain pinned to the first
+    // segment, which produces one frame until VCam is toggled. Pull the newest
+    // host-time sample instead.
+    CMTime itemTime = [self.nativeOutput itemTimeForHostTime:CACurrentMediaTime()];
+    if (!CMTIME_IS_VALID(itemTime) || ![self.nativeOutput hasNewPixelBufferForItemTime:itemTime]) return;
     CVPixelBufferRef pixelBuffer = [self.nativeOutput copyPixelBufferForItemTime:itemTime itemTimeForDisplay:NULL];
     if (!pixelBuffer) return;
     self.nativeEncodePending = YES;
