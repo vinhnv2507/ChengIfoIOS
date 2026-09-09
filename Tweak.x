@@ -61,7 +61,7 @@ static void vcam_ensureLoaded(void) {
     // stuck even though the replacement image itself is valid.
     CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
     BOOL preferenceReloadRequested = vcam_needsLoad || !vcam_hasObservedPreferences;
-    if (!vcam_needsLoad && (now - vcam_lastLiveCheck) < (1.0 / 24.0)) {
+    if (!vcam_needsLoad && (now - vcam_lastLiveCheck) < (1.0 / 30.0)) {
         return;
     }
     vcam_lastLiveCheck = now;
@@ -102,7 +102,10 @@ static void vcam_ensureLoaded(void) {
         NSString *livePath = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
         NSString *liveRawPath = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.nv12"];
         if ([mediaPath isEqualToString:liveRawPath]) {
-            if (!reloadReplacementLiveNV12Frame(mediaPath)) vcam_needsLoad = YES;
+            // The loader has its own latest-frame guard and returns before
+            // doing any file mapping or IOSurface allocation.  This call is
+            // therefore safe on the camera callback and never blocks it.
+            reloadReplacementLiveNV12Frame(mediaPath);
         } else if ([mediaPath isEqualToString:livePath] && vcam_liveStamp != 0) {
             // Live frames keep the same preference path. Avoid rebuilding the
             // whole media state and writing a status plist for every JPEG.

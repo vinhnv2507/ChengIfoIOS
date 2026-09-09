@@ -45,6 +45,12 @@ static CGColorSpaceRef sharedColorSpace = NULL;
 // the next callback after the current decode completes.
 static BOOL liveDecodePending = NO;
 static NSUInteger liveDecodeGeneration = 0;
+// Native VideoToolbox frames are copied into a CVPixelBuffer off the camera
+// callback.  Reading/mapping a raw NV12 file and allocating an IOSurface can
+// take several milliseconds on A10; doing that synchronously makes touches
+// and camera delivery stutter.  Keep one latest-frame decode in flight and
+// leave the previous buffer active until the new one is ready.
+static BOOL liveNV12DecodePending = NO;
 
 static void ensureVCamLock(void) {
     if (vcamLock == NULL) {
@@ -212,7 +218,9 @@ BOOL reloadReplacementLiveFrame(NSString *path) {
     // on an A10. Do it on a utility queue so camera delivery and touch input
     // remain responsive. The old frame stays active until the new one is
     // completely decoded.
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+    // This is a single-flight job, so user-initiated QoS reduces frame age
+    // without creating a queue of competing JPEG decodes.
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSString *resolvedPath = resolveMediaPath(requestedPath);
         CGImageRef nextImage = NULL;
         if (resolvedPath) {
@@ -226,7 +234,7 @@ BOOL reloadReplacementLiveFrame(NSString *path) {
                     (id)kCGImageSourceCreateThumbnailFromImageAlways : @YES,
                     (id)kCGImageSourceCreateThumbnailWithTransform : @YES,
                     (id)kCGImageSourceShouldCacheImmediately : @YES,
-                    (id)kCGImageSourceThumbnailMaxPixelSize : @400
+                    (id)kCGImageSourceThumbnailMaxPixelSize : @720
                 };
                 nextImage = CGImageSourceCreateThumbnailAtIndex(
                     source, 0, (__bridge CFDictionaryRef)thumbnailOptions);
@@ -250,41 +258,71 @@ BOOL reloadReplacementLiveFrame(NSString *path) {
 
 BOOL reloadReplacementLiveNV12Frame(NSString *path) {
     if (path.length == 0) return NO;
-    NSData *data = [NSData dataWithContentsOfFile:resolveMediaPath(path)
-        options:NSDataReadingMappedIfSafe error:nil];
-    if (data.length < sizeof(VCamLiveNV12Header)) return NO;
-    const VCamLiveNV12Header *header = data.bytes;
-    if (header->magic != VCAM_LIVE_NV12_MAGIC || header->width == 0 || header->height == 0) return NO;
-    size_t yBytes = (size_t)header->yStride * header->height;
-    size_t uvBytes = (size_t)header->uvStride * ((header->height + 1) / 2);
-    if (sizeof(*header) + yBytes + uvBytes > data.length) return NO;
-    NSDictionary *attributes = @{(id)kCVPixelBufferIOSurfacePropertiesKey: @{}};
-    CVPixelBufferRef next = NULL;
-    if (CVPixelBufferCreate(kCFAllocatorDefault, header->width, header->height,
-            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
-            (__bridge CFDictionaryRef)attributes, &next) != kCVReturnSuccess || !next) return NO;
-    if (CVPixelBufferLockBaseAddress(next, 0) != kCVReturnSuccess) {
-        CVPixelBufferRelease(next);
-        return NO;
-    }
-    const uint8_t *srcY = (const uint8_t *)data.bytes + sizeof(*header);
-    const uint8_t *srcUV = srcY + yBytes;
-    uint8_t *dstY = CVPixelBufferGetBaseAddressOfPlane(next, 0);
-    uint8_t *dstUV = CVPixelBufferGetBaseAddressOfPlane(next, 1);
-    size_t dstYStride = CVPixelBufferGetBytesPerRowOfPlane(next, 0);
-    size_t dstUVStride = CVPixelBufferGetBytesPerRowOfPlane(next, 1);
-    for (uint32_t y = 0; y < header->height; y++)
-        memcpy(dstY + y * dstYStride, srcY + y * header->yStride, MIN(dstYStride, (size_t)header->yStride));
-    for (uint32_t y = 0; y < (header->height + 1) / 2; y++)
-        memcpy(dstUV + y * dstUVStride, srcUV + y * header->uvStride, MIN(dstUVStride, (size_t)header->uvStride));
-    CVPixelBufferUnlockBaseAddress(next, 0);
     ensureVCamLock();
     [vcamLock lock];
-    if (liveNV12Buffer) CVPixelBufferRelease(liveNV12Buffer);
-    liveNV12Buffer = next;
-    currentMode = VCamModeImage;
-    [renderedFrameCache removeAllObjects];
+    if (liveNV12DecodePending) {
+        [vcamLock unlock];
+        return YES;
+    }
+    liveNV12DecodePending = YES;
+    NSUInteger generation = liveDecodeGeneration;
+    NSString *requestedPath = [path copy];
     [vcamLock unlock];
+
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        @autoreleasepool {
+            NSData *data = [NSData dataWithContentsOfFile:resolveMediaPath(requestedPath)
+                options:NSDataReadingMappedIfSafe error:nil];
+            CVPixelBufferRef next = NULL;
+            if (data.length >= sizeof(VCamLiveNV12Header)) {
+                const VCamLiveNV12Header *header = data.bytes;
+                size_t yBytes = (size_t)header->yStride * header->height;
+                size_t uvBytes = (size_t)header->uvStride * ((header->height + 1) / 2);
+                if (header->magic == VCAM_LIVE_NV12_MAGIC && header->width > 0 &&
+                    header->height > 0 && header->yStride >= header->width &&
+                    header->uvStride >= header->width &&
+                    sizeof(*header) + yBytes + uvBytes <= data.length) {
+                    NSDictionary *attributes = @{(id)kCVPixelBufferIOSurfacePropertiesKey: @{}};
+                    if (CVPixelBufferCreate(kCFAllocatorDefault, header->width, header->height,
+                            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                            (__bridge CFDictionaryRef)attributes, &next) != kCVReturnSuccess) {
+                        next = NULL;
+                    }
+                    if (next && CVPixelBufferLockBaseAddress(next, 0) == kCVReturnSuccess) {
+                        const uint8_t *srcY = (const uint8_t *)data.bytes + sizeof(*header);
+                        const uint8_t *srcUV = srcY + yBytes;
+                        uint8_t *dstY = CVPixelBufferGetBaseAddressOfPlane(next, 0);
+                        uint8_t *dstUV = CVPixelBufferGetBaseAddressOfPlane(next, 1);
+                        size_t dstYStride = CVPixelBufferGetBytesPerRowOfPlane(next, 0);
+                        size_t dstUVStride = CVPixelBufferGetBytesPerRowOfPlane(next, 1);
+                        for (uint32_t y = 0; y < header->height; y++)
+                            memcpy(dstY + y * dstYStride, srcY + y * header->yStride,
+                                MIN(dstYStride, (size_t)header->yStride));
+                        for (uint32_t y = 0; y < (header->height + 1) / 2; y++)
+                            memcpy(dstUV + y * dstUVStride, srcUV + y * header->uvStride,
+                                MIN(dstUVStride, (size_t)header->uvStride));
+                        CVPixelBufferUnlockBaseAddress(next, 0);
+                    } else if (next) {
+                        CVPixelBufferRelease(next);
+                        next = NULL;
+                    }
+                }
+            }
+
+            ensureVCamLock();
+            [vcamLock lock];
+            if (next && generation == liveDecodeGeneration) {
+                if (liveNV12Buffer) CVPixelBufferRelease(liveNV12Buffer);
+                liveNV12Buffer = next;
+                currentMode = VCamModeImage;
+                [renderedFrameCache removeAllObjects];
+                next = NULL;
+            }
+            if (next) CVPixelBufferRelease(next);
+            liveNV12DecodePending = NO;
+            [vcamLock unlock];
+        }
+    });
     return YES;
 }
 
