@@ -1,4 +1,8 @@
 #import <UIKit/UIKit.h>
+#import <AVFoundation/AVFoundation.h>
+#import <CoreImage/CoreImage.h>
+#import <ImageIO/ImageIO.h>
+#import <QuartzCore/QuartzCore.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import "VCamPaths.h"
 #include <spawn.h>
@@ -64,9 +68,19 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 @property(nonatomic, strong) NSDate *lastRemoteVideoModification;
 @property(nonatomic, copy) NSString *remoteFFmpegInputURL;
 @property(nonatomic, assign) NSInteger remoteFallbackStage;
+@property(nonatomic, strong) AVPlayer *nativePlayer;
+@property(nonatomic, strong) AVPlayerItemVideoOutput *nativeOutput;
+@property(nonatomic, strong) CADisplayLink *nativeDisplayLink;
+@property(nonatomic, strong) CIContext *nativeCIContext;
+@property(nonatomic, strong) NSDate *nativeStartedAt;
+@property(nonatomic, assign) BOOL nativeEncodePending;
+@property(nonatomic, assign) BOOL nativeDecoderActive;
 - (void)refreshFromPreferences;
 - (NSString *)rtspFaceLabURLFromURL:(NSString *)urlString;
 - (NSString *)hlsFaceLabURLFromURL:(NSString *)urlString;
+- (BOOL)startNativeDecoderAtURL:(NSString *)urlString;
+- (void)stopNativeDecoder;
+- (void)nativeDisplayTick:(CADisplayLink *)link;
 @end
 
 static BOOL VCamLooksLikeFaceLabHTTPURL(NSURLComponents *components) {
@@ -256,6 +270,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         [self.remoteTimer invalidate];
         self.remoteTimer = nil;
         self.remoteRequestRunning = NO;
+        [self stopNativeDecoder];
         [self stopRemoteFFmpeg];
         return;
     }
@@ -289,6 +304,15 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         NSTimeInterval interval = [mode isEqualToString:@"video"] ? (1.0 / 24.0) : 1.0;
         self.sourceStatusLabel.text = [mode isEqualToString:@"video"]
             ? @"Video live độ trễ thấp" : @"Nguồn ảnh live cập nhật mỗi giây";
+        if ([mode isEqualToString:@"video"] && !self.nativeDecoderActive) {
+            [self stopRemoteFFmpeg];
+            if ([self startNativeDecoderAtURL:remoteURL]) {
+                NSMutableDictionary *updated = [preferences mutableCopy];
+                updated[@"enabled"] = @YES;
+                updated[@"mediaPath"] = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+                [self writeMainPreferences:updated];
+            }
+        }
         if (!self.remoteTimer || ![self.remoteTimerMode isEqualToString:mode]) {
             [self.remoteTimer invalidate];
             self.remoteTimerMode = mode;
@@ -301,6 +325,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         self.remoteTimer = nil;
         self.remoteTimerMode = nil;
         self.sourceStatusLabel.text = @"Chọn ảnh, video hoặc nhập link live";
+        [self stopNativeDecoder];
         [self stopRemoteFFmpeg];
     }
 }
@@ -356,6 +381,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
             return;
         }
         [self stopRemoteFFmpeg];
+        [self stopNativeDecoder];
         self.lastRemoteFrame = nil;
         self.lastRemoteVideoModification = nil;
         self.remoteFFmpegInputURL = nil;
@@ -394,6 +420,17 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     NSDictionary *preferences = [self mainPreferences];
     NSString *urlString = preferences[@"remoteURL"];
     if ([preferences[@"remoteMode"] isEqualToString:@"video"]) {
+        if (self.nativeDecoderActive) {
+            NSString *destination = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+            NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:destination error:nil];
+            NSDate *modified = attributes[NSFileModificationDate];
+            if (self.nativeStartedAt && !modified && -self.nativeStartedAt.timeIntervalSinceNow > 8.0) {
+                [self stopNativeDecoder];
+                self.remoteFFmpegMode = 0;
+            } else {
+                return;
+            }
+        }
         [self monitorRemoteVideoAtURL:urlString];
         return;
     }
@@ -464,6 +501,79 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     }
     self.remoteFFmpegMode = 0;
     self.remoteFFmpegStartedAt = nil;
+}
+
+- (void)stopNativeDecoder {
+    [self.nativeDisplayLink invalidate];
+    self.nativeDisplayLink = nil;
+    [self.nativePlayer pause];
+    self.nativePlayer = nil;
+    self.nativeOutput = nil;
+    self.nativeStartedAt = nil;
+    self.nativeDecoderActive = NO;
+    self.nativeEncodePending = NO;
+}
+
+- (BOOL)startNativeDecoderAtURL:(NSString *)urlString {
+    NSString *hlsURL = [self hlsFaceLabURLFromURL:urlString];
+    if (hlsURL.length == 0) return NO;
+    [self stopNativeDecoder];
+    NSURL *url = [NSURL URLWithString:hlsURL];
+    if (!url) return NO;
+    unlink([VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"].fileSystemRepresentation);
+
+    NSDictionary *settings = @{
+        (id)kCVPixelBufferPixelFormatTypeKey : @(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange),
+        (id)kCVPixelBufferIOSurfacePropertiesKey : @{}
+    };
+    AVPlayerItemVideoOutput *output = [[AVPlayerItemVideoOutput alloc] initWithPixelBufferAttributes:settings];
+    AVPlayerItem *item = [AVPlayerItem playerItemWithURL:url];
+    [item addOutput:output];
+    AVPlayer *player = [AVPlayer playerWithPlayerItem:item];
+    player.actionAtItemEnd = AVPlayerActionAtItemEndNone;
+    self.nativeOutput = output;
+    self.nativePlayer = player;
+    self.nativeCIContext = self.nativeCIContext ?: [CIContext context];
+    self.nativeStartedAt = [NSDate date];
+    self.nativeDecoderActive = YES;
+    self.nativeDisplayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(nativeDisplayTick:)];
+    self.nativeDisplayLink.preferredFramesPerSecond = 24;
+    [self.nativeDisplayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+    [player play];
+    self.sourceStatusLabel.text = @"Native VideoToolbox…";
+    return YES;
+}
+
+- (void)nativeDisplayTick:(CADisplayLink *)link {
+    if (!self.nativeDecoderActive || self.nativeEncodePending) return;
+    CMTime itemTime = [self.nativeOutput itemTimeForHostTime:CACurrentMediaTime()];
+    if (![self.nativeOutput hasNewPixelBufferForItemTime:itemTime]) return;
+    CVPixelBufferRef pixelBuffer = [self.nativeOutput copyPixelBufferForItemTime:itemTime itemTimeForDisplay:NULL];
+    if (!pixelBuffer) return;
+    self.nativeEncodePending = YES;
+    NSString *destination = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+    CIContext *context = self.nativeCIContext;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        @autoreleasepool {
+            CIImage *image = [CIImage imageWithCVPixelBuffer:pixelBuffer];
+            CGRect extent = image.extent;
+            CGFloat scale = MIN(1.0, 400.0 / MAX(extent.size.width, extent.size.height));
+            if (scale < 1.0) image = [image imageByApplyingTransform:CGAffineTransformMakeScale(scale, scale)];
+            CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+            NSData *jpeg = [context JPEGRepresentationOfImage:image colorSpace:colorSpace options:@{
+                (id)kCGImageDestinationLossyCompressionQuality : @0.82
+            }];
+            CGColorSpaceRelease(colorSpace);
+            if (jpeg.length > 0) {
+                [jpeg writeToFile:destination options:NSDataWritingAtomic error:nil];
+                [[NSFileManager defaultManager] setAttributes:@{
+                    NSFilePosixPermissions: @0666, NSFileProtectionKey: NSFileProtectionNone
+                } ofItemAtPath:destination error:nil];
+            }
+            CVPixelBufferRelease(pixelBuffer);
+            dispatch_async(dispatch_get_main_queue(), ^{ self.nativeEncodePending = NO; });
+        }
+    });
 }
 
 - (void)startRemoteFFmpegAtURL:(NSString *)urlString useToneMap:(BOOL)useToneMap {
