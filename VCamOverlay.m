@@ -84,6 +84,7 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 @property(nonatomic, strong) NSDate *webStartedAt;
 @property(nonatomic, assign) BOOL webDecoderActive;
 @property(nonatomic, assign) BOOL webCapturePending;
+@property(nonatomic, assign) NSUInteger webCaptureGeneration;
 - (void)refreshFromPreferences;
 - (NSString *)rtspFaceLabURLFromURL:(NSString *)urlString;
 - (NSString *)hlsFaceLabURLFromURL:(NSString *)urlString;
@@ -93,6 +94,8 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 - (BOOL)startWebDecoderAtURL:(NSString *)urlString;
 - (void)stopWebDecoder;
 - (void)webCaptureTick:(CADisplayLink *)link;
+- (void)vcamApplicationWillResignActive:(NSNotification *)notification;
+- (void)vcamApplicationDidBecomeActive:(NSNotification *)notification;
 @end
 
 static BOOL VCamLooksLikeFaceLabHTTPURL(NSURLComponents *components) {
@@ -143,6 +146,12 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
 
     [self buildPanel];
     vcamOverlayController = self;
+    [[NSNotificationCenter defaultCenter] addObserver:self
+        selector:@selector(vcamApplicationWillResignActive:)
+        name:UIApplicationWillResignActiveNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+        selector:@selector(vcamApplicationDidBecomeActive:)
+        name:UIApplicationDidBecomeActiveNotification object:nil];
     [self refreshFromPreferences];
 }
 
@@ -579,6 +588,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
 }
 
 - (void)stopWebDecoder {
+    self.webCaptureGeneration++;
     [self.webCaptureDisplayLink invalidate];
     self.webCaptureDisplayLink = nil;
     self.webDecoderActive = NO;
@@ -587,6 +597,24 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     [self.webLiveView stopLoading];
     [self.webLiveView removeFromSuperview];
     self.webLiveView = nil;
+}
+
+- (void)vcamApplicationWillResignActive:(NSNotification *)notification {
+    // A WKWebView lives in SpringBoard's process on this tweak. When the
+    // camera is dismissed from the app switcher, WebKit can otherwise keep a
+    // compositor/snapshot callback alive while mediaserverd is tearing down
+    // the camera session. Stop every live producer before that transition.
+    [self.remoteTimer invalidate];
+    self.remoteTimer = nil;
+    [self stopWebDecoder];
+    [self stopNativeDecoder];
+    [self stopRemoteFFmpeg];
+}
+
+- (void)vcamApplicationDidBecomeActive:(NSNotification *)notification {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self refreshFromPreferences];
+    });
 }
 
 - (BOOL)startWebDecoderAtURL:(NSString *)urlString {
@@ -628,17 +656,28 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
 - (void)webCaptureTick:(CADisplayLink *)link {
     if (!self.webDecoderActive || self.webCapturePending || !self.webLiveView) return;
     self.webCapturePending = YES;
+    NSUInteger generation = self.webCaptureGeneration;
     WKSnapshotConfiguration *configuration = [[WKSnapshotConfiguration alloc] init];
     configuration.rect = CGRectMake(0, 0, 720, 405);
     configuration.snapshotWidth = @720;
     __weak typeof(self) weakSelf = self;
     [self.webLiveView takeSnapshotWithConfiguration:configuration completionHandler:^(UIImage *image, NSError *error) {
         __strong typeof(weakSelf) self = weakSelf;
-        if (image && !error) {
-            NSData *jpeg = UIImageJPEGRepresentation(image, 0.95);
-            if (jpeg.length > 0) [jpeg writeToFile:[VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"] options:NSDataWritingAtomic error:nil];
-        }
-        dispatch_async(dispatch_get_main_queue(), ^{ self.webCapturePending = NO; });
+        if (!self || generation != self.webCaptureGeneration || !self.webDecoderActive) return;
+        // Snapshot completion is delivered on the main queue. JPEG encoding
+        // and file I/O must not run there: doing so blocks SpringBoard during
+        // the home/app-switcher animation and can leave touch input frozen.
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            @autoreleasepool {
+                NSData *jpeg = (image && !error) ? UIImageJPEGRepresentation(image, 0.95) : nil;
+                if (jpeg.length > 0 && generation == self.webCaptureGeneration && self.webDecoderActive) {
+                    [jpeg writeToFile:[VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"] options:NSDataWritingAtomic error:nil];
+                }
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (generation == self.webCaptureGeneration) self.webCapturePending = NO;
+                });
+            }
+        });
     }];
 }
 
