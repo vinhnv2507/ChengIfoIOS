@@ -539,15 +539,17 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     self.nativeDisplayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(nativeDisplayTick:)];
     self.nativeDisplayLink.preferredFramesPerSecond = 24;
     [self.nativeDisplayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+    player.automaticallyWaitsToMinimizeStalling = NO;
     [player play];
+    player.rate = 1.0;
     self.sourceStatusLabel.text = @"Native VideoToolbox…";
     return YES;
 }
 
 - (void)nativeDisplayTick:(CADisplayLink *)link {
     if (!self.nativeDecoderActive || self.nativeEncodePending) return;
-    CMTime itemTime = [self.nativeOutput itemTimeForHostTime:CACurrentMediaTime()];
-    if (![self.nativeOutput hasNewPixelBufferForItemTime:itemTime]) return;
+    CMTime itemTime = self.nativePlayer.currentTime;
+    if (!CMTIME_IS_VALID(itemTime)) return;
     CVPixelBufferRef pixelBuffer = [self.nativeOutput copyPixelBufferForItemTime:itemTime itemTimeForDisplay:NULL];
     if (!pixelBuffer) return;
     self.nativeEncodePending = YES;
