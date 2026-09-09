@@ -5,6 +5,7 @@
 #import <CoreImage/CoreImage.h>
 #import <ImageIO/ImageIO.h>
 #import "VCamPaths.h"
+#import "VCamLiveFrame.h"
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
@@ -31,6 +32,7 @@ static VCamMode currentMode = VCamModeNone;
 static CGImageRef replacementImage = NULL;
 static NSArray<NSString *> *videoFramePaths = nil;
 static CGImageRef currentVideoImage = NULL;
+static CVPixelBufferRef liveNV12Buffer = NULL;
 static NSUInteger videoFrameIndex = 0;
 static CFAbsoluteTime nextVideoFrameTime = 0;
 static CIContext *sharedCIContext = NULL;
@@ -137,6 +139,10 @@ static void freeMedia(void) {
         CGImageRelease(currentVideoImage);
         currentVideoImage = NULL;
     }
+    if (liveNV12Buffer) {
+        CVPixelBufferRelease(liveNV12Buffer);
+        liveNV12Buffer = NULL;
+    }
     videoFramePaths = nil;
     videoFrameIndex = 0;
     nextVideoFrameTime = 0;
@@ -239,6 +245,46 @@ BOOL reloadReplacementLiveFrame(NSString *path) {
         liveDecodePending = NO;
         [vcamLock unlock];
     });
+    return YES;
+}
+
+BOOL reloadReplacementLiveNV12Frame(NSString *path) {
+    if (path.length == 0) return NO;
+    NSData *data = [NSData dataWithContentsOfFile:resolveMediaPath(path)
+        options:NSDataReadingMappedIfSafe error:nil];
+    if (data.length < sizeof(VCamLiveNV12Header)) return NO;
+    const VCamLiveNV12Header *header = data.bytes;
+    if (header->magic != VCAM_LIVE_NV12_MAGIC || header->width == 0 || header->height == 0) return NO;
+    size_t yBytes = (size_t)header->yStride * header->height;
+    size_t uvBytes = (size_t)header->uvStride * ((header->height + 1) / 2);
+    if (sizeof(*header) + yBytes + uvBytes > data.length) return NO;
+    NSDictionary *attributes = @{(id)kCVPixelBufferIOSurfacePropertiesKey: @{}};
+    CVPixelBufferRef next = NULL;
+    if (CVPixelBufferCreate(kCFAllocatorDefault, header->width, header->height,
+            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            (__bridge CFDictionaryRef)attributes, &next) != kCVReturnSuccess || !next) return NO;
+    if (CVPixelBufferLockBaseAddress(next, 0) != kCVReturnSuccess) {
+        CVPixelBufferRelease(next);
+        return NO;
+    }
+    const uint8_t *srcY = (const uint8_t *)data.bytes + sizeof(*header);
+    const uint8_t *srcUV = srcY + yBytes;
+    uint8_t *dstY = CVPixelBufferGetBaseAddressOfPlane(next, 0);
+    uint8_t *dstUV = CVPixelBufferGetBaseAddressOfPlane(next, 1);
+    size_t dstYStride = CVPixelBufferGetBytesPerRowOfPlane(next, 0);
+    size_t dstUVStride = CVPixelBufferGetBytesPerRowOfPlane(next, 1);
+    for (uint32_t y = 0; y < header->height; y++)
+        memcpy(dstY + y * dstYStride, srcY + y * header->yStride, MIN(dstYStride, (size_t)header->yStride));
+    for (uint32_t y = 0; y < (header->height + 1) / 2; y++)
+        memcpy(dstUV + y * dstUVStride, srcUV + y * header->uvStride, MIN(dstUVStride, (size_t)header->uvStride));
+    CVPixelBufferUnlockBaseAddress(next, 0);
+    ensureVCamLock();
+    [vcamLock lock];
+    if (liveNV12Buffer) CVPixelBufferRelease(liveNV12Buffer);
+    liveNV12Buffer = next;
+    currentMode = VCamModeImage;
+    [renderedFrameCache removeAllObjects];
+    [vcamLock unlock];
     return YES;
 }
 
@@ -469,7 +515,10 @@ BOOL drawReplacementOntoBuffer(CVPixelBufferRef targetBuffer) {
     }
 
     CIImage *replacementCIImage = nil;
-    if (currentMode == VCamModeImage && replacementImage) {
+    if (liveNV12Buffer) {
+        replacementCIImage = [CIImage imageWithCVPixelBuffer:liveNV12Buffer];
+    }
+    else if (currentMode == VCamModeImage && replacementImage) {
         replacementCIImage = [CIImage imageWithCGImage:replacementImage];
     }
     else if (currentMode == VCamModeVideo && videoFramePaths.count > 0) {

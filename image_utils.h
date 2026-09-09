@@ -18,6 +18,7 @@ void loadReplacementMedia(void);
 
 /// Reloads one live JPEG without rebuilding media state or writing status.
 BOOL reloadReplacementLiveFrame(NSString *path);
+BOOL reloadReplacementLiveNV12Frame(NSString *path);
 
 /// Refreshes position, zoom and brightness without reloading the media file.
 void reloadReplacementAdjustments(void);

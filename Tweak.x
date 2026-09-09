@@ -83,7 +83,8 @@ static void vcam_ensureLoaded(void) {
     if (!vcam_needsLoad) {
         NSString *path = mediaPath;
         NSString *livePath = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
-        if ([path isEqualToString:livePath]) {
+        NSString *liveRawPath = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.nv12"];
+        if ([path isEqualToString:livePath] || [path isEqualToString:liveRawPath]) {
             struct stat st;
             if (stat(path.fileSystemRepresentation, &st) == 0) {
                 uint64_t stamp = ((uint64_t)st.st_mtimespec.tv_sec << 32) ^
@@ -99,7 +100,10 @@ static void vcam_ensureLoaded(void) {
         // Reset the flag before loading so a failure doesn't busy-loop every frame.
         vcam_needsLoad = NO;
         NSString *livePath = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
-        if ([mediaPath isEqualToString:livePath] && vcam_liveStamp != 0) {
+        NSString *liveRawPath = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.nv12"];
+        if ([mediaPath isEqualToString:liveRawPath]) {
+            if (!reloadReplacementLiveNV12Frame(mediaPath)) vcam_needsLoad = YES;
+        } else if ([mediaPath isEqualToString:livePath] && vcam_liveStamp != 0) {
             // Live frames keep the same preference path. Avoid rebuilding the
             // whole media state and writing a status plist for every JPEG.
             if (!reloadReplacementLiveFrame(mediaPath)) vcam_needsLoad = YES;

@@ -3,6 +3,7 @@
 #import <CoreImage/CoreImage.h>
 #import <ImageIO/ImageIO.h>
 #import <QuartzCore/QuartzCore.h>
+#import "VCamLiveFrame.h"
 #import <CoreFoundation/CoreFoundation.h>
 #import "VCamPaths.h"
 #include <spawn.h>
@@ -75,6 +76,7 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 @property(nonatomic, strong) NSDate *nativeStartedAt;
 @property(nonatomic, assign) BOOL nativeEncodePending;
 @property(nonatomic, assign) BOOL nativeDecoderActive;
+@property(nonatomic, assign) NSUInteger nativeFrameCounter;
 - (void)refreshFromPreferences;
 - (NSString *)rtspFaceLabURLFromURL:(NSString *)urlString;
 - (NSString *)hlsFaceLabURLFromURL:(NSString *)urlString;
@@ -309,7 +311,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
             if ([self startNativeDecoderAtURL:remoteURL]) {
                 NSMutableDictionary *updated = [preferences mutableCopy];
                 updated[@"enabled"] = @YES;
-                updated[@"mediaPath"] = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+                updated[@"mediaPath"] = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.nv12"];
                 [self writeMainPreferences:updated];
             }
         }
@@ -512,6 +514,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     self.nativeStartedAt = nil;
     self.nativeDecoderActive = NO;
     self.nativeEncodePending = NO;
+    self.nativeFrameCounter = 0;
 }
 
 - (BOOL)startNativeDecoderAtURL:(NSString *)urlString {
@@ -520,7 +523,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     [self stopNativeDecoder];
     NSURL *url = [NSURL URLWithString:hlsURL];
     if (!url) return NO;
-    unlink([VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"].fileSystemRepresentation);
+    unlink([VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.nv12"].fileSystemRepresentation);
 
     NSDictionary *settings = @{
         (id)kCVPixelBufferPixelFormatTypeKey : @(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange),
@@ -553,21 +556,39 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     CVPixelBufferRef pixelBuffer = [self.nativeOutput copyPixelBufferForItemTime:itemTime itemTimeForDisplay:NULL];
     if (!pixelBuffer) return;
     self.nativeEncodePending = YES;
-    NSString *destination = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
-    CIContext *context = self.nativeCIContext;
+    BOOL makePreviewJPEG = ((++self.nativeFrameCounter % 4) == 0);
+    NSString *destination = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.nv12"];
+    NSString *previewDestination = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+    CIContext *previewContext = self.nativeCIContext;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         @autoreleasepool {
-            CIImage *image = [CIImage imageWithCVPixelBuffer:pixelBuffer];
-            CGRect extent = image.extent;
-            CGFloat scale = MIN(1.0, 400.0 / MAX(extent.size.width, extent.size.height));
-            if (scale < 1.0) image = [image imageByApplyingTransform:CGAffineTransformMakeScale(scale, scale)];
-            CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-            NSData *jpeg = [context JPEGRepresentationOfImage:image colorSpace:colorSpace options:@{
-                (id)kCGImageDestinationLossyCompressionQuality : @0.82
-            }];
-            CGColorSpaceRelease(colorSpace);
-            if (jpeg.length > 0) {
-                [jpeg writeToFile:destination options:NSDataWritingAtomic error:nil];
+            if (CVPixelBufferLockBaseAddress(pixelBuffer, kCVPixelBufferLock_ReadOnly) == kCVReturnSuccess) {
+                uint32_t width = (uint32_t)CVPixelBufferGetWidth(pixelBuffer);
+                uint32_t height = (uint32_t)CVPixelBufferGetHeight(pixelBuffer);
+                uint32_t yStride = (uint32_t)CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0);
+                uint32_t uvStride = (uint32_t)CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 1);
+                VCamLiveNV12Header header = {
+                    VCAM_LIVE_NV12_MAGIC, width, height, yStride, uvStride,
+                    (uint64_t)CACurrentMediaTime() * 1000000.0
+                };
+                NSMutableData *raw = [NSMutableData dataWithBytes:&header length:sizeof(header)];
+                const uint8_t *y = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0);
+                const uint8_t *uv = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 1);
+                [raw appendBytes:y length:(NSUInteger)yStride * height];
+                [raw appendBytes:uv length:(NSUInteger)uvStride * ((height + 1) / 2)];
+                CVPixelBufferUnlockBaseAddress(pixelBuffer, kCVPixelBufferLock_ReadOnly);
+                NSString *temporary = [destination stringByAppendingString:@".tmp"];
+                if ([raw writeToFile:temporary options:0 error:nil]) {
+                    rename(temporary.fileSystemRepresentation, destination.fileSystemRepresentation);
+                }
+                if (makePreviewJPEG && previewContext) {
+                    CIImage *previewImage = [CIImage imageWithCVPixelBuffer:pixelBuffer];
+                    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+                    NSData *jpeg = [previewContext JPEGRepresentationOfImage:previewImage
+                        colorSpace:colorSpace options:@{(id)kCGImageDestinationLossyCompressionQuality: @0.78}];
+                    CGColorSpaceRelease(colorSpace);
+                    [jpeg writeToFile:previewDestination options:NSDataWritingAtomic error:nil];
+                }
                 [[NSFileManager defaultManager] setAttributes:@{
                     NSFilePosixPermissions: @0666, NSFileProtectionKey: NSFileProtectionNone
                 } ofItemAtPath:destination error:nil];

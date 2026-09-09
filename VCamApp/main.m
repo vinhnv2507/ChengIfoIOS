@@ -455,8 +455,11 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
 
     NSString *path = preferences[@"mediaPath"];
     NSString *livePath = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+    NSString *liveRawPath = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.nv12"];
     BOOL isLivePath = [path isKindOfClass:[NSString class]] &&
-        ([path isEqualToString:livePath] || [path.lastPathComponent isEqualToString:@"media-live.jpg"]);
+        ([path isEqualToString:livePath] || [path isEqualToString:liveRawPath] ||
+         [path.lastPathComponent isEqualToString:@"media-live.jpg"] ||
+         [path.lastPathComponent isEqualToString:@"media-live.nv12"]);
     if (![path isKindOfClass:[NSString class]] || (!isLivePath && ![[NSFileManager defaultManager] fileExistsAtPath:path])) {
         [self stopLivePreview];
         self.statusLabel.text = @"Chưa chọn ảnh hoặc video";
