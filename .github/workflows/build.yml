@@ -176,4 +176,44 @@ jobs:
             gh release create vcam-native-packages built-packages/*.deb \
               --title "VCam native VideoToolbox experiment" \
               --notes "Experimental 0.0.99-native packages. The stable Sileo source remains on main/0.0.97."
+
+      - name: Create native APT repository
+        if: github.ref == 'refs/heads/native-experiment'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apt-utils dpkg-dev
+          rm -rf native-apt
+          mkdir -p native-apt
+          cp built-packages/*.deb native-apt/
+          native_deb="$(find native-apt -maxdepth 1 -name '*.deb' -print -quit)"
+          native_version="$(dpkg-deb --field "$native_deb" Version)"
+          cd native-apt
+          apt-ftparchive packages . > Packages
+          gzip -9c Packages > Packages.gz
+          bzip2 -9c Packages > Packages.bz2
+          xz -9c Packages > Packages.xz
+          cd ..
+          native_checksums="$(mktemp)"
+          (cd native-apt && apt-ftparchive release .) > "$native_checksums"
+          {
+            echo "Origin: VCam Native"
+            echo "Label: VCam native VideoToolbox experiment"
+            echo "Suite: stable"
+            echo "Version: $native_version"
+            echo "Codename: vcam-native"
+            echo "Architectures: iphoneos-arm iphoneos-arm64 iphoneos-arm64e"
+            echo "Components: main"
+            echo "Description: Experimental VCam native HLS/VideoToolbox repository"
+            cat "$native_checksums"
+          } > native-apt/Release
+          rm -f "$native_checksums"
+
+      - name: Publish native APT repository
+        if: github.ref == 'refs/heads/native-experiment'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ github.token }}
+          publish_branch: native-apt
+          publish_dir: ./native-apt
+          force_orphan: true
           fi
