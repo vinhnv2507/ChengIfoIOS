@@ -176,6 +176,7 @@ jobs:
             gh release create vcam-native-packages built-packages/*.deb \
               --title "VCam native VideoToolbox experiment" \
               --notes "Experimental 0.0.99-native packages. The stable Sileo source remains on main/0.0.97."
+          fi
 
       - name: Create native APT repository
         if: github.ref == 'refs/heads/native-experiment'
@@ -216,4 +217,3 @@ jobs:
           publish_branch: native-apt
           publish_dir: ./native-apt
           force_orphan: true
-          fi
