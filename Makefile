@@ -18,7 +18,7 @@ vcam_FRAMEWORKS = AVFoundation CoreMedia CoreImage ImageIO Foundation
 
 VCamOverlay_FILES = VCamOverlay.m VCamPaths.m
 VCamOverlay_CFLAGS = -fobjc-arc
-VCamOverlay_FRAMEWORKS = UIKit Foundation AVFoundation CoreMedia CoreImage ImageIO QuartzCore
+VCamOverlay_FRAMEWORKS = UIKit Foundation AVFoundation CoreMedia CoreImage ImageIO QuartzCore WebKit
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 

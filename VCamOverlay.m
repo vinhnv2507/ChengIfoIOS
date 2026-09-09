@@ -3,6 +3,7 @@
 #import <CoreImage/CoreImage.h>
 #import <ImageIO/ImageIO.h>
 #import <QuartzCore/QuartzCore.h>
+#import <WebKit/WebKit.h>
 #import "VCamLiveFrame.h"
 #import <CoreFoundation/CoreFoundation.h>
 #import "VCamPaths.h"
@@ -78,12 +79,20 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 @property(nonatomic, assign) BOOL nativeDecoderActive;
 @property(nonatomic, assign) NSUInteger nativeFrameCounter;
 @property(nonatomic, assign) CMTime nativeLastItemTime;
+@property(nonatomic, strong) WKWebView *webLiveView;
+@property(nonatomic, strong) CADisplayLink *webCaptureDisplayLink;
+@property(nonatomic, strong) NSDate *webStartedAt;
+@property(nonatomic, assign) BOOL webDecoderActive;
+@property(nonatomic, assign) BOOL webCapturePending;
 - (void)refreshFromPreferences;
 - (NSString *)rtspFaceLabURLFromURL:(NSString *)urlString;
 - (NSString *)hlsFaceLabURLFromURL:(NSString *)urlString;
 - (BOOL)startNativeDecoderAtURL:(NSString *)urlString;
 - (void)stopNativeDecoder;
 - (void)nativeDisplayTick:(CADisplayLink *)link;
+- (BOOL)startWebDecoderAtURL:(NSString *)urlString;
+- (void)stopWebDecoder;
+- (void)webCaptureTick:(CADisplayLink *)link;
 @end
 
 static BOOL VCamLooksLikeFaceLabHTTPURL(NSURLComponents *components) {
@@ -274,6 +283,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         self.remoteTimer = nil;
         self.remoteRequestRunning = NO;
         [self stopNativeDecoder];
+        [self stopWebDecoder];
         [self stopRemoteFFmpeg];
         return;
     }
@@ -282,11 +292,11 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     if ([remoteURL isKindOfClass:[NSString class]] && remoteURL.length > 0) {
         NSString *savedMode = [preferences[@"remoteMode"] isKindOfClass:[NSString class]]
             ? preferences[@"remoteMode"] : @"image";
-        NSString *mode = ([savedMode isEqualToString:@"video"] || [savedMode isEqualToString:@"native"])
+        NSString *mode = ([savedMode isEqualToString:@"video"] || [savedMode isEqualToString:@"native"] || [savedMode isEqualToString:@"web"])
             ? savedMode : @"image";
         // Restore the native MediaMTX input after the overlay/app is
         // recreated. The in-memory fallback URL is otherwise lost on restart.
-        if (([mode isEqualToString:@"video"] || [mode isEqualToString:@"native"]) && self.remoteFFmpegInputURL.length == 0) {
+        if (([mode isEqualToString:@"video"] || [mode isEqualToString:@"native"] || [mode isEqualToString:@"web"]) && self.remoteFFmpegInputURL.length == 0) {
             NSURL *savedURL = [NSURL URLWithString:remoteURL];
             if ([savedURL.scheme.lowercaseString isEqualToString:@"http"] ||
                 [savedURL.scheme.lowercaseString isEqualToString:@"https"]) {
@@ -307,12 +317,19 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         }
         // The source may be 30 FPS, but the iPhone 7 Plus has to decode the
         // H.264 stream and mediaserverd then consumes the generated JPEG. A
-        BOOL videoMode = [mode isEqualToString:@"video"] || [mode isEqualToString:@"native"];
+        BOOL videoMode = [mode isEqualToString:@"video"] || [mode isEqualToString:@"native"] || [mode isEqualToString:@"web"];
         NSTimeInterval interval = videoMode ? (1.0 / 24.0) : 1.0;
         self.sourceStatusLabel.text = [mode isEqualToString:@"native"]
             ? @"Video native (thử nghiệm)" : (videoMode
                 ? @"Video live độ trễ thấp" : @"Nguồn ảnh live cập nhật mỗi giây");
-        if ([mode isEqualToString:@"native"] && !self.nativeDecoderActive) {
+        if ([mode isEqualToString:@"web"] && !self.webDecoderActive) {
+            if (![self startWebDecoderAtURL:remoteURL]) {
+                NSMutableDictionary *updated = [preferences mutableCopy];
+                updated[@"remoteMode"] = @"video";
+                [self writeMainPreferences:updated];
+                mode = @"video";
+            }
+        } else if ([mode isEqualToString:@"native"] && !self.nativeDecoderActive) {
             // Native decoding is explicitly opt-in. Never let a failed HLS
             // output replace the normal video mode silently.
             if (![self startNativeDecoderAtURL:remoteURL]) {
@@ -331,6 +348,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
                 [self writeMainPreferences:updated];
             }
         }
+        if (![mode isEqualToString:@"web"] && self.webDecoderActive) [self stopWebDecoder];
         if (!self.remoteTimer || ![self.remoteTimerMode isEqualToString:mode]) {
             [self.remoteTimer invalidate];
             self.remoteTimerMode = mode;
@@ -344,6 +362,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         self.remoteTimerMode = nil;
         self.sourceStatusLabel.text = @"Chọn ảnh, video hoặc nhập link live";
         [self stopNativeDecoder];
+        [self stopWebDecoder];
         [self stopRemoteFFmpeg];
     }
 }
@@ -392,7 +411,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         NSString *value = [alert.textFields.firstObject.text stringByTrimmingCharactersInSet:
             [NSCharacterSet whitespaceAndNewlineCharacterSet]];
         NSURL *url = [NSURL URLWithString:value];
-        NSArray *schemes = ([mode isEqualToString:@"video"] || [mode isEqualToString:@"native"])
+        NSArray *schemes = ([mode isEqualToString:@"video"] || [mode isEqualToString:@"native"] || [mode isEqualToString:@"web"])
             ? @[@"http", @"https", @"rtsp"] : @[@"http", @"https"];
         if (!url || ![schemes containsObject:url.scheme.lowercaseString]) {
             self.sourceStatusLabel.text = @"Link không hợp lệ";
@@ -400,11 +419,12 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         }
         [self stopRemoteFFmpeg];
         [self stopNativeDecoder];
+        [self stopWebDecoder];
         self.lastRemoteFrame = nil;
         self.lastRemoteVideoModification = nil;
         self.remoteFFmpegInputURL = nil;
         self.remoteFallbackStage = 0;
-        if ([mode isEqualToString:@"video"] || [mode isEqualToString:@"native"]) {
+        if ([mode isEqualToString:@"video"] || [mode isEqualToString:@"native"] || [mode isEqualToString:@"web"]) {
             // FaceLab's public HTTP URL is an HTML WebRTC page. FFmpeg on
             // iOS cannot consume that page; MediaMTX exposes the H.264 stream
             // as RTSP for native clients.
@@ -432,6 +452,8 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         handler:^(UIAlertAction *action) { saveRemote(@"video"); }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Video native (thử nghiệm)" style:UIAlertActionStyleDefault
         handler:^(UIAlertAction *action) { saveRemote(@"native"); }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Video WebRTC (Safari)" style:UIAlertActionStyleDefault
+        handler:^(UIAlertAction *action) { saveRemote(@"web"); }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 
@@ -440,6 +462,19 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     NSDictionary *preferences = [self mainPreferences];
     NSString *urlString = preferences[@"remoteURL"];
     NSString *remoteMode = preferences[@"remoteMode"];
+    if ([remoteMode isEqualToString:@"web"]) {
+        NSString *destination = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+        NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:destination error:nil];
+        NSDate *modified = attributes[NSFileModificationDate];
+        BOOL fresh = modified && self.webStartedAt && [modified compare:self.webStartedAt] != NSOrderedAscending;
+        if (self.webStartedAt && !fresh && -self.webStartedAt.timeIntervalSinceNow > 10.0) {
+            [self stopWebDecoder];
+            NSMutableDictionary *updated = [preferences mutableCopy];
+            updated[@"remoteMode"] = @"video";
+            [self writeMainPreferences:updated];
+        }
+        return;
+    }
     if ([remoteMode isEqualToString:@"video"] || [remoteMode isEqualToString:@"native"]) {
         if (self.nativeDecoderActive) {
             NSString *destination = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
@@ -541,6 +576,70 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     self.nativeEncodePending = NO;
     self.nativeFrameCounter = 0;
     self.nativeLastItemTime = kCMTimeInvalid;
+}
+
+- (void)stopWebDecoder {
+    [self.webCaptureDisplayLink invalidate];
+    self.webCaptureDisplayLink = nil;
+    self.webDecoderActive = NO;
+    self.webCapturePending = NO;
+    self.webStartedAt = nil;
+    [self.webLiveView stopLoading];
+    [self.webLiveView removeFromSuperview];
+    self.webLiveView = nil;
+}
+
+- (BOOL)startWebDecoderAtURL:(NSString *)urlString {
+    NSURLComponents *source = [NSURLComponents componentsWithString:urlString];
+    if (!source.host) return NO;
+    NSString *whep = [NSString stringWithFormat:@"http://%@:%ld/facelab/whep",
+        source.host, (long)(source.port.integerValue > 0 ? source.port.integerValue + 1 : 8889)];
+    NSURL *whepURL = [NSURL URLWithString:whep];
+    if (!whepURL) return NO;
+    [self stopWebDecoder];
+    WKWebViewConfiguration *configuration = [[WKWebViewConfiguration alloc] init];
+    configuration.allowsInlineMediaPlayback = YES;
+    configuration.mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeNone;
+    WKWebView *web = [[WKWebView alloc] initWithFrame:CGRectMake(-2000, -2000, 640, 360)
+        configuration:configuration];
+    web.backgroundColor = UIColor.blackColor;
+    web.opaque = NO;
+    web.alpha = 0.01;
+    web.userInteractionEnabled = NO;
+    [self.view addSubview:web];
+    self.webLiveView = web;
+    self.webStartedAt = [NSDate date];
+    self.webDecoderActive = YES;
+    NSString *whepString = [whepURL.absoluteString stringByReplacingOccurrencesOfString:@"'" withString:@"%27"];
+    NSString *html = [NSString stringWithFormat:
+        @"<html><body style='margin:0;background:#000'><video id='v' autoplay muted playsinline style='width:640px;height:360px;object-fit:contain'></video><script>const v=document.getElementById('v');const u='%@';async function go(){try{let p=new RTCPeerConnection({iceServers:[]});p.addTransceiver('video',{direction:'recvonly'});p.ontrack=e=>{v.srcObject=e.streams[0];v.play().catch(()=>{})};let o=await p.createOffer();await p.setLocalDescription(o);let r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/sdp','Accept':'application/sdp'},body:o.sdp,cache:'no-store'});if(!r.ok)throw 0;await p.setRemoteDescription({type:'answer',sdp:await r.text()})}catch(e){setTimeout(go,500)}}go();</script></body></html>", whepString];
+    [web loadHTMLString:html baseURL:nil];
+    self.webCaptureDisplayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(webCaptureTick:)];
+    self.webCaptureDisplayLink.preferredFramesPerSecond = 15;
+    [self.webCaptureDisplayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+    NSMutableDictionary *preferences = [[self mainPreferences] mutableCopy];
+    preferences[@"enabled"] = @YES;
+    preferences[@"mediaPath"] = [VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"];
+    [self writeMainPreferences:preferences];
+    self.sourceStatusLabel.text = @"WebRTC Safari (thử nghiệm)";
+    return YES;
+}
+
+- (void)webCaptureTick:(CADisplayLink *)link {
+    if (!self.webDecoderActive || self.webCapturePending || !self.webLiveView) return;
+    self.webCapturePending = YES;
+    WKSnapshotConfiguration *configuration = [[WKSnapshotConfiguration alloc] init];
+    configuration.rect = CGRectMake(0, 0, 640, 360);
+    configuration.snapshotWidth = @640;
+    __weak typeof(self) weakSelf = self;
+    [self.webLiveView takeSnapshotWithConfiguration:configuration completionHandler:^(UIImage *image, NSError *error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (image && !error) {
+            NSData *jpeg = UIImageJPEGRepresentation(image, 0.88);
+            if (jpeg.length > 0) [jpeg writeToFile:[VCamSharedDirectory() stringByAppendingPathComponent:@"media-live.jpg"] options:NSDataWritingAtomic error:nil];
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{ self.webCapturePending = NO; });
+    }];
 }
 
 - (BOOL)startNativeDecoderAtURL:(NSString *)urlString {
