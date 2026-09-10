@@ -21,11 +21,18 @@ jobs:
       - name: Build rootful package
         shell: bash
         run: |
-          set -euo pipefail
-          make clean || true
-          make package FINALPACKAGE=1
+          set +e
+          make package FINALPACKAGE=1 2>&1 | tee "$RUNNER_TEMP/chengios-rootful.log"
+          build_status=${PIPESTATUS[0]}
+          if [ "$build_status" -ne 0 ]; then
+            tail -n 60 "$RUNNER_TEMP/chengios-rootful.log" | while IFS= read -r line; do echo "::error::$line"; done
+            exit "$build_status"
+          fi
+          set -e
           mkdir -p built-packages
-          cp packages/*.deb built-packages/ChengIOS-rootful.deb
+          rootful_deb="$(find packages -maxdepth 1 -name '*_iphoneos-arm.deb' -print -quit)"
+          test -n "$rootful_deb"
+          cp "$rootful_deb" built-packages/ChengIOS-rootful.deb
 
       - name: Build rootless package
         shell: bash
@@ -33,7 +40,9 @@ jobs:
           set -euo pipefail
           make clean || true
           make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
-          cp packages/*.deb built-packages/ChengIOS-rootless.deb
+          rootless_deb="$(find packages -maxdepth 1 -name '*_iphoneos-arm64.deb' -print -quit)"
+          test -n "$rootless_deb"
+          cp "$rootless_deb" built-packages/ChengIOS-rootless.deb
 
       - name: Validate packages
         shell: bash
