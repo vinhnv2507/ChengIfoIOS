@@ -47,10 +47,11 @@ jobs:
       - name: Validate packages
         shell: bash
         run: |
-          set -euo pipefail
+          set -eu
           for package in built-packages/*.deb; do
             dpkg-deb --info "$package" >/dev/null
-            dpkg-deb --contents "$package" | grep -q 'ChengIOS.dylib'
+            contents="$(dpkg-deb --contents "$package")"
+            printf '%s\n' "$contents" | grep -q 'ChengIOS.dylib'
             dpkg-deb --field "$package" Package Version Architecture
           done
 
