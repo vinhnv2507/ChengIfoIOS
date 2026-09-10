@@ -1,10 +1,6 @@
 ARCHS ?= arm64
 
-#ifeq ($(THEOS_PACKAGE_SCHEME),rootless)
-#TARGET := iphone:clang:16.2:15.0
-#else
-TARGET := iphone:clang:13.5:7.0
-#endif
+TARGET := iphone:clang:latest:7.0
 
 BUNDLE_NAME = ChengIOSPrefs
 
