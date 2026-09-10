@@ -96,6 +96,9 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 - (void)webCaptureTick:(CADisplayLink *)link;
 - (void)vcamApplicationWillResignActive:(NSNotification *)notification;
 - (void)vcamApplicationDidBecomeActive:(NSNotification *)notification;
+- (UIButton *)smallButton:(NSString *)title action:(SEL)action;
+- (UIButton *)wideButton:(NSString *)title action:(SEL)action;
+- (UILabel *)panelLabel:(NSString *)text;
 @end
 
 static BOOL VCamLooksLikeFaceLabHTTPURL(NSURLComponents *components) {
