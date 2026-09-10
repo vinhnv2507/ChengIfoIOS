@@ -1,5 +1,7 @@
 #import "Prefs.h"
 
+#import <UIKit/UIKit.h>
+
 #import <errno.h>
 #import <string.h>
 #import <sys/sysctl.h>
@@ -183,13 +185,15 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (NSDictionary *)allHTTPHeaderFields {
-    return OVSRewriteHeaderDictionary(%orig);
+    NSDictionary *originalHeaders = %orig;
+    return OVSRewriteHeaderDictionary(originalHeaders);
 }
 %end
 
 %hook NSURLSessionConfiguration
 - (NSDictionary *)HTTPAdditionalHeaders {
-    return OVSRewriteHeaderDictionary(%orig);
+    NSDictionary *originalHeaders = %orig;
+    return OVSRewriteHeaderDictionary(originalHeaders);
 }
 
 - (void)setHTTPAdditionalHeaders:(NSDictionary *)headers {
@@ -200,11 +204,13 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 %group WebKitHooks
 %hook WKWebView
 - (NSString *)_userAgent {
-    return OVSRewriteIfNeeded(%orig);
+    NSString *originalAgent = %orig;
+    return OVSRewriteIfNeeded(originalAgent);
 }
 
 - (NSString *)customUserAgent {
-    return OVSRewriteIfNeeded(%orig);
+    NSString *originalAgent = %orig;
+    return OVSRewriteIfNeeded(originalAgent);
 }
 
 - (void)setCustomUserAgent:(NSString *)userAgent {
@@ -212,13 +218,15 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (NSString *)_applicationNameForUserAgent {
-    return OVSRewriteIfNeeded(%orig);
+    NSString *originalAgent = %orig;
+    return OVSRewriteIfNeeded(originalAgent);
 }
 %end
 
 %hook WKWebViewConfiguration
 - (NSString *)applicationNameForUserAgent {
-    return OVSRewriteIfNeeded(%orig);
+    NSString *originalAgent = %orig;
+    return OVSRewriteIfNeeded(originalAgent);
 }
 
 - (void)setApplicationNameForUserAgent:(NSString *)applicationName {
@@ -226,13 +234,15 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (NSString *)_applicationNameForDesktopUserAgent {
-    return OVSRewriteIfNeeded(%orig);
+    NSString *originalAgent = %orig;
+    return OVSRewriteIfNeeded(originalAgent);
 }
 %end
 
 %hook WKBrowsingContextController
 - (NSString *)applicationNameForUserAgent {
-    return OVSRewriteIfNeeded(%orig);
+    NSString *originalAgent = %orig;
+    return OVSRewriteIfNeeded(originalAgent);
 }
 %end
 %end

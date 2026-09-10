@@ -50,8 +50,10 @@ static void OVSDeliverAuthorization(CLLocationManager *manager) {
         return;
     }
     id delegate = manager.delegate;
-    if ([delegate respondsToSelector:@selector(locationManagerDidChangeAuthorization:)]) {
-        [delegate locationManagerDidChangeAuthorization:manager];
+    if (@available(iOS 14.0, *)) {
+        if ([delegate respondsToSelector:@selector(locationManagerDidChangeAuthorization:)]) {
+            [delegate locationManagerDidChangeAuthorization:manager];
+        }
     }
     if ([delegate respondsToSelector:@selector(locationManager:didChangeAuthorizationStatus:)]) {
 #pragma clang diagnostic push
@@ -191,11 +193,17 @@ static void OVSUntrackManager(CLLocationManager *manager) {
 }
 
 - (CLLocationSpeed)speed {
-    return (OVSLocationHookBypassed() || !OVSLocationEnabled()) ? %orig : -1.0;
+    if (OVSLocationHookBypassed() || !OVSLocationEnabled()) {
+        return %orig;
+    }
+    return -1.0;
 }
 
 - (CLLocationDirection)course {
-    return (OVSLocationHookBypassed() || !OVSLocationEnabled()) ? %orig : -1.0;
+    if (OVSLocationHookBypassed() || !OVSLocationEnabled()) {
+        return %orig;
+    }
+    return -1.0;
 }
 %end
 
