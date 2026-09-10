@@ -29,43 +29,21 @@
 			<string></string>
 		</dict>
 		<dict>
+			<key>cell</key><string>PSLinkCell</string>
+			<key>detail</key><string>ChengIOSChangeInfoController</string>
+			<key>isController</key><true/>
+			<key>label</key><string>Change Info</string>
+		</dict>
+		<dict>
 			<key>cell</key>
-			<string>PSLinkListCell</string>
-			<key>defaultApplicationSwitchValue</key>
-			<false/>
-			<key>defaults</key>
-			<string>com.vinhnv2507.chengiosprefs</string>
+			<string>PSLinkCell</string>
 			<key>detail</key>
-			<string>ATLApplicationListMultiSelectionController</string>
+			<string>ChengIOSAppListController</string>
+			<key>isController</key><true/>
 			<key>key</key>
 			<string>spoofedApps</string>
 			<key>label</key>
 			<string>Spoofed Apps</string>
-			<key>sections</key>
-			<array>
-				<dict>
-					<key>sectionName</key>
-					<string>User Apps</string>
-					<key>sectionType</key>
-					<string>User</string>
-				</dict>
-				<dict>
-					<key>sectionName</key>
-					<string>System Apps (not recommended)</string>
-					<key>sectionType</key>
-					<string>System</string>
-				</dict>
-				<dict>
-					<key>sectionName</key>
-					<string>Hidden Apps (not recommended)</string>
-					<key>sectionType</key>
-					<string>Hidden</string>
-				</dict>
-			</array>
-			<key>showIdentifiersAsSubtitle</key>
-			<true/>
-			<key>useSearchBar</key>
-			<true/>
 		</dict>
 		<dict>
 			<key>cell</key>

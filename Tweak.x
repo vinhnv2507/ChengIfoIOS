@@ -14,11 +14,28 @@ static NSDictionary *currentPreferences(void) {
     return preferences;
 }
 
+static id preferenceValue(NSString *key) {
+    return currentPreferences()[key];
+}
+
+static BOOL appIsSelected(NSString *bundleIdentifier) {
+    if (bundleIdentifier.length == 0) return NO;
+    NSDictionary *appFlags = preferenceValue(@"appEnabled");
+    NSNumber *flag = appFlags[bundleIdentifier];
+    if (flag != nil) return flag.boolValue;
+    // Keep compatibility with the original AltList array format.
+    return [preferenceValue(@"spoofedApps") containsObject:bundleIdentifier];
+}
+
+static NSString *customString(NSString *key) {
+    id value = preferenceValue(key);
+    return [value isKindOfClass:NSString.class] && [value length] ? value : nil;
+}
+
 static BOOL spoofingEnabled(void) {
     NSDictionary *preferences = currentPreferences();
     NSString *bundleIdentifier = [NSBundle mainBundle].bundleIdentifier;
-    return [preferences[@"masterEnabled"] boolValue] && bundleIdentifier.length > 0 &&
-           [preferences[@"spoofedApps"] containsObject:bundleIdentifier];
+    return [preferences[@"masterEnabled"] boolValue] && appIsSelected(bundleIdentifier);
 }
 
 // Generate randomised build number once
@@ -69,6 +86,11 @@ NSOperatingSystemVersion getPredictedLatestVersion() {
     osVersion.minorVersion = [lastValidMinorVersion integerValue];
     osVersion.patchVersion = 0;
     return osVersion;
+}
+
+static NSString *spoofedSystemVersionString(void) {
+    NSString *value = customString(@"spoofedSystemVersion");
+    return value ?: [NSString stringWithFormat:@"%ld.%ld", (long)getPredictedLatestVersion().majorVersion, (long)getPredictedLatestVersion().minorVersion];
 }
 
 NSString *updateOSVersion(NSString *userAgent) {
@@ -124,7 +146,7 @@ BOOL isTweakEnabled() {
 // Check if the current app has been added in the preferences file as an app to spoof
 BOOL isAppEnabled() {
     NSString *currentAppIdentifier = [[NSBundle mainBundle] bundleIdentifier];
-    return currentAppIdentifier.length > 0 && [currentPreferences()[@"spoofedApps"] containsObject:currentAppIdentifier];
+    return appIsSelected(currentAppIdentifier);
 }
 
 BOOL isAppVersionEnabled() {
@@ -173,7 +195,7 @@ BOOL isAppVersionEnabled() {
 */
 -(NSString *)hostName {
     if (isTweakEnabled() && isAppEnabled()) {
-        return @"iphone.local";
+        return customString(@"spoofedHostname") ?: @"iphone.local";
     }
     else {
         return %orig;
@@ -185,8 +207,7 @@ BOOL isAppVersionEnabled() {
 %hook UIDevice
 -(NSString *)systemVersion {
     if (isTweakEnabled() && isAppEnabled()) {
-        NSOperatingSystemVersion osVersion = getPredictedLatestVersion();
-        return [NSString stringWithFormat:@"%ld.%ld", (long)osVersion.majorVersion, (long)osVersion.minorVersion];
+        return spoofedSystemVersionString();
     }
     else {
         return %orig;
@@ -194,7 +215,7 @@ BOOL isAppVersionEnabled() {
 }
 -(id)buildVersion {
     if (isTweakEnabled() && isAppEnabled()) {
-        return getRandomisedBuildNumber();
+        return customString(@"spoofedBuild") ?: getRandomisedBuildNumber();
     }
     else {
         return %orig;
@@ -203,7 +224,7 @@ BOOL isAppVersionEnabled() {
 }
 -(NSString *)name {
     if (isTweakEnabled() && isAppEnabled()) {
-        return @"iPhone";
+        return customString(@"spoofedName") ?: @"iPhone";
     }
     else {
         return %orig;
@@ -211,11 +232,18 @@ BOOL isAppVersionEnabled() {
 }
 -(NSString *)hostName {
     if (isTweakEnabled() && isAppEnabled()) {
-        return @"iphone.local";
+        return customString(@"spoofedHostname") ?: @"iphone.local";
     }
     else {
         return %orig;
     }
+}
+-(NSString *)model {
+    if (isTweakEnabled() && isAppEnabled()) {
+        NSString *model = customString(@"spoofedModel");
+        if (model.length) return model;
+    }
+    return %orig;
 }
 -(NSUUID *)identifierForVendor {
     if (isTweakEnabled() && isAppEnabled()) {
