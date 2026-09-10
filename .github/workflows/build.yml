@@ -175,7 +175,7 @@ jobs:
           else
             gh release create vcam-native-packages built-packages/*.deb \
               --title "VCam native VideoToolbox experiment" \
-              --notes "Experimental web packages. 0.0.109-webrtc-viewport adds a device-width viewport and explicit 405x720 body so WKWebView does not shrink the portrait WebRTC frame into the top-left corner."
+              --notes "VCam 0.0.110-webrtc-only: live-link UI now exposes WebRTC/WHEP only; legacy image-live, video-live and native choices are removed."
           fi
 
       - name: Create native APT repository
@@ -204,7 +204,7 @@ jobs:
             echo "Codename: vcam-native"
             echo "Architectures: iphoneos-arm iphoneos-arm64 iphoneos-arm64e"
             echo "Components: main"
-            echo "Description: Experimental VCam WebRTC viewport repository (explicit opt-in)"
+            echo "Description: VCam WebRTC-only live-link repository"
             cat "$native_checksums"
           } > native-apt/Release
           rm -f "$native_checksums"

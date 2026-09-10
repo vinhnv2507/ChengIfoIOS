@@ -301,8 +301,15 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     if ([remoteURL isKindOfClass:[NSString class]] && remoteURL.length > 0) {
         NSString *savedMode = [preferences[@"remoteMode"] isKindOfClass:[NSString class]]
             ? preferences[@"remoteMode"] : @"image";
-        NSString *mode = ([savedMode isEqualToString:@"video"] || [savedMode isEqualToString:@"native"] || [savedMode isEqualToString:@"web"])
-            ? savedMode : @"image";
+        // All live links now use WebRTC/WHEP, matching FaceLab's Safari path.
+        // Migrate preferences created by older builds so legacy live modes
+        // cannot start FFmpeg or the experimental native decoder.
+        NSString *mode = @"web";
+        if (![savedMode isEqualToString:@"web"]) {
+            NSMutableDictionary *migrated = [preferences mutableCopy];
+            migrated[@"remoteMode"] = @"web";
+            [self writeMainPreferences:migrated];
+        }
         // Restore the native MediaMTX input after the overlay/app is
         // recreated. The in-memory fallback URL is otherwise lost on restart.
         if (([mode isEqualToString:@"video"] || [mode isEqualToString:@"native"] || [mode isEqualToString:@"web"]) && self.remoteFFmpegInputURL.length == 0) {
@@ -331,12 +338,11 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         self.sourceStatusLabel.text = [mode isEqualToString:@"native"]
             ? @"Video native (thử nghiệm)" : (videoMode
                 ? @"Video live độ trễ thấp" : @"Nguồn ảnh live cập nhật mỗi giây");
+        if ([mode isEqualToString:@"web"]) self.sourceStatusLabel.text = @"WebRTC live";
         if ([mode isEqualToString:@"web"] && !self.webDecoderActive) {
             if (![self startWebDecoderAtURL:remoteURL]) {
-                NSMutableDictionary *updated = [preferences mutableCopy];
-                updated[@"remoteMode"] = @"video";
-                [self writeMainPreferences:updated];
-                mode = @"video";
+                self.sourceStatusLabel.text = @"Khong khoi dong duoc WebRTC";
+                return;
             }
         } else if ([mode isEqualToString:@"native"] && !self.nativeDecoderActive) {
             // Native decoding is explicitly opt-in. Never let a failed HLS
@@ -394,6 +400,44 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
 - (void)openVideoPicker { [self openVCamPath:@"video"]; }
 
 - (void)enterRemoteSource {
+    // Single live-link mode: WebRTC/WHEP. Keep the legacy implementation
+    // below unreachable for compatibility with older saved preferences.
+    NSDictionary *webPreferences = [self mainPreferences];
+    UIAlertController *webAlert = [UIAlertController alertControllerWithTitle:@"Link live WebRTC"
+        message:@"Nhap URL FaceLab. VCam se nhan luong WebRTC/WHEP nhu Safari."
+        preferredStyle:UIAlertControllerStyleAlert];
+    [webAlert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+        field.placeholder = @"http://192.168.x.x:8080/1_ios.mp4";
+        field.keyboardType = UIKeyboardTypeURL;
+        field.autocapitalizationType = UITextAutocapitalizationTypeNone;
+        field.autocorrectionType = UITextAutocorrectionTypeNo;
+        NSString *saved = webPreferences[@"remoteURL"];
+        if ([saved isKindOfClass:[NSString class]]) field.text = saved;
+    }];
+    [webAlert addAction:[UIAlertAction actionWithTitle:@"Huy" style:UIAlertActionStyleCancel handler:nil]];
+    [webAlert addAction:[UIAlertAction actionWithTitle:@"Luu WebRTC" style:UIAlertActionStyleDefault
+        handler:^(UIAlertAction *action) {
+            NSString *value = [webAlert.textFields.firstObject.text stringByTrimmingCharactersInSet:
+                [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            NSURL *url = [NSURL URLWithString:value];
+            if (!url || ![@[@"http", @"https", @"rtsp"] containsObject:url.scheme.lowercaseString]) {
+                self.sourceStatusLabel.text = @"Link khong hop le";
+                return;
+            }
+            [self stopRemoteFFmpeg];
+            [self stopNativeDecoder];
+            [self stopWebDecoder];
+            NSMutableDictionary *updated = [[self mainPreferences] mutableCopy];
+            updated[@"enabled"] = @YES;
+            updated[@"remoteURL"] = value;
+            updated[@"remoteMode"] = @"web";
+            [self writeMainPreferences:updated];
+            [self refreshFromPreferences];
+        }]];
+    [self presentViewController:webAlert animated:YES completion:nil];
+    return;
+
+#if 0
     NSDictionary *preferences = [self mainPreferences];
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Nguồn ảnh/video live"
         message:@"Nhập URL HTTPS trả về ảnh JPEG/PNG hiện tại. VCam sẽ tải frame mới mỗi giây."
@@ -465,6 +509,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         handler:^(UIAlertAction *action) { saveRemote(@"web"); }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
+#endif
 
 - (void)fetchRemoteFrame {
     if (self.remoteRequestRunning) return;
@@ -479,7 +524,7 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
         if (self.webStartedAt && !fresh && -self.webStartedAt.timeIntervalSinceNow > 10.0) {
             [self stopWebDecoder];
             NSMutableDictionary *updated = [preferences mutableCopy];
-            updated[@"remoteMode"] = @"video";
+            updated[@"remoteMode"] = @"web";
             [self writeMainPreferences:updated];
         }
         return;

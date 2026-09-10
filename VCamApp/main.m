@@ -568,7 +568,7 @@ typedef void (^VCamVideoSelectionHandler)(PHAsset *asset);
         NSMutableDictionary *updated = [self preferences];
         updated[@"enabled"] = @YES;
         updated[@"remoteURL"] = value;
-        updated[@"remoteMode"] = @"video";
+        updated[@"remoteMode"] = @"web";
         [self savePreferences:updated];
         self.statusLabel.text = @"Đang kết nối video live…";
     }]];
