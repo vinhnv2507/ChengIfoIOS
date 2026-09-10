@@ -1,95 +1,89 @@
-#include "APPRootListController.h"
-#import <Preferences/PSSpecifier.h>
+#import "APPRootListController.h"
+
+#import <notify.h>
+#import <spawn.h>
+#import <string.h>
+#import <unistd.h>
+#import <UIKit/UIKit.h>
+
+static NSString * const kChengPrefsID = @"com.vinhnv2507.chengiosprefs";
+static const char *kChengPrefsChanged = "com.vinhnv2507.chengiosprefs/changed";
+static const char *kChengPrefsReload = "com.vinhnv2507.chengiosprefs/ReloadPrefs";
+extern char **environ;
 
 @implementation APPRootListController
 
 - (NSArray *)specifiers {
-	if (!_specifiers) {
-		_specifiers = [self loadSpecifiersFromPlistName:@"Root" target:self];
-	}
-
-	return _specifiers;
-}
-
-@end
-
-static NSString * const ChengIOSPrefsPath = @"/private/var/mobile/Library/Preferences/com.vinhnv2507.chengiosprefs.plist";
-
-static NSMutableDictionary *ChengIOSLoadPrefs(void) {
-	NSDictionary *stored = [NSDictionary dictionaryWithContentsOfFile:ChengIOSPrefsPath];
-	return stored ? [stored mutableCopy] : [NSMutableDictionary dictionary];
-}
-
-static void ChengIOSSavePrefs(NSDictionary *prefs) {
-	[prefs writeToFile:ChengIOSPrefsPath atomically:YES];
-	CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("com.vinhnv2507.chengiosprefs/changed"), NULL, NULL, true);
-}
-
-@implementation ChengIOSAppListController
-
-- (void)viewDidLoad {
-	[super viewDidLoad];
-	self.title = @"Change Apps";
-}
-
-- (NSArray *)specifiers {
-	if (!_specifiers) {
-		NSMutableArray *items = [NSMutableArray array];
-		NSMutableDictionary *apps = [NSMutableDictionary dictionary];
-		NSArray *roots = @[@"/Applications", @"/var/containers/Bundle/Application"];
-		NSFileManager *fm = [NSFileManager defaultManager];
-		for (NSString *root in roots) {
-			NSArray *entries = [fm subpathsAtPath:root];
-			for (NSString *relative in entries) {
-				if (![relative.pathExtension.lowercaseString isEqualToString:@"app"]) continue;
-				NSString *path = [root stringByAppendingPathComponent:relative];
-				NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[path stringByAppendingPathComponent:@"Info.plist"]];
-				NSString *bundleID = info[@"CFBundleIdentifier"];
-				if (bundleID.length == 0 || apps[bundleID]) continue;
-				NSString *name = info[@"CFBundleDisplayName"] ?: info[@"CFBundleName"] ?: bundleID;
-				apps[bundleID] = name;
-			}
-		}
-		NSArray *sortedIDs = [apps.allKeys sortedArrayUsingComparator:^NSComparisonResult(NSString *a, NSString *b) {
-			return [apps[a] localizedCaseInsensitiveCompare:apps[b]];
-		}];
-		for (NSString *bundleID in sortedIDs) {
-			PSSpecifier *specifier = [PSSpecifier preferenceSpecifierNamed:apps[bundleID] target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
-			[specifier setProperty:bundleID forKey:@"key"];
-			[specifier setProperty:bundleID forKey:@"bundleIdentifier"];
-			[items addObject:specifier];
-		}
-		_specifiers = items;
-	}
-	return _specifiers;
+    if (!_specifiers) {
+        _specifiers = [self loadSpecifiersFromPlistName:@"Root" target:self];
+    }
+    return _specifiers;
 }
 
 - (id)readPreferenceValue:(PSSpecifier *)specifier {
-	NSDictionary *prefs = ChengIOSLoadPrefs();
-	NSDictionary *enabledApps = prefs[@"appEnabled"];
-	NSString *key = [specifier propertyForKey:@"key"];
-	return enabledApps[key] ?: @NO;
+    NSString *key = [specifier propertyForKey:@"key"];
+    if (key.length == 0) {
+        return [specifier propertyForKey:@"default"];
+    }
+    CFPropertyListRef value = CFPreferencesCopyAppValue((__bridge CFStringRef)key, (__bridge CFStringRef)kChengPrefsID);
+    if (value != NULL) {
+        return (__bridge_transfer id)value;
+    }
+    return [specifier propertyForKey:@"default"];
 }
 
 - (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
-	NSMutableDictionary *prefs = ChengIOSLoadPrefs();
-	NSMutableDictionary *apps = [prefs[@"appEnabled"] mutableCopy] ?: [NSMutableDictionary dictionary];
-	NSString *key = [specifier propertyForKey:@"key"];
-	apps[key] = @([value boolValue]);
-	prefs[@"appEnabled"] = apps;
-	ChengIOSSavePrefs(prefs);
+    NSString *key = [specifier propertyForKey:@"key"];
+    if (key.length == 0) {
+        return;
+    }
+    CFPreferencesSetAppValue((__bridge CFStringRef)key, (__bridge CFPropertyListRef)value, (__bridge CFStringRef)kChengPrefsID);
+    CFPreferencesAppSynchronize((__bridge CFStringRef)kChengPrefsID);
+    notify_post(kChengPrefsChanged);
+    notify_post(kChengPrefsReload);
 }
-@end
 
-@implementation ChengIOSChangeInfoController
-- (NSArray *)specifiers {
-	if (!_specifiers) _specifiers = [self loadSpecifiersFromPlistName:@"ChangeInfo" target:self];
-	return _specifiers;
+- (void)respring {
+    if (![UIAlertController class]) {
+        [self performRespring];
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Respring"
+                                                                   message:@"Khởi động lại SpringBoard để mọi app nạp lại ChengIOS."
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Huỷ" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Respring" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+        (void)action;
+        [self performRespring];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
-- (void)resetInfo:(id)sender {
-	NSMutableDictionary *prefs = ChengIOSLoadPrefs();
-	for (NSString *key in @[@"spoofedModel", @"spoofedName", @"spoofedSystemVersion", @"spoofedBuild", @"spoofedHostname"]) [prefs removeObjectForKey:key];
-	ChengIOSSavePrefs(prefs);
-	[self reloadSpecifiers];
+
+- (void)performRespring {
+    pid_t pid = 0;
+    const char *candidates[] = {
+        "/var/jb/usr/bin/sbreload",
+        "/usr/bin/sbreload",
+        "/var/jb/usr/bin/killall",
+        "/usr/bin/killall",
+        NULL
+    };
+    for (int i = 0; candidates[i] != NULL; i++) {
+        if (access(candidates[i], X_OK) != 0) {
+            continue;
+        }
+        if (strstr(candidates[i], "sbreload") != NULL) {
+            const char *args[] = {candidates[i], NULL};
+            if (posix_spawn(&pid, candidates[i], NULL, NULL, (char *const *)args, environ) == 0) {
+                return;
+            }
+        } else {
+            const char *args[] = {candidates[i], "-9", "SpringBoard", NULL};
+            if (posix_spawn(&pid, candidates[i], NULL, NULL, (char *const *)args, environ) == 0) {
+                return;
+            }
+        }
+    }
 }
+
 @end

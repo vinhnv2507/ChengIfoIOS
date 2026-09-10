@@ -1,18 +1,17 @@
-//THEOS_DEVICE_IP = 127.0.0.1
+ARCHS = arm64 arm64e
 
-# arm64 keeps the package compatible with older devices (including iPhone 7 Plus).
-# Override with ARCHS=arm64e when building specifically for a newer device.
-ARCHS ?= arm64
-
-FINALPACKAGE = 1
-
+ifeq ($(THEOS_PACKAGE_SCHEME),rootless)
+TARGET := iphone:clang:latest:15.0
+else
 TARGET := iphone:clang:latest:7.0
+endif
+
 INSTALL_TARGET_PROCESSES = SpringBoard
 
 TWEAK_NAME = ChengIOS
-$(TWEAK_NAME)_FILES = Tweak.x
-$(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation
-$(TWEAK_NAME)_CFLAGS = -fobjc-arc
+$(TWEAK_NAME)_FILES = Prefs.m Tweak.x HooksDevice.x HooksLocation.x HooksNetwork.x
+$(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation CoreLocation CoreTelephony
+$(TWEAK_NAME)_CFLAGS = -fobjc-arc -Wno-unused-variable -Wno-deprecated-declarations -Wno-unused-function
 
 SUBPROJECTS += ChengIOSPrefs
 

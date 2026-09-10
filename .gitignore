@@ -1,3 +1,7 @@
 .theos/
 packages/
-built-packages/
+.DS_Store
+*.deb
+.cheng-publish/
+_patch_*.py
+_write_*.py

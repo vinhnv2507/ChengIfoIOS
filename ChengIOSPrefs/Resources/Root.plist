@@ -6,6 +6,14 @@
 	<array>
 		<dict>
 			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Chung</string>
+			<key>footerText</key>
+			<string>Chỉ app được chọn mới bị giả lập. App không nằm trong Change Apps hoặc Spoofed Apps sẽ không bị sửa.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
 			<string>PSSwitchCell</string>
 			<key>cellClass</key>
 			<string>SRSwitchTableCell</string>
@@ -16,44 +24,130 @@
 			<key>key</key>
 			<string>masterEnabled</string>
 			<key>label</key>
-			<string>Enabled</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
-			<key>footerText</key>
-			<string></string>
-			<key>isStaticText</key>
-			<true/>
-			<key>label</key>
-			<string></string>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSLinkCell</string>
-			<key>detail</key><string>ChengIOSChangeInfoController</string>
-			<key>isController</key><true/>
-			<key>label</key><string>Change Info</string>
+			<string>Bật ChengIOS</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
 		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSLinkCell</string>
 			<key>detail</key>
 			<string>ChengIOSAppListController</string>
-			<key>isController</key><true/>
+			<key>isController</key>
+			<true/>
+			<key>label</key>
+			<string>Change Apps</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkListCell</string>
+			<key>defaultApplicationSwitchValue</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>detail</key>
+			<string>ATLApplicationListMultiSelectionController</string>
 			<key>key</key>
 			<string>spoofedApps</string>
 			<key>label</key>
 			<string>Spoofed Apps</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>sections</key>
+			<array>
+				<dict>
+					<key>sectionName</key>
+					<string>User Apps</string>
+					<key>sectionType</key>
+					<string>User</string>
+				</dict>
+				<dict>
+					<key>sectionName</key>
+					<string>System Apps (không khuyến nghị)</string>
+					<key>sectionType</key>
+					<string>System</string>
+				</dict>
+				<dict>
+					<key>sectionName</key>
+					<string>Hidden Apps (không khuyến nghị)</string>
+					<key>sectionType</key>
+					<string>Hidden</string>
+				</dict>
+			</array>
+			<key>showIdentifiersAsSubtitle</key>
+			<true/>
+			<key>useSearchBar</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>detail</key>
+			<string>ChengIOSChangeInfoController</string>
+			<key>isController</key>
+			<true/>
+			<key>label</key>
+			<string>Change Info</string>
 		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
-			<key>footerText</key>
-			<string></string>
-			<key>isStaticText</key>
-			<true/>
 			<key>label</key>
-			<string></string>
+			<string>Phiên bản iOS</string>
+			<key>footerText</key>
+			<string>Nếu bật tùy chỉnh hoặc đã điền Change Info, ChengIOS dùng đúng chuỗi bạn nhập (ví dụ 18.6.1). Nếu trống, tweak ước lượng phiên bản iOS hiện tại theo ngày.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>cellClass</key>
+			<string>SRSwitchTableCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>useCustomOSVersion</string>
+			<key>label</key>
+			<string>Dùng phiên bản iOS tùy chỉnh</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>customOSVersion</string>
+			<key>label</key>
+			<string>Custom Version</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>18.6.1</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>customBuildNumber</string>
+			<key>label</key>
+			<string>Custom Build</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>22G100</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Phiên bản App</string>
+			<key>footerText</key>
+			<string>Sửa CFBundleShortVersionString, CFBundleVersion và một số tham số appver trên User-Agent. Tắt nếu app kiểm tra phiên bản quá chặt.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -67,18 +161,442 @@
 			<key>key</key>
 			<string>appVersionEnabled</string>
 			<key>label</key>
-			<string>App Version (2147483647)</string>
+			<string>Giả lập phiên bản App</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>customAppVersion</string>
+			<key>label</key>
+			<string>App Version</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>2147483647</string>
+			<key>default</key>
+			<string>2147483647</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Định danh thiết bị</string>
+			<key>footerText</key>
+			<string>Tắt mặc định. Tên/hostname/model trong Change Info vẫn có hiệu lực nếu đã điền. Vendor ID và advertising ID chỉ random khi bật công tắc này.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>cellClass</key>
+			<string>SRSwitchTableCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>deviceIdentityEnabled</string>
+			<key>label</key>
+			<string>Giả lập tên, hostname và ID</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>customDeviceName</string>
+			<key>label</key>
+			<string>Tên thiết bị</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>iPhone</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>customHostName</string>
+			<key>label</key>
+			<string>Hostname</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>iphone.local</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>customDeviceModel</string>
+			<key>label</key>
+			<string>Model</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>iPhone16,2</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Ngôn ngữ và nhà mạng</string>
+			<key>footerText</key>
+			<string>Tắt mặc định. Chỉ bật khi app đọc locale, múi giờ hoặc nhà mạng.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>cellClass</key>
+			<string>SRSwitchTableCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>localeEnabled</string>
+			<key>label</key>
+			<string>Giả lập locale và múi giờ</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>localeIdentifier</string>
+			<key>label</key>
+			<string>Locale</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>en_US</string>
+			<key>default</key>
+			<string>en_US</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>timeZoneName</string>
+			<key>label</key>
+			<string>Time Zone</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>America/Los_Angeles</string>
+			<key>default</key>
+			<string>America/Los_Angeles</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>cellClass</key>
+			<string>SRSwitchTableCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>carrierEnabled</string>
+			<key>label</key>
+			<string>Giả lập nhà mạng</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>carrierName</string>
+			<key>label</key>
+			<string>Carrier Name</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>Carrier</string>
+			<key>default</key>
+			<string>Carrier</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>mobileCountryCode</string>
+			<key>label</key>
+			<string>MCC</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>310</string>
+			<key>default</key>
+			<string>310</string>
+			<key>keyboard</key>
+			<string>numbers</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>mobileNetworkCode</string>
+			<key>label</key>
+			<string>MNC</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>260</string>
+			<key>default</key>
+			<string>260</string>
+			<key>keyboard</key>
+			<string>numbers</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>isoCountryCode</string>
+			<key>label</key>
+			<string>ISO Country</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>us</string>
+			<key>default</key>
+			<string>us</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Vị trí</string>
+			<key>footerText</key>
+			<string>Tắt mặc định. Cần bật công tắc và điền lat/long, hoặc đường dẫn GPX đọc được.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>cellClass</key>
+			<string>SRSwitchTableCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>locationEnabled</string>
+			<key>label</key>
+			<string>Giả lập vị trí</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>latitude</string>
+			<key>label</key>
+			<string>Latitude</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>37.3349</string>
+			<key>keyboard</key>
+			<string>numbers</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>longitude</string>
+			<key>label</key>
+			<string>Longitude</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>-122.0090</string>
+			<key>keyboard</key>
+			<string>numbers</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>altitude</string>
+			<key>label</key>
+			<string>Altitude</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>0</string>
+			<key>default</key>
+			<string>0</string>
+			<key>keyboard</key>
+			<string>numbers</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>accuracy</string>
+			<key>label</key>
+			<string>Accuracy (m)</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>5</string>
+			<key>default</key>
+			<string>5</string>
+			<key>keyboard</key>
+			<string>numbers</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>gpxPath</string>
+			<key>label</key>
+			<string>GPX Path</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>/var/mobile/Media/ChengIOS/route.gpx</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Định danh mạng</string>
+			<key>footerText</key>
+			<string>Tắt mặc định. iOS hiện tại không có API Wi-Fi MAC được hỗ trợ, nên giả lập MAC chỉ là best-effort, không phải ranh giới bảo mật.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>cellClass</key>
+			<string>SRSwitchTableCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>networkEnabled</string>
+			<key>label</key>
+			<string>Giả lập định danh mạng</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>interfaceName</string>
+			<key>label</key>
+			<string>Interface</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>en0 hoặc *</string>
+			<key>default</key>
+			<string>en0</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>ipv4Address</string>
+			<key>label</key>
+			<string>IPv4</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>192.168.1.20</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>ipv6Address</string>
+			<key>label</key>
+			<string>IPv6</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>2001:db8::1</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>macAddress</string>
+			<key>label</key>
+			<string>MAC Address</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>02:00:00:00:00:01</string>
 		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>ChengIOS 1.0.1
-by Vinh Nguyen</string>
+			<string>Force-quit app đích sau khi đổi cài đặt. Respring nếu process vẫn báo giá trị cũ.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>respring</string>
+			<key>label</key>
+			<string>Respring</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>ChengIOS 1.2.0
+by vinhnv2507</string>
 			<key>isStaticText</key>
 			<true/>
-			<key>label</key>
-			<string></string>
 		</dict>
 	</array>
 	<key>title</key>

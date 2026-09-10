@@ -1,12 +1,7 @@
 #import <Preferences/PSListController.h>
+#import <Preferences/PSSpecifier.h>
 
 @interface APPRootListController : PSListController
-
-@end
-
-@interface ChengIOSAppListController : PSListController
-@end
-
-@interface ChengIOSChangeInfoController : PSListController
-- (void)resetInfo:(id)sender;
+- (void)respring;
+- (void)performRespring;
 @end

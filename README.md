@@ -1,54 +1,93 @@
 # ChengIOS
 
-ChengIOS is a standalone iOS jailbreak tweak based on the InfoIOS version-spoofing code. It is intentionally separate from VCam and uses its own package and preferences identifiers.
+Tweak jailbreak giả lập phiên bản iOS, phiên bản app và một số tín hiệu thiết bị theo từng ứng dụng. Mục đích chính là giúp máy cũ vẫn mở được app yêu cầu iOS/app version mới hơn.
 
-It automatically spoofs your iOS version to recent versions based on the date. It can also spoof app versions.
- A jailbroken device is required or it may be possible to bundle within an app with default values set.
+Cần iPhone/iPad đã jailbreak. Build cần [Theos](https://theos.dev) và [AltList](https://github.com/opa334/AltList).
 
- - It is made in a way to spoof as many method/function call return values as possible, in short this means that more of the ways the version can be checked are spoofed (forged). This includes many methods from UIDevice, NSURLSession, and your User Agent.
- - It may not cover every single method call but the majority are spoofed.
- - App Version is NOT currently spoofed in NSBundle and App Version is only spoofed in the User Agent (if it exists and is not a custom key name)
- - Other methods are also spoofed to be more generic such as your device's hostname is "iphone.local" and not your custom device name and more.
- - This tweak does not spoof your device type or screen size or anything else similar as that wasn't within the scope of this tweak.
- - This tweak is mostly useful for bypassing iOS and app version requirements so you can continue to operate them easily on your older device.
+## Nguồn Sileo
 
- Notes:
- - The compiled deb 1.0.0 release spoofs app version to "11.79.1", you will need to compile it for yourself for the updated code which sets this hardcoded version number higher to be more versatile.
- - For compiling you will need the dependency `AltList` for the preferences.
+Thêm nguồn:
 
-## Package
+```
+https://raw.githubusercontent.com/vinhnv2507/ChengIfoIOS/gh-pages
+```
 
-- Package ID: `com.vinhnv2507.chengios`
-- Preferences ID: `com.vinhnv2507.chengiosprefs`
-- Supported jailbreak layouts: rootful and rootless (arm64/arm64e)
+Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
-The GitHub Actions workflow builds both packages and publishes an APT repository on the `gh-pages` branch. Add this URL to Sileo:
+- Rootful: `iphoneos-arm`
+- Rootless (Dopamine / palera1n): `iphoneos-arm64`
 
-`https://raw.githubusercontent.com/vinhnv2507/ChengIfoIOS/gh-pages/`
+## Hook
 
-## 1.1.0 improvements
+- `NSProcessInfo` / `UIDevice` phiên bản iOS và build
+- `sysctlbyname` `kern.osproductversion`, `kern.osversion`
+- User-Agent kiểu Safari trên `NSURLRequest`, `NSURLSessionConfiguration`, WebKit
+- `NSBundle` `CFBundleShortVersionString` / `CFBundleVersion` của app chính
+- Tên máy, hostname, vendor ID, advertising ID
+- Model (`UIDevice`, `uname`, `hw.machine`) nếu đã điền
+- Locale, múi giờ, nhà mạng (tắt mặc định)
+- Vị trí `CLLocationManager` (tọa độ cố định hoặc GPX, tắt mặc định)
+- `getifaddrs` IPv4/IPv6/MAC (best-effort, tắt mặc định)
 
- - Preference data is cached once per process, avoiding repeated plist parsing on every request and UIKit/WebKit query.
- - App version rewriting now accepts `appver`, `app-version`, and `app_version` parameters (case-insensitive).
- - Missing or malformed preference values fail closed, so unconfigured applications are never spoofed accidentally.
+Kích thước màn hình không bị đổi.
 
-## Planned device-signal modules
+## 1.2.0
 
-The next development phase is split into opt-in modules so each signal can be
-tested independently and disabled per application:
+- Tương thích prefs ChengIOS 1.0.1: `appEnabled`, `spoofedSystemVersion`, `spoofedBuild`, `spoofedName`, `spoofedHostname`, `spoofedModel`
+- **Change Apps** và **Change Info** giữ nguyên lối dùng cũ
+- Thêm danh sách **Spoofed Apps** (AltList)
+- Prefs reload qua Darwin `com.vinhnv2507.chengiosprefs/changed` và `.../ReloadPrefs`
+- Có thể nhập đúng phiên bản/build iOS
+- Giả lập phiên bản app qua `NSBundle`, không chỉ User-Agent
+- Module locale/nhà mạng/vị trí/mạng (opt-in)
+- Gói rootful và rootless
 
- - Location: `CLLocationManager` authorization/status and delivered locations
-   (fixed coordinate, GPX route, or per-app profile). This requires careful
-   handling of simulated-location metadata and background updates.
- - Network identity: interface address queries (`getifaddrs`/`sysctl`) and
-   advertising/vendor identifiers where the OS permits interception. Modern
-   iOS does not expose a supported Wi-Fi MAC API; a MAC hook cannot guarantee
-   coverage and must not be treated as a security boundary.
- - Additional low-risk signals: device name, hostname, OS/build, locale,
-   timezone, carrier strings, identifier-for-vendor, and advertising ID.
+Vị trí và mạng **tắt** cho đến khi bạn bật và điền giá trị. App không được chọn thì không bị sửa.
 
-Location and network identity spoofing are not enabled by default. They should
-be implemented behind explicit per-app preferences and validated on a test
-device, because private APIs and daemon-level hooks vary across iOS releases.
+## Cài đặt
 
-<img width="322" height="345" alt="image" src="https://github.com/user-attachments/assets/f7cce2b7-6f8e-4473-9ca6-07acace3bd5e" />
+Mở **Cài đặt → ChengIOS**.
+
+1. Để **Bật ChengIOS** sáng.
+2. Chọn app trong **Change Apps** (danh sách 1.0.1) hoặc **Spoofed Apps**.
+3. Vào **Change Info** để điền model / tên / iOS / build / hostname, hoặc dùng các ô phiên bản trên trang chính.
+4. Tùy chọn: bật giả lập phiên bản app, locale, nhà mạng, vị trí, mạng.
+5. Force-quit app đích (hoặc Respring) sau khi đổi setting.
+
+### Vị trí
+
+- Cần **Giả lập vị trí** cộng latitude/longitude, hoặc file GPX đọc được.
+- Điểm GPX `trkpt` lặp lại theo offset `<time>` nếu có, không thì 1 giây/điểm.
+- Ví dụ: `/var/mobile/Media/ChengIOS/route.gpx`
+
+### Mạng
+
+- Cần **Giả lập định danh mạng** và ít nhất một trong IPv4, IPv6, MAC.
+- Interface mặc định `en0`. Dùng `*` cho mọi interface không phải loopback.
+- iOS hiện tại không có API Wi-Fi MAC được hỗ trợ. Hook MAC không đảm bảo phủ hết.
+
+## Build
+
+```sh
+# rootful
+make package FINALPACKAGE=1
+
+# rootless
+make clean
+make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
+```
+
+Push lên `main` của [ChengIfoIOS](https://github.com/vinhnv2507/ChengIfoIOS) thì GitHub Actions build hai `.deb` và cập nhật nguồn `gh-pages`.
+
+Depends: Cydia Substrate / ElleKit (`mobilesubstrate`), PreferenceLoader, AltList.
+
+## Lưu ý
+
+- Phiên bản iOS tự động chỉ là heuristic theo ngày, không phải API của Apple. App khó tính thì nên nhập tay.
+- Vendor/advertising ID random theo process khi bật module định danh.
+- Tweak không giấu jailbreak và không vượt kiểm tra phía server.
+- Hãy thử module vị trí/mạng trên app test trước.
+
+## License
+
+MIT. Phần OS version spoof gốc của Fadexz; ChengIOS do vinhnv2507 phát triển tiếp.

@@ -1,9 +1,9 @@
 Package: com.vinhnv2507.chengios
 Name: ChengIOS
-Version: 1.0.1
+Version: 1.2.0
 Architecture: iphoneos-arm
-Description: Spoofs iOS version in apps to the latest estimated version number based on date which allows for continued access from no longer supported versions in apps. It also spoofs anonymised unique device information to keep you from being tracked from previous sessions which can help prevent apps collecting data on you and blocking access.
-Maintainer: Vinh Nguyen <vinhnv2507@users.noreply.github.com>
-Author: Vinh Nguyen <vinhnv2507@users.noreply.github.com>
+Description: Spoofs iOS version, app version, and optional device/location/network signals per selected app.
+Maintainer: vinhnv2507 <vinhnv2507@users.noreply.github.com>
+Author: vinhnv2507 <vinhnv2507@users.noreply.github.com>
 Section: Tweaks
-Depends: mobilesubstrate, com.opa334.altlist, preferenceloader
+Depends: firmware (>= 12.0), mobilesubstrate, preferenceloader, com.opa334.altlist

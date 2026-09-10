@@ -1,4 +1,4 @@
-name: Build ChengIOS
+name: Build and publish ChengIOS
 
 permissions:
   contents: write
@@ -19,78 +19,66 @@ jobs:
         uses: Randomblock1/theos-action@v1
 
       - name: Build rootful package
-        shell: bash
         run: |
-          set +e
-          make package FINALPACKAGE=1 2>&1 | tee "$RUNNER_TEMP/chengios-rootful.log"
-          build_status=${PIPESTATUS[0]}
-          if [ "$build_status" -ne 0 ]; then
-            grep -Ei "error:|fatal error|undefined symbol|ld:" "$RUNNER_TEMP/chengios-rootful.log" | head -n 40 | while IFS= read -r line; do echo "::error::$line"; done || true
-            tail -n 60 "$RUNNER_TEMP/chengios-rootful.log" | while IFS= read -r line; do echo "::error::$line"; done
-            exit "$build_status"
-          fi
-          set -e
+          make package FINALPACKAGE=1
           mkdir -p built-packages
-          rootful_deb="$(find packages -maxdepth 1 -name '*_iphoneos-arm.deb' -print -quit)"
-          test -n "$rootful_deb"
-          cp "$rootful_deb" built-packages/ChengIOS-rootful.deb
+          cp packages/*_iphoneos-arm.deb built-packages/
 
       - name: Build rootless package
-        shell: bash
         run: |
-          set -euo pipefail
-          make clean || true
+          make clean
+          sed -i 's/^Architecture:.*/Architecture: iphoneos-arm64/' control
           make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
-          rootless_deb="$(find packages -maxdepth 1 -name '*_iphoneos-arm64.deb' -print -quit)"
-          test -n "$rootless_deb"
-          cp "$rootless_deb" built-packages/ChengIOS-rootless.deb
+          cp packages/*_iphoneos-arm64.deb built-packages/
+
+      - name: Install APT tools
+        run: sudo apt-get update && sudo apt-get install -y dpkg-dev gzip
 
       - name: Validate packages
-        shell: bash
         run: |
-          set -eu
+          set -euo pipefail
           for package in built-packages/*.deb; do
             dpkg-deb --info "$package" >/dev/null
-            contents="$(dpkg-deb --contents "$package")"
-            printf '%s\n' "$contents" | grep -q 'ChengIOS.dylib'
-            dpkg-deb --field "$package" Package Version Architecture
+            dpkg-deb --contents "$package" | grep -q 'ChengIOS.dylib'
+            dpkg-deb --contents "$package" | grep -q 'ChengIOSPrefs.bundle'
           done
+
+      - name: Build APT repository
+        run: |
+          set -euo pipefail
+          rm -rf apt-repo
+          mkdir -p apt-repo/debs
+          cp built-packages/*.deb apt-repo/debs/
+          if [ -f CydiaIcon.png ]; then
+            cp CydiaIcon.png apt-repo/CydiaIcon.png
+          elif [ -f ChengIOSPrefs/Resources/icon@3x.png ]; then
+            cp ChengIOSPrefs/Resources/icon@3x.png apt-repo/CydiaIcon.png
+          fi
+          cd apt-repo
+          dpkg-scanpackages -m debs > Packages
+          gzip -9c Packages > Packages.gz
+          {
+            echo 'Origin: ChengIOS'
+            echo 'Label: ChengIOS'
+            echo 'Suite: stable'
+            echo 'Codename: ios'
+            echo 'Version: 1.2.0'
+            echo 'Architectures: iphoneos-arm iphoneos-arm64'
+            echo 'Components: main'
+            echo 'Description: ChengIOS Sileo repository'
+          } > Release
+
+      - name: Publish gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./apt-repo
+          publish_branch: gh-pages
+          force_orphan: true
 
       - name: Upload packages
         uses: actions/upload-artifact@v4
         with:
-          name: ChengIOS-packages
+          name: chengios-packages
           path: built-packages/*.deb
           if-no-files-found: error
-
-      - name: Publish APT repository
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          rm -rf apt-repo
-          git clone --branch gh-pages --single-branch "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" apt-repo
-          rm -f apt-repo/*.deb apt-repo/Packages apt-repo/Packages.gz apt-repo/Packages.bz2 apt-repo/Packages.xz apt-repo/Release
-          rm -rf apt-repo/debs
-          mkdir -p apt-repo/debs
-          cp built-packages/*.deb apt-repo/debs/
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq dpkg-dev
-          (cd apt-repo && dpkg-scanpackages --multiversion debs /dev/null > Packages)
-          gzip -9c apt-repo/Packages > apt-repo/Packages.gz
-          cat > apt-repo/Release <<'EOF'
-          Origin: ChengIOS
-          Label: ChengIOS
-          Suite: stable
-          Codename: chengios
-          Architectures: iphoneos-arm iphoneos-arm64
-          Components: main
-          Description: ChengIOS jailbreak tweak repository
-          EOF
-          cd apt-repo
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add -A
-          git commit -m "Publish ChengIOS packages" || true
-          git push origin gh-pages

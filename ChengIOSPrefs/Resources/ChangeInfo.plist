@@ -1,14 +1,89 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-	<key>items</key><array>
-		<dict><key>cell</key><string>PSGroupCell</string><key>label</key><string>Device information</string><key>footerText</key><string>Only selected apps are affected. Restart an app after changing values.</string></dict>
-		<dict><key>cell</key><string>PSEditTextCell</string><key>default</key><string>iPhone10,2</string><key>defaults</key><string>com.vinhnv2507.chengiosprefs</string><key>key</key><string>spoofedModel</string><key>label</key><string>Model identifier</string><key>placeholder</key><string>iPhone10,2</string></dict>
-		<dict><key>cell</key><string>PSEditTextCell</string><key>defaults</key><string>com.vinhnv2507.chengiosprefs</string><key>key</key><string>spoofedName</string><key>label</key><string>Device name</string><key>placeholder</key><string>iPhone</string></dict>
-		<dict><key>cell</key><string>PSEditTextCell</string><key>default</key><string>17.6</string><key>defaults</key><string>com.vinhnv2507.chengiosprefs</string><key>key</key><string>spoofedSystemVersion</string><key>label</key><string>iOS version</string><key>placeholder</key><string>17.6</string></dict>
-		<dict><key>cell</key><string>PSEditTextCell</string><key>defaults</key><string>com.vinhnv2507.chengiosprefs</string><key>key</key><string>spoofedBuild</string><key>label</key><string>Build number</string><key>placeholder</key><string>20G75</string></dict>
-		<dict><key>cell</key><string>PSEditTextCell</string><key>default</key><string>iphone.local</string><key>defaults</key><string>com.vinhnv2507.chengiosprefs</string><key>key</key><string>spoofedHostname</string><key>label</key><string>Hostname</string><key>placeholder</key><string>iphone.local</string></dict>
-		<dict><key>cell</key><string>PSButtonCell</string><key>label</key><string>Reset custom info</string><key>action</key><string>resetInfo:</string></dict>
+<plist version="1.0">
+<dict>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Change Info</string>
+			<key>footerText</key>
+			<string>Các khóa này tương thích ChengIOS 1.0.1. Nếu điền phiên bản iOS, tweak sẽ dùng đúng giá trị đó.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>spoofedModel</string>
+			<key>label</key>
+			<string>Model</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>iPhone16,2</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>spoofedName</string>
+			<key>label</key>
+			<string>Device Name</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>iPhone</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>spoofedSystemVersion</string>
+			<key>label</key>
+			<string>iOS Version</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>18.6.1</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>spoofedBuild</string>
+			<key>label</key>
+			<string>iOS Build</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>22G100</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>spoofedHostname</string>
+			<key>label</key>
+			<string>Hostname</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+			<key>placeholder</key>
+			<string>iPhone.local</string>
+		</dict>
 	</array>
-	<key>title</key><string>Change Info</string>
-</dict></plist>
+	<key>title</key>
+	<string>Change Info</string>
+</dict>
+</plist>
