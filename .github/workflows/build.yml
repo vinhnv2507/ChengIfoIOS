@@ -1,4 +1,4 @@
-name: Build tweak
+name: Build and publish ChengIOS
 
 permissions:
   contents: write
@@ -31,16 +31,54 @@ jobs:
           make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
           cp packages/*_iphoneos-arm64.deb built-packages/
 
+      - name: Install APT tools
+        run: sudo apt-get update && sudo apt-get install -y dpkg-dev gzip
+
       - name: Validate packages
         run: |
+          set -euo pipefail
           for package in built-packages/*.deb; do
             dpkg-deb --info "$package" >/dev/null
-            dpkg-deb --contents "$package" | grep -q 'OSVersionSpoofer.dylib'
+            dpkg-deb --contents "$package" | grep -q 'ChengIOS.dylib'
+            dpkg-deb --contents "$package" | grep -q 'ChengIOSPrefs.bundle'
           done
+
+      - name: Build APT repository
+        run: |
+          set -euo pipefail
+          rm -rf apt-repo
+          mkdir -p apt-repo/debs
+          cp built-packages/*.deb apt-repo/debs/
+          if [ -f CydiaIcon.png ]; then
+            cp CydiaIcon.png apt-repo/CydiaIcon.png
+          elif [ -f ChengIOSPrefs/Resources/icon@3x.png ]; then
+            cp ChengIOSPrefs/Resources/icon@3x.png apt-repo/CydiaIcon.png
+          fi
+          cd apt-repo
+          dpkg-scanpackages -m debs > Packages
+          gzip -9c Packages > Packages.gz
+          {
+            echo 'Origin: ChengIOS'
+            echo 'Label: ChengIOS'
+            echo 'Suite: stable'
+            echo 'Codename: ios'
+            echo 'Version: 1.2.0'
+            echo 'Architectures: iphoneos-arm iphoneos-arm64'
+            echo 'Components: main'
+            echo 'Description: ChengIOS Sileo repository'
+          } > Release
+
+      - name: Publish gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./apt-repo
+          publish_branch: gh-pages
+          force_orphan: true
 
       - name: Upload packages
         uses: actions/upload-artifact@v4
         with:
-          name: osversionspoofer-packages
+          name: chengios-packages
           path: built-packages/*.deb
           if-no-files-found: error

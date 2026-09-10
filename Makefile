@@ -1,20 +1,19 @@
-//THEOS_DEVICE_IP = 127.0.0.1
-
 ARCHS = arm64 arm64e
 
-FINALPACKAGE = 1
-
+ifeq ($(THEOS_PACKAGE_SCHEME),rootless)
+TARGET := iphone:clang:latest:15.0
+else
 TARGET := iphone:clang:latest:7.0
+endif
+
 INSTALL_TARGET_PROCESSES = SpringBoard
 
-TWEAK_NAME = OSVersionSpoofer
-$(TWEAK_NAME)_FILES = Tweak.x
-$(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation
-$(TWEAK_NAME)_EXTRA_FRAMEWORKS = AltList
+TWEAK_NAME = ChengIOS
+$(TWEAK_NAME)_FILES = Prefs.m Tweak.x HooksDevice.x HooksLocation.x HooksNetwork.x
+$(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation CoreLocation CoreTelephony
+$(TWEAK_NAME)_CFLAGS = -fobjc-arc -Wno-unused-variable -Wno-deprecated-declarations -Wno-unused-function
 
-$(TWEAK_NAME)_CFLAGS = -fobjc-arc
-
-SUBPROJECTS += OSVersionSpooferPrefs
+SUBPROJECTS += ChengIOSPrefs
 
 include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/tweak.mk

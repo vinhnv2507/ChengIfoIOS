@@ -1,0 +1,4 @@
+#!/bin/sh
+echo "ChengIOS is installed!"
+killall -9 Preferences 2>/dev/null || true
+exit 0
