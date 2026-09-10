@@ -1,4 +1,5 @@
 #include "APPRootListController.h"
+#import <Preferences/PSSpecifier.h>
 
 @implementation APPRootListController
 
@@ -65,13 +66,16 @@ static void ChengIOSSavePrefs(NSDictionary *prefs) {
 
 - (id)readPreferenceValue:(PSSpecifier *)specifier {
 	NSDictionary *prefs = ChengIOSLoadPrefs();
-	return [prefs[@"appEnabled"] [specifier.properties[@"key"]] ?: @NO copy];
+	NSDictionary *enabledApps = prefs[@"appEnabled"];
+	NSString *key = [specifier propertyForKey:@"key"];
+	return enabledApps[key] ?: @NO;
 }
 
 - (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
 	NSMutableDictionary *prefs = ChengIOSLoadPrefs();
 	NSMutableDictionary *apps = [prefs[@"appEnabled"] mutableCopy] ?: [NSMutableDictionary dictionary];
-	apps[specifier.properties[@"key"]] = @([value boolValue]);
+	NSString *key = [specifier propertyForKey:@"key"];
+	apps[key] = @([value boolValue]);
 	prefs[@"appEnabled"] = apps;
 	ChengIOSSavePrefs(prefs);
 }

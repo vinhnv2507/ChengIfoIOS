@@ -25,6 +25,7 @@ jobs:
           make package FINALPACKAGE=1 2>&1 | tee "$RUNNER_TEMP/chengios-rootful.log"
           build_status=${PIPESTATUS[0]}
           if [ "$build_status" -ne 0 ]; then
+            grep -Ei "error:|fatal error|undefined symbol|ld:" "$RUNNER_TEMP/chengios-rootful.log" | head -n 40 | while IFS= read -r line; do echo "::error::$line"; done || true
             tail -n 60 "$RUNNER_TEMP/chengios-rootful.log" | while IFS= read -r line; do echo "::error::$line"; done
             exit "$build_status"
           fi
