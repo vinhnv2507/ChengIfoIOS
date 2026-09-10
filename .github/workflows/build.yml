@@ -76,11 +76,11 @@ jobs:
           cp built-packages/*.deb apt-repo/debs/
           sudo apt-get update -qq
           sudo apt-get install -y -qq dpkg-dev
-          (cd apt-repo && dpkg-scanpackages debs /dev/null > Packages)
+          (cd apt-repo && dpkg-scanpackages --multiversion debs /dev/null > Packages)
           gzip -9c apt-repo/Packages > apt-repo/Packages.gz
           cd apt-repo
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add debs Packages Packages.gz
+          git add -A
           git commit -m "Publish ChengIOS packages" || true
           git push origin gh-pages
