@@ -1,7 +1,7 @@
 //#import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-static NSString *plistPath = @"/private/var/mobile/Library/Preferences/com.fadexz.osversionspooferprefs.plist";
+static NSString *plistPath = @"/private/var/mobile/Library/Preferences/com.vinhnv2507.chengiosprefs.plist";
 static NSString *spoofedUserAgent = nil;
 static NSString *storedBuildNumber = nil;
 

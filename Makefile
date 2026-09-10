@@ -7,14 +7,14 @@ FINALPACKAGE = 1
 TARGET := iphone:clang:latest:7.0
 INSTALL_TARGET_PROCESSES = SpringBoard
 
-TWEAK_NAME = OSVersionSpoofer
+TWEAK_NAME = ChengIOS
 $(TWEAK_NAME)_FILES = Tweak.x
 $(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation
 $(TWEAK_NAME)_EXTRA_FRAMEWORKS = AltList
 
 $(TWEAK_NAME)_CFLAGS = -fobjc-arc
 
-SUBPROJECTS += OSVersionSpooferPrefs
+SUBPROJECTS += ChengIOSPrefs
 
 include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/tweak.mk

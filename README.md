@@ -1,5 +1,8 @@
-# iOSVersionSpoofer
- Automatically spoofs your iOS version to recent versions based on the date. It can also spoof app versions.
+# ChengIOS
+
+ChengIOS is a standalone iOS jailbreak tweak based on the InfoIOS version-spoofing code. It is intentionally separate from VCam and uses its own package and preferences identifiers.
+
+It automatically spoofs your iOS version to recent versions based on the date. It can also spoof app versions.
  A jailbroken device is required or it may be possible to bundle within an app with default values set.
 
  - It is made in a way to spoof as many method/function call return values as possible, in short this means that more of the ways the version can be checked are spoofed (forged). This includes many methods from UIDevice, NSURLSession, and your User Agent.
@@ -11,7 +14,17 @@
 
  Notes:
  - The compiled deb 1.0.0 release spoofs app version to "11.79.1", you will need to compile it for yourself for the updated code which sets this hardcoded version number higher to be more versatile.
- - For compiling you will need the dependency 'AltList' for the preferences.
+ - For compiling you will need the dependency `AltList` for the preferences.
+
+## Package
+
+- Package ID: `com.vinhnv2507.chengios`
+- Preferences ID: `com.vinhnv2507.chengiosprefs`
+- Supported jailbreak layouts: rootful and rootless (arm64/arm64e)
+
+The GitHub Actions workflow builds both packages and publishes an APT repository on the `gh-pages` branch. Add this URL to Sileo:
+
+`https://raw.githubusercontent.com/vinhnv2507/ChengIfoIOS/gh-pages/`
 
 ## 1.1.0 improvements
 

@@ -5,9 +5,9 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
-	<string>OSVersionSpooferPrefs</string>
+	<string>ChengIOSPrefs</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.fadexz.osversionspooferprefs</string>
+	<string>com.vinhnv2507.chengiosprefs</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>

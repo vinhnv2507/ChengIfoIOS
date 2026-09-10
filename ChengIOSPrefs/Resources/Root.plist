@@ -12,7 +12,7 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.fadexz.osversionspooferprefs</string>
+			<string>com.vinhnv2507.chengiosprefs</string>
 			<key>key</key>
 			<string>masterEnabled</string>
 			<key>label</key>
@@ -34,7 +34,7 @@
 			<key>defaultApplicationSwitchValue</key>
 			<false/>
 			<key>defaults</key>
-			<string>com.fadexz.osversionspooferprefs</string>
+			<string>com.vinhnv2507.chengiosprefs</string>
 			<key>detail</key>
 			<string>ATLApplicationListMultiSelectionController</string>
 			<key>key</key>
@@ -85,7 +85,7 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.fadexz.osversionspooferprefs</string>
+			<string>com.vinhnv2507.chengiosprefs</string>
 			<key>key</key>
 			<string>appVersionEnabled</string>
 			<key>label</key>
@@ -95,8 +95,8 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>OSVersionSpoofer 1.0.0 (Nov 2024)
-by Fadexz</string>
+			<string>ChengIOS 1.0.0
+by Vinh Nguyen</string>
 			<key>isStaticText</key>
 			<true/>
 			<key>label</key>
@@ -104,6 +104,6 @@ by Fadexz</string>
 		</dict>
 	</array>
 	<key>title</key>
-	<string>OSVersionSpoofer</string>
+	<string>ChengIOS</string>
 </dict>
 </plist>
