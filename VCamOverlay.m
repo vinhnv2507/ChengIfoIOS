@@ -99,6 +99,8 @@ static NSString *const VCamPreferencesNotification = @"com.yourcompany.vcam.pref
 - (UIButton *)smallButton:(NSString *)title action:(SEL)action;
 - (UIButton *)wideButton:(NSString *)title action:(SEL)action;
 - (UILabel *)panelLabel:(NSString *)text;
+- (void)fetchRemoteFrame;
+- (void)stopRemoteFFmpeg;
 @end
 
 static BOOL VCamLooksLikeFaceLabHTTPURL(NSURLComponents *components) {
@@ -511,8 +513,8 @@ static void VCamPreferencesDidChange(CFNotificationCenterRef center, void *obser
     [alert addAction:[UIAlertAction actionWithTitle:@"Video WebRTC (Safari)" style:UIAlertActionStyleDefault
         handler:^(UIAlertAction *action) { saveRemote(@"web"); }]];
     [self presentViewController:alert animated:YES completion:nil];
-}
 #endif
+}
 
 - (void)fetchRemoteFrame {
     if (self.remoteRequestRunning) return;
