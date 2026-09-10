@@ -78,6 +78,15 @@ jobs:
           sudo apt-get install -y -qq dpkg-dev
           (cd apt-repo && dpkg-scanpackages --multiversion debs /dev/null > Packages)
           gzip -9c apt-repo/Packages > apt-repo/Packages.gz
+          cat > apt-repo/Release <<'EOF'
+          Origin: ChengIOS
+          Label: ChengIOS
+          Suite: stable
+          Codename: chengios
+          Architectures: iphoneos-arm iphoneos-arm64
+          Components: main
+          Description: ChengIOS jailbreak tweak repository
+          EOF
           cd apt-repo
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
