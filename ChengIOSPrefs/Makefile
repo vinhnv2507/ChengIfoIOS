@@ -1,4 +1,4 @@
-ARCHS = arm64 arm64e
+ARCHS ?= arm64
 
 #ifeq ($(THEOS_PACKAGE_SCHEME),rootless)
 #TARGET := iphone:clang:16.2:15.0

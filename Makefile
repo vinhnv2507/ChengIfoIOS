@@ -1,6 +1,8 @@
 //THEOS_DEVICE_IP = 127.0.0.1
 
-ARCHS = arm64 arm64e
+# arm64 keeps the package compatible with older devices (including iPhone 7 Plus).
+# Override with ARCHS=arm64e when building specifically for a newer device.
+ARCHS ?= arm64
 
 FINALPACKAGE = 1
 
