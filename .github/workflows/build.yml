@@ -60,6 +60,8 @@ jobs:
           set -euo pipefail
           rm -rf apt-repo
           git clone --branch gh-pages --single-branch "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" apt-repo
+          rm -f apt-repo/*.deb apt-repo/Packages apt-repo/Packages.gz apt-repo/Packages.bz2 apt-repo/Packages.xz apt-repo/Release
+          rm -rf apt-repo/debs
           mkdir -p apt-repo/debs
           cp built-packages/*.deb apt-repo/debs/
           sudo apt-get update -qq
