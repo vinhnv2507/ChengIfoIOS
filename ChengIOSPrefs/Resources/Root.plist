@@ -73,7 +73,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>ChengIOS 1.0.0
+			<string>ChengIOS 1.0.1
 by Vinh Nguyen</string>
 			<key>isStaticText</key>
 			<true/>
