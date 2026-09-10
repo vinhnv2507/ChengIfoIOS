@@ -1,22 +1,36 @@
 #import "Prefs.h"
 
 #import <pthread.h>
+#import <stdint.h>
 #import <math.h>
 
-static _Thread_local int gLocationBypass;
+static pthread_key_t gLocationBypassKey;
+static pthread_once_t gLocationBypassOnce = PTHREAD_ONCE_INIT;
+
+static void OVSInitLocationBypassKey(void) {
+    pthread_key_create(&gLocationBypassKey, NULL);
+}
+
+static int OVSLocationBypassDepth(void) {
+    pthread_once(&gLocationBypassOnce, OVSInitLocationBypassKey);
+    return (int)(intptr_t)pthread_getspecific(gLocationBypassKey);
+}
 
 void OVSBeginLocationHookBypass(void) {
-    gLocationBypass++;
+    pthread_once(&gLocationBypassOnce, OVSInitLocationBypassKey);
+    int depth = OVSLocationBypassDepth();
+    pthread_setspecific(gLocationBypassKey, (void *)(intptr_t)(depth + 1));
 }
 
 void OVSEndLocationHookBypass(void) {
-    if (gLocationBypass > 0) {
-        gLocationBypass--;
+    int depth = OVSLocationBypassDepth();
+    if (depth > 0) {
+        pthread_setspecific(gLocationBypassKey, (void *)(intptr_t)(depth - 1));
     }
 }
 
 BOOL OVSLocationHookBypassed(void) {
-    return gLocationBypass > 0;
+    return OVSLocationBypassDepth() > 0;
 }
 
 static pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;
