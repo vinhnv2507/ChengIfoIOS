@@ -37,10 +37,13 @@ jobs:
       - name: Validate packages
         run: |
           set -euo pipefail
+          ls -l built-packages
           for package in built-packages/*.deb; do
-            dpkg-deb --info "$package" >/dev/null
-            dpkg-deb --contents "$package" | grep -q 'ChengIOS.dylib'
-            dpkg-deb --contents "$package" | grep -q 'ChengIOSPrefs.bundle'
+            echo "Validating $package"
+            dpkg-deb --info "$package"
+            contents="$(dpkg-deb --contents "$package")"
+            echo "$contents" | grep 'ChengIOS.dylib'
+            echo "$contents" | grep 'ChengIOSPrefs.bundle'
           done
 
       - name: Build APT repository
