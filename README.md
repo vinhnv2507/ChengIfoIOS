@@ -32,6 +32,13 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.7
+
+- Facebook/Shopee: chế độ an toàn, không hook `sysctlbyname` / `uname` / `getifaddrs`, không giả version app
+- **Giả lập phiên bản App mặc định tắt**; không còn fallback `2147483647` (nguyên nhân văng FB/Shopee dù tắt Spoof sâu)
+- Không inject WebContent (captcha Shopee)
+- `isOperatingSystemAtLeastVersion` giữ bản iOS thật trên FB/Shopee để tránh gọi API không có
+
 ## 1.2.6
 
 - Safari **luôn** nằm đầu **Change Apps** (kể cả khi hệ thống ẩn app)

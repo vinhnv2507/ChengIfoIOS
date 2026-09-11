@@ -250,17 +250,44 @@ BOOL OVSIsWebKitHelperProcess(void) {
         NSString *bundleID = [OVSMainBundleIdentifier() lowercaseString] ?: @"";
         helper = [processName containsString:@"webkit"] ||
                  [processName containsString:@"webcontent"] ||
+                 [processName containsString:@"safariviewservice"] ||
                  [bundleID hasPrefix:@"com.apple.webkit"] ||
+                 [bundleID containsString:@"webcontent"] ||
                  [bundleID isEqualToString:@"com.apple.safariviewservice"];
     });
     return helper;
 }
 
+BOOL OVSIsFragileApp(void) {
+    static BOOL fragile;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        NSString *bundleID = [OVSMainBundleIdentifier() lowercaseString] ?: @"";
+        NSString *processName = [[[NSProcessInfo processInfo] processName] lowercaseString] ?: @"";
+        fragile = [bundleID hasPrefix:@"com.facebook."] ||
+                  [bundleID hasPrefix:@"com.meta."] ||
+                  [bundleID hasPrefix:@"com.burbn."] ||
+                  [bundleID hasPrefix:@"com.instagram."] ||
+                  [bundleID hasPrefix:@"net.whatsapp."] ||
+                  [bundleID containsString:@"facebook"] ||
+                  [bundleID containsString:@"shopee"] ||
+                  [processName containsString:@"facebook"] ||
+                  [processName containsString:@"shopee"] ||
+                  [processName containsString:@"instagram"] ||
+                  [processName containsString:@"whatsapp"];
+    });
+    return fragile;
+}
+
 BOOL OVSGestaltEnabled(void) {
-    if (!OVSSpoofingEnabled() || OVSIsWebKitHelperProcess()) {
+    if (!OVSSpoofingEnabled() || OVSIsWebKitHelperProcess() || OVSIsFragileApp()) {
         return NO;
     }
     return OVSBoolForKey(@"gestaltEnabled", NO);
+}
+
+BOOL OVSLowLevelHooksEnabled(void) {
+    return OVSGestaltEnabled();
 }
 
 static pthread_key_t gLowLevelHookKey;
@@ -416,11 +443,18 @@ NSString *OVSSpoofedBuildNumber(void) {
 }
 
 BOOL OVSAppVersionEnabled(void) {
-    return OVSSpoofingEnabled() && OVSBoolForKey(@"appVersionEnabled", YES);
+    if (OVSIsFragileApp() || !OVSSpoofingEnabled() || !OVSBoolForKey(@"appVersionEnabled", NO)) {
+        return NO;
+    }
+    NSString *version = OVSSpoofedAppVersion();
+    if (version.length == 0 || [version isEqualToString:@"2147483647"]) {
+        return NO;
+    }
+    return YES;
 }
 
 NSString *OVSSpoofedAppVersion(void) {
-    return OVSStringForKey(@"customAppVersion", @"2147483647");
+    return OVSStringForKey(@"customAppVersion", nil);
 }
 
 BOOL OVSDeviceIdentityEnabled(void) {
@@ -727,7 +761,7 @@ id OVSGestaltObjectForKey(NSString *key) {
 }
 
 BOOL OVSLocaleEnabled(void) {
-    return OVSSpoofingEnabled() && OVSBoolForKey(@"localeEnabled", NO);
+    return !OVSIsFragileApp() && OVSSpoofingEnabled() && OVSBoolForKey(@"localeEnabled", NO);
 }
 
 NSString *OVSSpoofedLocaleIdentifier(void) {
@@ -745,7 +779,7 @@ NSString *OVSSpoofedTimeZoneName(void) {
 }
 
 BOOL OVSCarrierEnabled(void) {
-    return OVSSpoofingEnabled() && OVSBoolForKey(@"carrierEnabled", NO);
+    return !OVSIsFragileApp() && OVSSpoofingEnabled() && OVSBoolForKey(@"carrierEnabled", NO);
 }
 
 NSString *OVSSpoofedCarrierName(void) {
@@ -866,7 +900,7 @@ static void OVSEnsureGPXLoaded(void) {
 }
 
 BOOL OVSLocationEnabled(void) {
-    if (!OVSSpoofingEnabled() || !OVSBoolForKey(@"locationEnabled", NO)) {
+    if (OVSIsFragileApp() || !OVSSpoofingEnabled() || !OVSBoolForKey(@"locationEnabled", NO)) {
         return NO;
     }
     NSString *gpxPath = OVSStringForKey(@"gpxPath", nil);
@@ -940,7 +974,7 @@ CLLocation *OVSSpoofedLocation(void) {
 }
 
 BOOL OVSNetworkEnabled(void) {
-    if (!OVSSpoofingEnabled() || !OVSBoolForKey(@"networkEnabled", NO)) {
+    if (OVSIsFragileApp() || !OVSSpoofingEnabled() || !OVSBoolForKey(@"networkEnabled", NO)) {
         return NO;
     }
     return OVSSpoofedIPv4().length > 0 ||
