@@ -30,6 +30,28 @@
 		</dict>
 		<dict>
 			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>cellClass</key>
+			<string>SRSwitchTableCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>gestaltEnabled</string>
+			<key>label</key>
+			<string>Spoof sâu (Gestalt / Darwin)</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>Mặc định tắt. Bật nếu cần Gestalt/Darwin rồi force-quit app đích. Nếu Facebook/Shopee văng thì tắt. Safari luôn ở đầu Change Apps.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
 			<string>PSLinkCell</string>
 			<key>detail</key>
 			<string>ChengIOSAppListController</string>
@@ -691,7 +713,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>ChengIOS 1.2.5
+			<string>ChengIOS 1.2.6
 by vinhnv2507</string>
 			<key>isStaticText</key>
 			<true/>

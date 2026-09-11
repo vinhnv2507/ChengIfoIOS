@@ -242,6 +242,49 @@ BOOL OVSIsProtectedProcess(void) {
     return protectedProcess;
 }
 
+BOOL OVSIsWebKitHelperProcess(void) {
+    static BOOL helper;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        NSString *processName = [[[NSProcessInfo processInfo] processName] lowercaseString] ?: @"";
+        NSString *bundleID = [OVSMainBundleIdentifier() lowercaseString] ?: @"";
+        helper = [processName containsString:@"webkit"] ||
+                 [processName containsString:@"webcontent"] ||
+                 [bundleID hasPrefix:@"com.apple.webkit"] ||
+                 [bundleID isEqualToString:@"com.apple.safariviewservice"];
+    });
+    return helper;
+}
+
+BOOL OVSGestaltEnabled(void) {
+    if (!OVSSpoofingEnabled() || OVSIsWebKitHelperProcess()) {
+        return NO;
+    }
+    return OVSBoolForKey(@"gestaltEnabled", NO);
+}
+
+static pthread_key_t gLowLevelHookKey;
+static pthread_once_t gLowLevelHookOnce = PTHREAD_ONCE_INIT;
+
+static void OVSInitLowLevelHookKey(void) {
+    pthread_key_create(&gLowLevelHookKey, NULL);
+}
+
+BOOL OVSBeginLowLevelHook(void) {
+    pthread_once(&gLowLevelHookOnce, OVSInitLowLevelHookKey);
+    int depth = (int)(intptr_t)pthread_getspecific(gLowLevelHookKey);
+    if (depth > 0) {
+        return NO;
+    }
+    pthread_setspecific(gLowLevelHookKey, (void *)(intptr_t)1);
+    return YES;
+}
+
+void OVSEndLowLevelHook(void) {
+    pthread_once(&gLowLevelHookOnce, OVSInitLowLevelHookKey);
+    pthread_setspecific(gLowLevelHookKey, NULL);
+}
+
 BOOL OVSMasterEnabled(void) {
     return OVSBoolForKey(@"masterEnabled", YES);
 }
@@ -635,38 +678,28 @@ static BOOL OVSGestaltKeyIs(NSString *key, NSString *name) {
 }
 
 id OVSGestaltObjectForKey(NSString *key) {
-    if (key.length == 0 || !OVSSpoofingEnabled()) {
+    if (key.length == 0 || !OVSGestaltEnabled()) {
+        return nil;
+    }
+    unichar first = [key characterAtIndex:0];
+    if (first < 32 || first > 126) {
         return nil;
     }
 
-    if (OVSGestaltKeyIs(key, @"ProductVersion") || OVSGestaltKeyIs(key, @"ProductVersionExtra")) {
-        return OVSGestaltKeyIs(key, @"ProductVersionExtra") ? @"" : OVSSpoofedOSVersionString();
+    if (OVSGestaltKeyIs(key, @"ProductVersion")) {
+        return OVSSpoofedOSVersionString();
     }
     if (OVSGestaltKeyIs(key, @"BuildVersion")) {
         return OVSSpoofedBuildNumber();
     }
-    if (OVSGestaltKeyIs(key, @"ReleaseType")) {
-        return @"User";
-    }
-
-    if (!OVSShouldSpoofModel() && !OVSDeviceIdentityEnabled()) {
-        return nil;
-    }
-
-    if (OVSGestaltKeyIs(key, @"ProductType") || OVSGestaltKeyIs(key, @"HardwareModel") || OVSGestaltKeyIs(key, @"product-type")) {
+    if (OVSGestaltKeyIs(key, @"ProductType") || OVSGestaltKeyIs(key, @"product-type")) {
         return OVSSpoofedModel();
     }
-    if (OVSGestaltKeyIs(key, @"HWModelStr") || OVSGestaltKeyIs(key, @"HWModel") || OVSGestaltKeyIs(key, @"hw-model")) {
+    if (OVSGestaltKeyIs(key, @"HWModelStr") || OVSGestaltKeyIs(key, @"HWModel") || OVSGestaltKeyIs(key, @"hw-model") || OVSGestaltKeyIs(key, @"HardwareModel")) {
         return OVSSpoofedHwModel();
-    }
-    if (OVSGestaltKeyIs(key, @"HardwarePlatform") || OVSGestaltKeyIs(key, @"PlatformName")) {
-        return OVSSpoofedHardwarePlatform();
     }
     if (OVSGestaltKeyIs(key, @"DeviceClass")) {
         return @"iPhone";
-    }
-    if (OVSGestaltKeyIs(key, @"DeviceClassNumber")) {
-        return @1;
     }
     if (OVSGestaltKeyIs(key, @"DeviceName") || OVSGestaltKeyIs(key, @"marketing-name") || OVSGestaltKeyIs(key, @"MarketingProductName")) {
         return OVSSpoofedMarketingName();
@@ -675,37 +708,20 @@ id OVSGestaltObjectForKey(NSString *key) {
         return OVSSpoofedDeviceName();
     }
     if (OVSGestaltKeyIs(key, @"SerialNumber")) {
-        return OVSSpoofedSerialNumber();
+        NSString *serial = OVSSpoofedSerialNumber();
+        return serial.length ? serial : nil;
     }
-    if (OVSGestaltKeyIs(key, @"UniqueDeviceID") || OVSGestaltKeyIs(key, @"UniqueDeviceIDData")) {
-        return OVSSpoofedUniqueDeviceID();
+    if (OVSGestaltKeyIs(key, @"UniqueDeviceID")) {
+        NSString *udid = OVSSpoofedUniqueDeviceID();
+        return udid.length ? udid : nil;
     }
-    if (OVSGestaltKeyIs(key, @"MLBSerialNumber")) {
-        return OVSSpoofedMLBSerial();
-    }
-    if (OVSGestaltKeyIs(key, @"InternationalMobileEquipmentIdentity") || OVSGestaltKeyIs(key, @"IMEI")) {
-        return OVSSpoofedIMEI();
-    }
-    if (OVSGestaltKeyIs(key, @"WifiAddress") || OVSGestaltKeyIs(key, @"EthernetAddress")) {
-        return OVSSpoofedWifiAddress();
+    if (OVSGestaltKeyIs(key, @"WifiAddress")) {
+        NSString *mac = OVSSpoofedWifiAddress();
+        return mac.length ? mac : nil;
     }
     if (OVSGestaltKeyIs(key, @"BluetoothAddress")) {
-        return OVSSpoofedBluetoothAddress();
-    }
-    if (OVSGestaltKeyIs(key, @"RegionInfo") || OVSGestaltKeyIs(key, @"RegionCode")) {
-        return OVSSpoofedRegionInfo();
-    }
-    if (OVSGestaltKeyIs(key, @"CPUArchitecture")) {
-        return @"arm64e";
-    }
-    if (OVSGestaltKeyIs(key, @"CPUArchitectureAny")) {
-        return @"arm64";
-    }
-    if (OVSGestaltKeyIs(key, @"UniqueChipID") || OVSGestaltKeyIs(key, @"DieId")) {
-        uint64_t chip = OVSSpoofedUniqueChipID();
-        if (chip > 0) {
-            return @(chip);
-        }
+        NSString *mac = OVSSpoofedBluetoothAddress();
+        return mac.length ? mac : nil;
     }
     return nil;
 }

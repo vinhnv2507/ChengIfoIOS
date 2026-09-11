@@ -741,7 +741,7 @@ static NSDictionary *CIBuildProfile(BOOL full) {
     profile[@"wifiBSSID"] = CIRandomBSSID();
     profile[@"wifiGateway"] = CIGatewayFromIPv4(ipv4);
     profile[@"wifiRSSI"] = CIRandomRSSI();
-    profile[@"appVersionEnabled"] = @YES;
+    profile[@"appVersionEnabled"] = @NO;
     profile[@"customAppVersion"] = CIRandomAppVersion();
     return profile;
 }
@@ -810,7 +810,26 @@ void ChengIOSApplyProfile(NSDictionary *profile) {
     notify_post("com.vinhnv2507.chengiosprefs/ReloadPrefs");
 }
 
+NSMutableDictionary *ChengIOSLoadRawPrefs(void) {
+    return CILoadRawPrefs();
+}
+
+void ChengIOSSetPrefValue(NSString *key, id value) {
+    if (key.length == 0 || !value) {
+        return;
+    }
+    ChengIOSApplyProfile(@{key: value});
+}
+
+id ChengIOSPrefValue(NSString *key) {
+    if (key.length == 0) {
+        return nil;
+    }
+    return CILoadRawPrefs()[key];
+}
+
 NSDictionary *ChengIOSLoadSavedProfile(void) {
+
     NSMutableDictionary *prefs = CILoadRawPrefs();
 
     NSString *model = CIFirstString(prefs, @[@"spoofedModel", @"customDeviceModel"]);

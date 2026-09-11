@@ -1,11 +1,10 @@
 #import "ChengIOSAppListController.h"
+#import "ChengIOSProfiles.h"
 
-#import <notify.h>
 #import <objc/runtime.h>
 #import <UIKit/UIKit.h>
 
-static NSString * const kPrefsID = @"com.vinhnv2507.chengiosprefs";
-static NSString * const kEnabledKey = @"appEnabled";
+static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
 
 @interface LSApplicationProxy : NSObject
 @property (nonatomic, readonly) NSString *applicationIdentifier;
@@ -22,50 +21,56 @@ static NSString * const kEnabledKey = @"appEnabled";
 
 @implementation ChengIOSAppListController {
     NSArray<LSApplicationProxy *> *_apps;
+    LSApplicationProxy *_safariApp;
     NSMutableDictionary *_enabled;
     UITableView *_tableView;
 }
 
-- (NSString *)prefsPath {
-    return [NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", kPrefsID];
-}
-
-- (NSMutableDictionary *)loadPrefs {
-    NSMutableDictionary *prefs = [NSMutableDictionary dictionaryWithContentsOfFile:[self prefsPath]] ?: [NSMutableDictionary dictionary];
-    id current = prefs[kEnabledKey];
-    if (![current isKindOfClass:[NSDictionary class]]) {
-        CFPropertyListRef cfValue = CFPreferencesCopyAppValue((__bridge CFStringRef)kEnabledKey, (__bridge CFStringRef)kPrefsID);
-        if (cfValue) {
-            current = (__bridge_transfer id)cfValue;
-        }
-    }
+- (void)loadPrefs {
+    id current = ChengIOSPrefValue(@"appEnabled");
     _enabled = [current isKindOfClass:[NSDictionary class]] ? [current mutableCopy] : [NSMutableDictionary dictionary];
-    return prefs;
 }
 
 - (void)saveEnabled {
-    NSMutableDictionary *prefs = [NSMutableDictionary dictionaryWithContentsOfFile:[self prefsPath]] ?: [NSMutableDictionary dictionary];
-    prefs[kEnabledKey] = _enabled;
-    [prefs writeToFile:[self prefsPath] atomically:YES];
-    CFPreferencesSetAppValue((__bridge CFStringRef)kEnabledKey, (__bridge CFPropertyListRef)_enabled, (__bridge CFStringRef)kPrefsID);
-    CFPreferencesAppSynchronize((__bridge CFStringRef)kPrefsID);
-    notify_post("com.vinhnv2507.chengiosprefs/changed");
-    notify_post("com.vinhnv2507.chengiosprefs/ReloadPrefs");
+    ChengIOSSetPrefValue(@"appEnabled", _enabled);
+}
+
+- (BOOL)keepBundle:(NSString *)bundleId {
+    if (bundleId.length == 0) {
+        return NO;
+    }
+    if ([bundleId isEqualToString:kSafariBundleID] ||
+        [bundleId isEqualToString:@"com.apple.SafariViewService"] ||
+        [bundleId isEqualToString:@"com.apple.webapp"]) {
+        return YES;
+    }
+    if ([bundleId hasPrefix:@"com.apple."]) {
+        return NO;
+    }
+    return YES;
 }
 
 - (void)loadApps {
     NSArray *allApps = [[objc_getClass("LSApplicationWorkspace") defaultWorkspace] allInstalledApplications];
     NSMutableArray *filtered = [NSMutableArray array];
+    LSApplicationProxy *safari = nil;
     for (LSApplicationProxy *app in allApps) {
         NSString *bundleId = app.applicationIdentifier ?: app.bundleIdentifier;
-        if (bundleId.length == 0 || [bundleId hasPrefix:@"com.apple."]) {
+        if (![self keepBundle:bundleId]) {
+            continue;
+        }
+        if ([bundleId isEqualToString:kSafariBundleID]) {
+            safari = app;
             continue;
         }
         [filtered addObject:app];
     }
+    _safariApp = safari;
     _apps = [filtered sortedArrayUsingComparator:^NSComparisonResult(LSApplicationProxy *a, LSApplicationProxy *b) {
-        NSString *nameA = a.localizedName ?: a.applicationIdentifier;
-        NSString *nameB = b.localizedName ?: b.applicationIdentifier;
+        NSString *idA = a.applicationIdentifier ?: a.bundleIdentifier ?: @"";
+        NSString *idB = b.applicationIdentifier ?: b.bundleIdentifier ?: @"";
+        NSString *nameA = a.localizedName ?: idA;
+        NSString *nameB = b.localizedName ?: idB;
         return [nameA localizedCaseInsensitiveCompare:nameB];
     }];
 }
@@ -83,8 +88,45 @@ static NSString * const kEnabledKey = @"appEnabled";
     [self.view addSubview:_tableView];
 }
 
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
+    (void)tableView;
+    return 2;
+}
+
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return _apps.count;
+    (void)tableView;
+    if (section == 0) {
+        return 1;
+    }
+    return (NSInteger)_apps.count;
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    (void)tableView;
+    return section == 0 ? @"Safari" : @"Apps";
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    (void)tableView;
+    if (section == 0) {
+        return @"Safari lu\u00f4n \u1edf \u0111\u1ea7u danh s\u00e1ch.";
+    }
+    return @"Ch\u1ecdn Facebook/Shopee \u1edf \u0111\u00e2y. Force-quit app \u0111\u00edch sau Random.";
+}
+
+- (NSString *)bundleIdForIndexPath:(NSIndexPath *)indexPath {
+    if (indexPath.section == 0) {
+        return kSafariBundleID;
+    }
+    LSApplicationProxy *app = _apps[indexPath.row];
+    return app.applicationIdentifier ?: app.bundleIdentifier;
+}
+
+- (LSApplicationProxy *)proxyForIndexPath:(NSIndexPath *)indexPath {
+    if (indexPath.section == 0) {
+        return _safariApp;
+    }
+    return _apps[indexPath.row];
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -94,9 +136,13 @@ static NSString * const kEnabledKey = @"appEnabled";
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellId];
     }
 
-    LSApplicationProxy *app = _apps[indexPath.row];
-    NSString *bundleId = app.applicationIdentifier ?: app.bundleIdentifier;
-    cell.textLabel.text = app.localizedName.length ? app.localizedName : bundleId;
+    NSString *bundleId = [self bundleIdForIndexPath:indexPath];
+    LSApplicationProxy *app = [self proxyForIndexPath:indexPath];
+    NSString *name = app.localizedName.length ? app.localizedName : nil;
+    if (name.length == 0 && [bundleId isEqualToString:kSafariBundleID]) {
+        name = @"Safari";
+    }
+    cell.textLabel.text = name.length ? name : bundleId;
     cell.detailTextLabel.text = bundleId;
     cell.accessoryType = [_enabled[bundleId] boolValue] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
 
@@ -113,8 +159,7 @@ static NSString * const kEnabledKey = @"appEnabled";
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    LSApplicationProxy *app = _apps[indexPath.row];
-    NSString *bundleId = app.applicationIdentifier ?: app.bundleIdentifier;
+    NSString *bundleId = [self bundleIdForIndexPath:indexPath];
     BOOL enabled = [_enabled[bundleId] boolValue];
     _enabled[bundleId] = @(!enabled);
     [self saveEnabled];

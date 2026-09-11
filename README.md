@@ -32,7 +32,17 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.6
+
+- Safari **luôn** nằm đầu **Change Apps** (kể cả khi hệ thống ẩn app)
+- App ChengIOS trên Home đủ mục giống Settings: app, random, info, iOS, locale, GPS, Wi-Fi, serial/UDID/IMEI, deeplink, respring
+- Sửa crash Facebook/Shopee của 1.2.5: bỏ hook `sysctl` thô, không hook WebContent, `MGCopyAnswer` 2-arg và chỉ gắn khi bật Spoof sâu
+- **Spoof sâu (Gestalt / Darwin) mặc định tắt** — bật rồi force-quit app đích nếu cần sâu hơn
+- Random Toàn Bộ không tự bật giả version app (Facebook/Shopee dễ văng nếu đổi `CFBundleVersion`)
+- Deeplink thêm `chengios://apps`
+
 ## 1.2.5
+
 
 - Spoof sâu hơn trong app đã chọn: `MGCopyAnswer` (ProductType, board, serial, UDID, IMEI, Wi-Fi/BT MAC)
 - Darwin `uname` / `sysctl` / `sysctlbyname` (`kern.osrelease`, `hw.machine`, `hw.model`, RAM, ncpu)
@@ -98,6 +108,7 @@ Thêm thao tác **Mở URL**:
 
 - `chengios://random-identity` — Random Info Máy
 - `chengios://random-all` — Random Toàn Bộ
+- `chengios://apps` — mở Change Apps
 - `chengios://random-all?silent=1` — Random Toàn Bộ, không alert
 - `chengios://profile` — xem hồ sơ hiện tại
 - `chengios://copy` — sao chép hồ sơ

@@ -19,6 +19,10 @@ BOOL OVSIsProtectedProcess(void);
 BOOL OVSMasterEnabled(void);
 BOOL OVSAppSelected(void);
 BOOL OVSSpoofingEnabled(void);
+BOOL OVSIsWebKitHelperProcess(void);
+BOOL OVSGestaltEnabled(void);
+BOOL OVSBeginLowLevelHook(void);
+void OVSEndLowLevelHook(void);
 
 BOOL OVSUseCustomOSVersion(void);
 NSOperatingSystemVersion OVSPredictedOSVersion(void);

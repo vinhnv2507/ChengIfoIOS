@@ -95,41 +95,6 @@
 }
 %end
 
-%hookf(CFLocaleRef, CFLocaleCopyCurrent) {
-    if (!OVSLocaleEnabled()) {
-        CFLocaleRef original = %orig();
-        return original;
-    }
-    NSLocale *locale = [[NSLocale alloc] initWithLocaleIdentifier:OVSSpoofedLocaleIdentifier()];
-    return (CFLocaleRef)CFBridgingRetain(locale);
-}
-
-%hookf(CFTimeZoneRef, CFTimeZoneCopySystem) {
-    if (!OVSLocaleEnabled()) {
-        CFTimeZoneRef original = %orig();
-        return original;
-    }
-    NSTimeZone *timeZone = [NSTimeZone timeZoneWithName:OVSSpoofedTimeZoneName()];
-    if (!timeZone) {
-        CFTimeZoneRef original = %orig();
-        return original;
-    }
-    return (CFTimeZoneRef)CFBridgingRetain(timeZone);
-}
-
-%hookf(CFTimeZoneRef, CFTimeZoneCopyDefault) {
-    if (!OVSLocaleEnabled()) {
-        CFTimeZoneRef original = %orig();
-        return original;
-    }
-    NSTimeZone *timeZone = [NSTimeZone timeZoneWithName:OVSSpoofedTimeZoneName()];
-    if (!timeZone) {
-        CFTimeZoneRef original = %orig();
-        return original;
-    }
-    return (CFTimeZoneRef)CFBridgingRetain(timeZone);
-}
-
 %group TelephonyHooks
 %hook CTCarrier
 - (NSString *)carrierName {
@@ -178,18 +143,15 @@
 
 - (NSDictionary *)serviceCurrentRadioAccessTechnology {
     NSDictionary *original = %orig;
-    if (!OVSCarrierEnabled()) {
+    if (!OVSCarrierEnabled() || ![original isKindOfClass:[NSDictionary class]] || original.count == 0) {
         return original;
     }
     NSString *tech = OVSSpoofedRadioAccessTechnology();
-    if ([original isKindOfClass:[NSDictionary class]] && original.count > 0) {
-        NSMutableDictionary *rewritten = [original mutableCopy];
-        for (id key in original.allKeys) {
-            rewritten[key] = tech;
-        }
-        return rewritten;
+    NSMutableDictionary *rewritten = [original mutableCopy];
+    for (id key in original.allKeys) {
+        rewritten[key] = tech;
     }
-    return @{@"0000000100000001": tech};
+    return rewritten;
 }
 %end
 %end
@@ -234,7 +196,7 @@
             strncpy(name->machine, model.UTF8String, sizeof(name->machine) - 1);
             name->machine[sizeof(name->machine) - 1] = '\0';
         }
-        if (OVSSpoofingEnabled()) {
+        if (OVSGestaltEnabled()) {
             strncpy(name->sysname, "Darwin", sizeof(name->sysname) - 1);
             name->sysname[sizeof(name->sysname) - 1] = '\0';
             NSString *release = OVSDarwinRelease();
