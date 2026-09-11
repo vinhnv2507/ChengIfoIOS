@@ -31,6 +31,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.3
+
+- Random Toàn Bộ thêm Wi-Fi: SSID, BSSID, gateway, RSSI khớp vùng và subnet IPv4
+- Hook `CNCopyCurrentNetworkInfo` / `NEHotspotNetwork` để app đọc SSID/BSSID đã gán
+- Trang **Hồ sơ hiện tại** để xem lại info đã random, có sao chép
+
 ## 1.2.2
 
 - **Random Info Máy**: chọn 1 hồ sơ thiết bị thật (model + tên + hostname + iOS/build khớp nhau)

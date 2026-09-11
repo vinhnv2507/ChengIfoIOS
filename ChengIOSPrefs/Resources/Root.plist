@@ -115,6 +115,24 @@
 		</dict>
 		<dict>
 			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>showCurrentInfo</string>
+			<key>label</key>
+			<string>Xem Info Hiện Tại</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>detail</key>
+			<string>ChengIOSCurrentInfoController</string>
+			<key>isController</key>
+			<true/>
+			<key>label</key>
+			<string>Hồ sơ hiện tại</string>
+		</dict>
+		<dict>
+			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Phiên bản iOS</string>
@@ -521,9 +539,9 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Định danh mạng</string>
+			<string>Mạng / Wi-Fi</string>
 			<key>footerText</key>
-			<string>Tắt mặc định. iOS hiện tại không có API Wi-Fi MAC được hỗ trợ, nên giả lập MAC chỉ là best-effort, không phải ranh giới bảo mật.</string>
+			<string>Tắt mặc định. Bật để giả lập IPv4/IPv6/MAC và Wi-Fi SSID/BSSID/gateway. SSID/BSSID qua CaptiveNetwork; MAC vẫn là best-effort.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -601,6 +619,62 @@
 		</dict>
 		<dict>
 			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>wifiSSID</string>
+			<key>label</key>
+			<string>Wi-Fi SSID</string>
+			<key>placeholder</key>
+			<string>Viettel-5G</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>wifiBSSID</string>
+			<key>label</key>
+			<string>Wi-Fi BSSID</string>
+			<key>placeholder</key>
+			<string>50:c7:bf:12:34:56</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>wifiGateway</string>
+			<key>label</key>
+			<string>Gateway</string>
+			<key>placeholder</key>
+			<string>192.168.1.1</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>key</key>
+			<string>wifiRSSI</string>
+			<key>label</key>
+			<string>RSSI (dBm)</string>
+			<key>placeholder</key>
+			<string>-52</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
 			<string>Force-quit app đích sau khi đổi cài đặt. Respring nếu process vẫn báo giá trị cũ.</string>
@@ -617,7 +691,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>ChengIOS 1.2.2
+			<string>ChengIOS 1.2.3
 by vinhnv2507</string>
 			<key>isStaticText</key>
 			<true/>

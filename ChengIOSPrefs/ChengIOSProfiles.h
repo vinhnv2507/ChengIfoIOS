@@ -2,4 +2,5 @@
 
 NSDictionary *ChengIOSRandomIdentity(void);
 NSDictionary *ChengIOSRandomFullProfile(void);
+NSDictionary *ChengIOSLoadSavedProfile(void);
 NSString *ChengIOSProfileSummary(NSDictionary *profile);

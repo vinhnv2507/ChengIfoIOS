@@ -61,5 +61,11 @@ NSString *OVSSpoofedIPv4(void);
 NSString *OVSSpoofedIPv6(void);
 NSString *OVSSpoofedMACAddress(void);
 NSString *OVSSpoofedInterfaceName(void);
+NSString *OVSSpoofedWifiSSID(void);
+NSString *OVSSpoofedWifiBSSID(void);
+NSString *OVSSpoofedWifiGateway(void);
+NSString *OVSSpoofedWifiRSSI(void);
+NSDictionary *OVSSpoofedCaptiveNetworkInfo(void);
+double OVSSpoofedWifiSignalStrength(void);
 
 NSString *OVSRewriteUserAgent(NSString *userAgent, BOOL rewriteAppVersion);

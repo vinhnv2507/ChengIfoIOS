@@ -8,7 +8,8 @@ endif
 
 TWEAK_NAME = ChengIOS
 $(TWEAK_NAME)_FILES = Prefs.m Tweak.x HooksDevice.x HooksLocation.x HooksNetwork.x
-$(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation CoreLocation CoreTelephony
+$(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation CoreLocation CoreTelephony SystemConfiguration
+$(TWEAK_NAME)_WEAK_FRAMEWORKS = NetworkExtension
 $(TWEAK_NAME)_CFLAGS = -fobjc-arc -Wno-unused-variable -Wno-deprecated-declarations -Wno-unused-function -Wno-unguarded-availability-new
 
 SUBPROJECTS += ChengIOSPrefs
