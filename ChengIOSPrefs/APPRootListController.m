@@ -44,6 +44,10 @@ extern char **environ;
     notify_post(kChengPrefsReload);
 }
 
+- (void)refreshPrefs {
+    [self reloadSpecifiers];
+}
+
 - (void)respring {
     if (![UIAlertController class]) {
         [self performRespring];

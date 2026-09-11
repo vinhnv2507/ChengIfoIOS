@@ -1,5 +1,7 @@
 #import "RootViewController.h"
 #import "AppListViewController.h"
+#import "DeeplinkListViewController.h"
+#import "RegionListViewController.h"
 #import "../ChengIOSPrefs/ChengIOSProfiles.h"
 
 #import <spawn.h>
@@ -41,6 +43,8 @@ extern char **environ;
             @{@"kind": @"button", @"title": @"Random To\u00e0n B\u1ed9", @"action": @"full"},
             @{@"kind": @"button", @"title": @"Xem h\u1ed3 s\u01a1", @"action": @"profile"},
             @{@"kind": @"button", @"title": @"Sao ch\u00e9p h\u1ed3 s\u01a1", @"action": @"copy"}
+            @{@"kind": @"nav", @"title": @"Random theo vung", @"page": @"region", @"detail": @"VN / US / KR / JP..."},
+            @{@"kind": @"nav", @"title": @"Deeplink / Shortcuts", @"page": @"deeplink", @"detail": @"chengios://"}
         ],
         @[
             @{@"kind": @"text", @"title": @"Model", @"keys": @[@"spoofedModel", @"customDeviceModel"], @"placeholder": @"iPhone16,2"},
@@ -102,18 +106,9 @@ extern char **environ;
             @{@"kind": @"text", @"title": @"Wi-Fi MAC", @"keys": @[@"wifiAddress"], @"placeholder": @"02:00:00:00:00:01"},
             @{@"kind": @"text", @"title": @"BT MAC", @"keys": @[@"bluetoothAddress"], @"placeholder": @"02:00:00:00:00:02"}
         ],
-        @[
-            @{@"kind": @"copy", @"title": @"Sao ch\u00e9p URL", @"url": @"chengios://random-identity"},
-            @{@"kind": @"copy", @"title": @"Sao ch\u00e9p URL", @"url": @"chengios://random-all"},
-            @{@"kind": @"copy", @"title": @"Sao ch\u00e9p URL", @"url": @"chengios://apps"},
-            @{@"kind": @"copy", @"title": @"Sao ch\u00e9p URL", @"url": @"chengios://profile"},
-            @{@"kind": @"copy", @"title": @"Sao ch\u00e9p URL", @"url": @"chengios://copy"},
-            @{@"kind": @"copy", @"title": @"Sao ch\u00e9p URL", @"url": @"chengios://settings"},
-            @{@"kind": @"copy", @"title": @"Sao ch\u00e9p URL", @"url": @"chengios://random-all?silent=1"}
-        ],
+
         @[
             @{@"kind": @"button", @"title": @"M\u1edf C\u00e0i \u0111\u1eb7t ChengIOS", @"action": @"settings"},
-            @{@"kind": @"button", @"title": @"Respring", @"action": @"respring"}
         ]
     ];
 }
@@ -122,6 +117,7 @@ extern char **environ;
     self.schema = [self buildSchema];
     [super viewDidLoad];
     self.title = @"ChengIOS";
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Respring" style:UIBarButtonItemStylePlain target:self action:@selector(respring)];
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Refresh" style:UIBarButtonItemStylePlain target:self action:@selector(reloadProfile)];
     [self reloadProfile];
 }
@@ -179,7 +175,7 @@ extern char **environ;
     NSArray *titles = @[
         @"Chung", @"Apps", @"Random", @"Change Info", @"Phi\u00ean b\u1ea3n iOS", @"Phi\u00ean b\u1ea3n App",
         @"\u0110\u1ecbnh danh", @"Locale", @"Nh\u00e0 m\u1ea1ng", @"V\u1ecb tr\u00ed", @"M\u1ea1ng / Wi-Fi",
-        @"Gestalt / ID", @"Deeplink / Shortcuts", @"Kh\u00e1c"
+        @"Gestalt / ID", @"Kh\u00e1c"
     ];
     return titles[section];
 }
@@ -187,19 +183,19 @@ extern char **environ;
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     (void)tableView;
     if (section == 0) {
-        return @"Safari: tick Safari, vu\u1ed1t t\u1eaft h\u1eb3n r\u1ed3i m\u1edf l\u1ea1i tab. Facebook/Shopee v\u1eabn ch\u1ebf \u0111\u1ed9 an to\u00e0n.";
+        return @"Safari: tick Safari, vuot tat han roi mo lai tab. Facebook/Shopee van che do an toan.";
     }
     if (section == 2) {
-        return @"Info M\u00e1y: model/t\u00ean/iOS. To\u00e0n B\u1ed9: th\u00eam locale/GPS/Wi-Fi.";
+        return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";
+    }
+    if (section == 9) {
+        return @"deviceinfo.me Region/City/ISP la IP cong cong that (Viettel/Hung Yen). Bam nut Detect de dung GPS gia lap.";
     }
     if (section == 11) {
         return self.summary;
     }
     if (section == 12) {
-        return @"Shortcuts: thao t\u00e1c M\u1edf URL.";
-    }
-    if (section == 13) {
-        return @"Force-quit app \u0111\u00edch sau Random. Kh\u00f4ng c\u1ea7n respring tr\u1eeb khi process k\u1eb9t.";
+        return @"Force-quit app dich sau Random. Respring o goc tren trai, Refresh o goc tren phai.";
     }
     return nil;
 }
@@ -302,8 +298,16 @@ extern char **environ;
     NSDictionary *row = [self rowAt:indexPath];
     NSString *kind = row[@"kind"];
     if ([kind isEqualToString:@"nav"]) {
-        AppListViewController *list = [[AppListViewController alloc] initWithStyle:UITableViewStyleGrouped];
-        [self.navigationController pushViewController:list animated:YES];
+        NSString *page = row[@"page"];
+        UIViewController *next = nil;
+        if ([page isEqualToString:@"deeplink"]) {
+            next = [[DeeplinkListViewController alloc] initWithStyle:UITableViewStyleGrouped];
+        } else if ([page isEqualToString:@"region"]) {
+            next = [[RegionListViewController alloc] initWithStyle:UITableViewStyleGrouped];
+        } else {
+            next = [[AppListViewController alloc] initWithStyle:UITableViewStyleGrouped];
+        }
+        [self.navigationController pushViewController:next animated:YES];
         return;
     }
     if ([kind isEqualToString:@"copy"]) {
@@ -467,7 +471,18 @@ extern char **environ;
     BOOL modeAll = [mode caseInsensitiveCompare:@"all"] == NSOrderedSame || [mode caseInsensitiveCompare:@"full"] == NSOrderedSame;
     BOOL modeIdentity = [mode caseInsensitiveCompare:@"identity"] == NSOrderedSame || [mode caseInsensitiveCompare:@"machine"] == NSOrderedSame || [mode caseInsensitiveCompare:@"info"] == NSOrderedSame;
     if (modeAll || [self token:token hasAny:@[@"random-all", @"randomall", @"toan-bo", @"toanbo", @"full"]]) {
-        [self runRandom:YES silent:silent]; did = YES;
+        NSString *region = [self queryValue:url name:@"region"] ?: [self queryValue:url name:@"iso"];
+        if (region.length > 0) {
+            NSDictionary *profile = ChengIOSRandomFullProfileInRegion(region);
+            ChengIOSApplyProfile(profile);
+            [self reloadProfile];
+            if (!silent) {
+                [self showSummaryTitle:[NSString stringWithFormat:@"Random %@", region.uppercaseString] profile:profile];
+            }
+        } else {
+            [self runRandom:YES silent:silent];
+        }
+        did = YES;
     } else if ([token isEqualToString:@"random"] && !modeIdentity) {
         [self runRandom:YES silent:silent]; did = YES;
     } else if (modeIdentity || [self token:token hasAny:@[@"random-identity", @"random-info", @"identity", @"info-may", @"infomay", @"machine"]]) {
@@ -482,6 +497,8 @@ extern char **environ;
         did = YES;
     } else if ([self token:token hasAny:@[@"setting", @"prefs"]]) {
         [self openSettings]; did = YES;
+    } else if ([self token:token hasAny:@[@"respring", @"sbreload", @"ldrestart"]]) {
+        [self respring]; did = YES;
     }
     NSString *success = [self queryValue:url name:@"x-success"];
     if (did && success.length > 0) {

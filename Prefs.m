@@ -1151,7 +1151,7 @@ static void OVSEnsureGPXLoaded(void) {
 }
 
 BOOL OVSLocationEnabled(void) {
-    if (OVSIsFragileApp() || OVSIsSafariFamily() || !OVSSpoofingEnabled() || !OVSBoolForKey(@"locationEnabled", NO)) {
+    if (OVSIsFragileApp() || !OVSSpoofingEnabled() || !OVSBoolForKey(@"locationEnabled", NO)) {
         return NO;
     }
     NSString *gpxPath = OVSStringForKey(@"gpxPath", nil);

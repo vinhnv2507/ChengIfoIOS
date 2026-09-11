@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Deeplink / Shortcuts</string>
+			<key>footerText</key>
+			<string>An mot dong de sao chep URL. Dung Shortcuts: Mo URL.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Random Info May</string>
+			<key>url</key>
+			<string>chengios://random-identity</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Random Toan Bo</string>
+			<key>url</key>
+			<string>chengios://random-all</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Random Viet Nam</string>
+			<key>url</key>
+			<string>chengios://random-all?region=vn</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Random United States</string>
+			<key>url</key>
+			<string>chengios://random-all?region=us</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Random Korea</string>
+			<key>url</key>
+			<string>chengios://random-all?region=kr</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Random Japan</string>
+			<key>url</key>
+			<string>chengios://random-all?region=jp</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Change Apps</string>
+			<key>url</key>
+			<string>chengios://apps</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Xem ho so</string>
+			<key>url</key>
+			<string>chengios://profile</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Sao chep ho so</string>
+			<key>url</key>
+			<string>chengios://copy</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Mo Settings</string>
+			<key>url</key>
+			<string>chengios://settings</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Respring</string>
+			<key>url</key>
+			<string>chengios://respring</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Random silent</string>
+			<key>url</key>
+			<string>chengios://random-all?silent=1</string>
+		</dict>
+	</array>
+	<key>title</key>
+	<string>Deeplink</string>
+</dict>
+</plist>
