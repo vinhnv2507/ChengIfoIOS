@@ -5,3 +5,8 @@ packages/
 .cheng-publish/
 _patch_*.py
 _write_*.py
+
+_*.txt
+_gen_*.py
+_dump/
+_w/
