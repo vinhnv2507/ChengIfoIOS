@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <CoreLocation/CoreLocation.h>
+#import <stdint.h>
 
 void OVSReloadPreferences(void);
 void OVSRegisterPreferenceListener(void);
@@ -36,8 +37,25 @@ BOOL OVSShouldSpoofModel(void);
 NSString *OVSSpoofedDeviceName(void);
 NSString *OVSSpoofedHostName(void);
 NSString *OVSSpoofedModel(void);
+NSString *OVSSpoofedMarketingName(void);
+NSString *OVSSpoofedHwModel(void);
+NSString *OVSSpoofedHardwarePlatform(void);
+NSInteger OVSSpoofedNCPU(void);
+unsigned long long OVSSpoofedMemorySize(void);
+NSString *OVSDarwinRelease(void);
+NSString *OVSDarwinVersionString(void);
+NSString *OVSSpoofedSerialNumber(void);
+NSString *OVSSpoofedUniqueDeviceID(void);
+NSString *OVSSpoofedMLBSerial(void);
+NSString *OVSSpoofedIMEI(void);
+NSString *OVSSpoofedWifiAddress(void);
+NSString *OVSSpoofedBluetoothAddress(void);
+NSString *OVSSpoofedRegionInfo(void);
+NSString *OVSSpoofedRadioAccessTechnology(void);
+uint64_t OVSSpoofedUniqueChipID(void);
 NSUUID *OVSSpoofedVendorUUID(void);
 NSUUID *OVSSpoofedAdvertisingUUID(void);
+id OVSGestaltObjectForKey(NSString *key);
 
 BOOL OVSLocaleEnabled(void);
 NSString *OVSSpoofedLocaleIdentifier(void);

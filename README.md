@@ -32,7 +32,16 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.5
+
+- Spoof sâu hơn trong app đã chọn: `MGCopyAnswer` (ProductType, board, serial, UDID, IMEI, Wi-Fi/BT MAC)
+- Darwin `uname` / `sysctl` / `sysctlbyname` (`kern.osrelease`, `hw.machine`, `hw.model`, RAM, ncpu)
+- IDFV / IDFA / serial / UDID ổn định đến lần Random tiếp
+- `CTTelephonyNetworkInfo` radio access (LTE/5G) + `CFLocale` / `CFTimeZone`
+- Vẫn không hook SpringBoard, không đổi kích thước màn hình
+
 ## 1.2.4
+
 
 - App **ChengIOS** trên màn hình chính: Random, xem hồ sơ, sao chép, mở Settings
 - URL scheme `chengios://` cho Shortcuts / deeplink

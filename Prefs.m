@@ -3,6 +3,7 @@
 #import <pthread.h>
 #import <stdint.h>
 #import <math.h>
+#import <stdlib.h>
 
 static pthread_key_t gLocationBypassKey;
 static pthread_once_t gLocationBypassOnce = PTHREAD_ONCE_INIT;
@@ -415,7 +416,194 @@ BOOL OVSShouldSpoofModel(void) {
     return OVSSpoofingEnabled() && OVSSpoofedModel().length > 0;
 }
 
+static NSDictionary *OVSHardwareInfoForModel(NSString *model) {
+    if (model.length == 0) {
+        return nil;
+    }
+    static NSDictionary *map;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        map = @{
+            @"iPhone12,1": @{@"hw": @"N104AP", @"chip": @"t8030", @"ram": @4, @"ncpu": @6},
+            @"iPhone12,3": @{@"hw": @"D421AP", @"chip": @"t8030", @"ram": @4, @"ncpu": @6},
+            @"iPhone12,5": @{@"hw": @"D431AP", @"chip": @"t8030", @"ram": @4, @"ncpu": @6},
+            @"iPhone12,8": @{@"hw": @"D79AP", @"chip": @"t8030", @"ram": @3, @"ncpu": @6},
+            @"iPhone13,1": @{@"hw": @"D52gAP", @"chip": @"t8101", @"ram": @4, @"ncpu": @6},
+            @"iPhone13,2": @{@"hw": @"D53gAP", @"chip": @"t8101", @"ram": @4, @"ncpu": @6},
+            @"iPhone13,3": @{@"hw": @"D53pAP", @"chip": @"t8101", @"ram": @6, @"ncpu": @6},
+            @"iPhone13,4": @{@"hw": @"D54pAP", @"chip": @"t8101", @"ram": @6, @"ncpu": @6},
+            @"iPhone14,4": @{@"hw": @"D16AP", @"chip": @"t8110", @"ram": @4, @"ncpu": @6},
+            @"iPhone14,5": @{@"hw": @"D17AP", @"chip": @"t8110", @"ram": @4, @"ncpu": @6},
+            @"iPhone14,2": @{@"hw": @"D63AP", @"chip": @"t8110", @"ram": @6, @"ncpu": @6},
+            @"iPhone14,3": @{@"hw": @"D64AP", @"chip": @"t8110", @"ram": @6, @"ncpu": @6},
+            @"iPhone14,6": @{@"hw": @"D49AP", @"chip": @"t8110", @"ram": @4, @"ncpu": @6},
+            @"iPhone14,7": @{@"hw": @"D27AP", @"chip": @"t8110", @"ram": @6, @"ncpu": @6},
+            @"iPhone14,8": @{@"hw": @"D28AP", @"chip": @"t8110", @"ram": @6, @"ncpu": @6},
+            @"iPhone15,2": @{@"hw": @"D73AP", @"chip": @"t8120", @"ram": @6, @"ncpu": @6},
+            @"iPhone15,3": @{@"hw": @"D74AP", @"chip": @"t8120", @"ram": @6, @"ncpu": @6},
+            @"iPhone15,4": @{@"hw": @"D37AP", @"chip": @"t8122", @"ram": @6, @"ncpu": @6},
+            @"iPhone15,5": @{@"hw": @"D38AP", @"chip": @"t8122", @"ram": @6, @"ncpu": @6},
+            @"iPhone16,1": @{@"hw": @"D83AP", @"chip": @"t8130", @"ram": @8, @"ncpu": @6},
+            @"iPhone16,2": @{@"hw": @"D84AP", @"chip": @"t8130", @"ram": @8, @"ncpu": @6},
+            @"iPhone17,3": @{@"hw": @"D47AP", @"chip": @"t8140", @"ram": @8, @"ncpu": @6},
+            @"iPhone17,4": @{@"hw": @"D48AP", @"chip": @"t8140", @"ram": @8, @"ncpu": @6},
+            @"iPhone17,1": @{@"hw": @"D93AP", @"chip": @"t8150", @"ram": @8, @"ncpu": @6},
+            @"iPhone17,2": @{@"hw": @"D94AP", @"chip": @"t8150", @"ram": @8, @"ncpu": @6},
+            @"iPhone17,5": @{@"hw": @"V59AP", @"chip": @"t8140", @"ram": @8, @"ncpu": @6},
+            @"iPhone18,3": @{@"hw": @"V57AP", @"chip": @"t8160", @"ram": @8, @"ncpu": @6},
+            @"iPhone18,4": @{@"hw": @"V58AP", @"chip": @"t8160", @"ram": @8, @"ncpu": @6},
+            @"iPhone18,1": @{@"hw": @"V53AP", @"chip": @"t8170", @"ram": @12, @"ncpu": @6},
+            @"iPhone18,2": @{@"hw": @"V54AP", @"chip": @"t8170", @"ram": @12, @"ncpu": @6}
+        };
+    });
+    return map[model];
+}
+
+NSString *OVSSpoofedMarketingName(void) {
+    NSString *value = OVSStringForKeys(@[@"profileProduct"], nil);
+    if (value.length > 0) {
+        return value;
+    }
+    return @"iPhone";
+}
+
+NSString *OVSSpoofedHwModel(void) {
+    NSString *value = OVSStringForKeys(@[@"hwModelStr"], nil);
+    if (value.length > 0) {
+        return value;
+    }
+    NSDictionary *info = OVSHardwareInfoForModel(OVSSpoofedModel());
+    return info[@"hw"];
+}
+
+NSString *OVSSpoofedHardwarePlatform(void) {
+    NSString *value = OVSStringForKeys(@[@"hardwarePlatform"], nil);
+    if (value.length > 0) {
+        return value;
+    }
+    NSDictionary *info = OVSHardwareInfoForModel(OVSSpoofedModel());
+    return info[@"chip"] ?: @"t8130";
+}
+
+NSInteger OVSSpoofedNCPU(void) {
+    NSInteger stored = [OVSStringForKeys(@[@"ncpu"], nil) integerValue];
+    if (stored > 0) {
+        return stored;
+    }
+    NSDictionary *info = OVSHardwareInfoForModel(OVSSpoofedModel());
+    NSInteger mapped = [info[@"ncpu"] integerValue];
+    return mapped > 0 ? mapped : 6;
+}
+
+unsigned long long OVSSpoofedMemorySize(void) {
+    NSInteger gb = [OVSStringForKeys(@[@"memoryGB"], nil) integerValue];
+    if (gb <= 0) {
+        gb = [OVSHardwareInfoForModel(OVSSpoofedModel())[@"ram"] integerValue];
+    }
+    if (gb <= 0) {
+        return 0;
+    }
+    return (unsigned long long)gb * 1024ULL * 1024ULL * 1024ULL;
+}
+
+NSString *OVSDarwinRelease(void) {
+    NSOperatingSystemVersion version = OVSSpoofedOSVersion();
+    NSInteger darwinMajor = 0;
+    if (version.majorVersion >= 26) {
+        darwinMajor = 25 + (version.majorVersion - 26);
+    } else if (version.majorVersion > 0) {
+        darwinMajor = version.majorVersion + 6;
+    } else {
+        darwinMajor = 24;
+    }
+    NSInteger darwinMinor = version.minorVersion;
+    if (darwinMinor < 0) {
+        darwinMinor = 0;
+    }
+    return [NSString stringWithFormat:@"%ld.%ld.0", (long)darwinMajor, (long)darwinMinor];
+}
+
+NSString *OVSDarwinVersionString(void) {
+    NSString *release = OVSDarwinRelease();
+    NSString *chip = [OVSSpoofedHardwarePlatform() uppercaseString] ?: @"T8130";
+    return [NSString stringWithFormat:@"Darwin Kernel Version %@: Tue Jan  6 00:00:00 PST 2026; root:xnu-11417.140.69~1/RELEASE_ARM64_%@", release, chip];
+}
+
+NSString *OVSSpoofedSerialNumber(void) {
+    return OVSStringForKeys(@[@"spoofedSerialNumber"], nil);
+}
+
+NSString *OVSSpoofedUniqueDeviceID(void) {
+    return OVSStringForKeys(@[@"spoofedUniqueDeviceID"], nil);
+}
+
+NSString *OVSSpoofedMLBSerial(void) {
+    return OVSStringForKeys(@[@"mlbSerialNumber"], nil);
+}
+
+NSString *OVSSpoofedIMEI(void) {
+    return OVSStringForKeys(@[@"spoofedIMEI"], nil);
+}
+
+NSString *OVSSpoofedWifiAddress(void) {
+    return OVSStringForKeys(@[@"wifiAddress", @"macAddress"], nil);
+}
+
+NSString *OVSSpoofedBluetoothAddress(void) {
+    NSString *value = OVSStringForKeys(@[@"bluetoothAddress"], nil);
+    if (value.length > 0) {
+        return value;
+    }
+    return OVSSpoofedWifiAddress();
+}
+
+NSString *OVSSpoofedRegionInfo(void) {
+    NSString *stored = OVSStringForKeys(@[@"regionInfo"], nil);
+    if (stored.length > 0) {
+        return stored;
+    }
+    NSString *iso = OVSSpoofedISOCountryCode();
+    if (iso.length == 0) {
+        return @"US/A";
+    }
+    return [NSString stringWithFormat:@"%@/A", iso.uppercaseString];
+}
+
+NSString *OVSSpoofedRadioAccessTechnology(void) {
+    NSString *stored = OVSStringForKeys(@[@"radioAccessTechnology"], nil);
+    if (stored.length > 0) {
+        return stored;
+    }
+    NSString *model = OVSSpoofedModel() ?: @"";
+    if ([model hasPrefix:@"iPhone12,"]) {
+        return @"CTRadioAccessTechnologyLTE";
+    }
+    return @"CTRadioAccessTechnologyNR";
+}
+
+uint64_t OVSSpoofedUniqueChipID(void) {
+    NSString *raw = OVSStringForKeys(@[@"spoofedUniqueChipID"], nil);
+    if (raw.length == 0) {
+        return 0;
+    }
+    const char *cString = raw.UTF8String;
+    if (!cString) {
+        return 0;
+    }
+    if ([raw hasPrefix:@"0x"] || [raw hasPrefix:@"0X"]) {
+        return strtoull(cString, NULL, 16);
+    }
+    return strtoull(cString, NULL, 10);
+}
+
 NSUUID *OVSSpoofedVendorUUID(void) {
+    NSString *raw = OVSStringForKeys(@[@"spoofedVendorUUID"], nil);
+    if (raw.length > 0) {
+        NSUUID *parsed = [[NSUUID alloc] initWithUUIDString:raw];
+        if (parsed) {
+            return parsed;
+        }
+    }
     pthread_mutex_lock(&gMutex);
     if (!gVendorUUID) {
         gVendorUUID = [NSUUID UUID];
@@ -426,6 +614,13 @@ NSUUID *OVSSpoofedVendorUUID(void) {
 }
 
 NSUUID *OVSSpoofedAdvertisingUUID(void) {
+    NSString *raw = OVSStringForKeys(@[@"spoofedAdvertisingUUID"], nil);
+    if (raw.length > 0) {
+        NSUUID *parsed = [[NSUUID alloc] initWithUUIDString:raw];
+        if (parsed) {
+            return parsed;
+        }
+    }
     pthread_mutex_lock(&gMutex);
     if (!gAdvertisingUUID) {
         gAdvertisingUUID = [NSUUID UUID];
@@ -433,6 +628,86 @@ NSUUID *OVSSpoofedAdvertisingUUID(void) {
     NSUUID *uuid = gAdvertisingUUID;
     pthread_mutex_unlock(&gMutex);
     return uuid;
+}
+
+static BOOL OVSGestaltKeyIs(NSString *key, NSString *name) {
+    return [key caseInsensitiveCompare:name] == NSOrderedSame;
+}
+
+id OVSGestaltObjectForKey(NSString *key) {
+    if (key.length == 0 || !OVSSpoofingEnabled()) {
+        return nil;
+    }
+
+    if (OVSGestaltKeyIs(key, @"ProductVersion") || OVSGestaltKeyIs(key, @"ProductVersionExtra")) {
+        return OVSGestaltKeyIs(key, @"ProductVersionExtra") ? @"" : OVSSpoofedOSVersionString();
+    }
+    if (OVSGestaltKeyIs(key, @"BuildVersion")) {
+        return OVSSpoofedBuildNumber();
+    }
+    if (OVSGestaltKeyIs(key, @"ReleaseType")) {
+        return @"User";
+    }
+
+    if (!OVSShouldSpoofModel() && !OVSDeviceIdentityEnabled()) {
+        return nil;
+    }
+
+    if (OVSGestaltKeyIs(key, @"ProductType") || OVSGestaltKeyIs(key, @"HardwareModel") || OVSGestaltKeyIs(key, @"product-type")) {
+        return OVSSpoofedModel();
+    }
+    if (OVSGestaltKeyIs(key, @"HWModelStr") || OVSGestaltKeyIs(key, @"HWModel") || OVSGestaltKeyIs(key, @"hw-model")) {
+        return OVSSpoofedHwModel();
+    }
+    if (OVSGestaltKeyIs(key, @"HardwarePlatform") || OVSGestaltKeyIs(key, @"PlatformName")) {
+        return OVSSpoofedHardwarePlatform();
+    }
+    if (OVSGestaltKeyIs(key, @"DeviceClass")) {
+        return @"iPhone";
+    }
+    if (OVSGestaltKeyIs(key, @"DeviceClassNumber")) {
+        return @1;
+    }
+    if (OVSGestaltKeyIs(key, @"DeviceName") || OVSGestaltKeyIs(key, @"marketing-name") || OVSGestaltKeyIs(key, @"MarketingProductName")) {
+        return OVSSpoofedMarketingName();
+    }
+    if (OVSGestaltKeyIs(key, @"UserAssignedDeviceName")) {
+        return OVSSpoofedDeviceName();
+    }
+    if (OVSGestaltKeyIs(key, @"SerialNumber")) {
+        return OVSSpoofedSerialNumber();
+    }
+    if (OVSGestaltKeyIs(key, @"UniqueDeviceID") || OVSGestaltKeyIs(key, @"UniqueDeviceIDData")) {
+        return OVSSpoofedUniqueDeviceID();
+    }
+    if (OVSGestaltKeyIs(key, @"MLBSerialNumber")) {
+        return OVSSpoofedMLBSerial();
+    }
+    if (OVSGestaltKeyIs(key, @"InternationalMobileEquipmentIdentity") || OVSGestaltKeyIs(key, @"IMEI")) {
+        return OVSSpoofedIMEI();
+    }
+    if (OVSGestaltKeyIs(key, @"WifiAddress") || OVSGestaltKeyIs(key, @"EthernetAddress")) {
+        return OVSSpoofedWifiAddress();
+    }
+    if (OVSGestaltKeyIs(key, @"BluetoothAddress")) {
+        return OVSSpoofedBluetoothAddress();
+    }
+    if (OVSGestaltKeyIs(key, @"RegionInfo") || OVSGestaltKeyIs(key, @"RegionCode")) {
+        return OVSSpoofedRegionInfo();
+    }
+    if (OVSGestaltKeyIs(key, @"CPUArchitecture")) {
+        return @"arm64e";
+    }
+    if (OVSGestaltKeyIs(key, @"CPUArchitectureAny")) {
+        return @"arm64";
+    }
+    if (OVSGestaltKeyIs(key, @"UniqueChipID") || OVSGestaltKeyIs(key, @"DieId")) {
+        uint64_t chip = OVSSpoofedUniqueChipID();
+        if (chip > 0) {
+            return @(chip);
+        }
+    }
+    return nil;
 }
 
 BOOL OVSLocaleEnabled(void) {

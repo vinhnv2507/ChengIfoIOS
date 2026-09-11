@@ -557,6 +557,104 @@ static NSString *CIFirstString(NSDictionary *prefs, NSArray<NSString *> *keys) {
     return @"";
 }
 
+
+static NSString *CIRandomHex(NSUInteger length, BOOL upper) {
+    static const char *lower = "0123456789abcdef";
+    static const char *digits = "0123456789ABCDEF";
+    const char *alphabet = upper ? digits : lower;
+    NSMutableString *text = [NSMutableString stringWithCapacity:length];
+    for (NSUInteger i = 0; i < length; i++) {
+        [text appendFormat:@"%c", alphabet[arc4random_uniform(16)]];
+    }
+    return text;
+}
+
+static NSString *CIRandomSerial(void) {
+    static const char *alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+    NSMutableString *text = [NSMutableString stringWithCapacity:10];
+    for (int i = 0; i < 10; i++) {
+        [text appendFormat:@"%c", alphabet[arc4random_uniform(32)]];
+    }
+    return text;
+}
+
+static NSString *CIRandomMLB(void) {
+    return [NSString stringWithFormat:@"F%d%@%@", 1 + (int)arc4random_uniform(9), CIRandomSerial(), CIRandomHex(3, YES)];
+}
+
+static NSString *CIRandomIMEI(void) {
+    NSMutableString *digits = [NSMutableString stringWithString:@"35"];
+    for (int i = 0; i < 12; i++) {
+        [digits appendFormat:@"%u", arc4random_uniform(10)];
+    }
+    NSInteger sum = 0;
+    for (NSInteger i = 0; i < 14; i++) {
+        NSInteger n = [digits characterAtIndex:(NSUInteger)i] - '0';
+        if ((13 - i) % 2 == 0) {
+            n *= 2;
+            if (n > 9) {
+                n -= 9;
+            }
+        }
+        sum += n;
+    }
+    NSInteger check = (10 - (sum % 10)) % 10;
+    return [digits stringByAppendingFormat:@"%ld", (long)check];
+}
+
+static NSString *CIRandomChipID(void) {
+    uint64_t value = ((uint64_t)arc4random() << 32) | arc4random();
+    value |= 0x100000000ULL;
+    return [NSString stringWithFormat:@"%llu", (unsigned long long)value];
+}
+
+static NSDictionary *CIHardwareForModel(NSString *model) {
+    static NSDictionary *map;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        map = @{
+            @"iPhone12,1": @{@"hw": @"N104AP", @"chip": @"t8030", @"ram": @4, @"ncpu": @6},
+            @"iPhone12,3": @{@"hw": @"D421AP", @"chip": @"t8030", @"ram": @4, @"ncpu": @6},
+            @"iPhone12,5": @{@"hw": @"D431AP", @"chip": @"t8030", @"ram": @4, @"ncpu": @6},
+            @"iPhone12,8": @{@"hw": @"D79AP", @"chip": @"t8030", @"ram": @3, @"ncpu": @6},
+            @"iPhone13,1": @{@"hw": @"D52gAP", @"chip": @"t8101", @"ram": @4, @"ncpu": @6},
+            @"iPhone13,2": @{@"hw": @"D53gAP", @"chip": @"t8101", @"ram": @4, @"ncpu": @6},
+            @"iPhone13,3": @{@"hw": @"D53pAP", @"chip": @"t8101", @"ram": @6, @"ncpu": @6},
+            @"iPhone13,4": @{@"hw": @"D54pAP", @"chip": @"t8101", @"ram": @6, @"ncpu": @6},
+            @"iPhone14,4": @{@"hw": @"D16AP", @"chip": @"t8110", @"ram": @4, @"ncpu": @6},
+            @"iPhone14,5": @{@"hw": @"D17AP", @"chip": @"t8110", @"ram": @4, @"ncpu": @6},
+            @"iPhone14,2": @{@"hw": @"D63AP", @"chip": @"t8110", @"ram": @6, @"ncpu": @6},
+            @"iPhone14,3": @{@"hw": @"D64AP", @"chip": @"t8110", @"ram": @6, @"ncpu": @6},
+            @"iPhone14,6": @{@"hw": @"D49AP", @"chip": @"t8110", @"ram": @4, @"ncpu": @6},
+            @"iPhone14,7": @{@"hw": @"D27AP", @"chip": @"t8110", @"ram": @6, @"ncpu": @6},
+            @"iPhone14,8": @{@"hw": @"D28AP", @"chip": @"t8110", @"ram": @6, @"ncpu": @6},
+            @"iPhone15,2": @{@"hw": @"D73AP", @"chip": @"t8120", @"ram": @6, @"ncpu": @6},
+            @"iPhone15,3": @{@"hw": @"D74AP", @"chip": @"t8120", @"ram": @6, @"ncpu": @6},
+            @"iPhone15,4": @{@"hw": @"D37AP", @"chip": @"t8122", @"ram": @6, @"ncpu": @6},
+            @"iPhone15,5": @{@"hw": @"D38AP", @"chip": @"t8122", @"ram": @6, @"ncpu": @6},
+            @"iPhone16,1": @{@"hw": @"D83AP", @"chip": @"t8130", @"ram": @8, @"ncpu": @6},
+            @"iPhone16,2": @{@"hw": @"D84AP", @"chip": @"t8130", @"ram": @8, @"ncpu": @6},
+            @"iPhone17,3": @{@"hw": @"D47AP", @"chip": @"t8140", @"ram": @8, @"ncpu": @6},
+            @"iPhone17,4": @{@"hw": @"D48AP", @"chip": @"t8140", @"ram": @8, @"ncpu": @6},
+            @"iPhone17,1": @{@"hw": @"D93AP", @"chip": @"t8150", @"ram": @8, @"ncpu": @6},
+            @"iPhone17,2": @{@"hw": @"D94AP", @"chip": @"t8150", @"ram": @8, @"ncpu": @6},
+            @"iPhone17,5": @{@"hw": @"V59AP", @"chip": @"t8140", @"ram": @8, @"ncpu": @6},
+            @"iPhone18,3": @{@"hw": @"V57AP", @"chip": @"t8160", @"ram": @8, @"ncpu": @6},
+            @"iPhone18,4": @{@"hw": @"V58AP", @"chip": @"t8160", @"ram": @8, @"ncpu": @6},
+            @"iPhone18,1": @{@"hw": @"V53AP", @"chip": @"t8170", @"ram": @12, @"ncpu": @6},
+            @"iPhone18,2": @{@"hw": @"V54AP", @"chip": @"t8170", @"ram": @12, @"ncpu": @6}
+        };
+    });
+    return map[model] ?: @{@"hw": @"D83AP", @"chip": @"t8130", @"ram": @8, @"ncpu": @6};
+}
+
+static NSString *CIRadioForModel(NSString *model) {
+    if ([model hasPrefix:@"iPhone12,"]) {
+        return @"CTRadioAccessTechnologyLTE";
+    }
+    return @"CTRadioAccessTechnologyNR";
+}
+
 static NSDictionary *CIBuildProfile(BOOL full) {
     NSDictionary *device = CIPickWeighted(CIDevices(), @"weight");
     NSDictionary *os = CIPick(CIBiasRecent(device[@"os"]));
@@ -591,6 +689,24 @@ static NSDictionary *CIBuildProfile(BOOL full) {
         @"_city": city[@"name"] ?: @""
     } mutableCopy];
 
+    NSDictionary *hw = CIHardwareForModel(device[@"model"]);
+    NSString *wifi = CIRandomMAC();
+    profile[@"hwModelStr"] = hw[@"hw"];
+    profile[@"hardwarePlatform"] = hw[@"chip"];
+    profile[@"memoryGB"] = hw[@"ram"];
+    profile[@"ncpu"] = hw[@"ncpu"];
+    profile[@"spoofedVendorUUID"] = [[NSUUID UUID] UUIDString];
+    profile[@"spoofedAdvertisingUUID"] = [[NSUUID UUID] UUIDString];
+    profile[@"spoofedSerialNumber"] = CIRandomSerial();
+    profile[@"spoofedUniqueDeviceID"] = CIRandomHex(40, NO);
+    profile[@"spoofedUniqueChipID"] = CIRandomChipID();
+    profile[@"spoofedIMEI"] = CIRandomIMEI();
+    profile[@"mlbSerialNumber"] = CIRandomMLB();
+    profile[@"wifiAddress"] = wifi;
+    profile[@"bluetoothAddress"] = CIRandomMAC();
+    profile[@"regionInfo"] = [NSString stringWithFormat:@"%@/A", [region[@"iso"] uppercaseString] ?: @"US"];
+    profile[@"radioAccessTechnology"] = CIRadioForModel(device[@"model"]);
+
     if (!full) {
         return profile;
     }
@@ -620,7 +736,7 @@ static NSDictionary *CIBuildProfile(BOOL full) {
     profile[@"interfaceName"] = @"en0";
     profile[@"ipv4Address"] = ipv4;
     profile[@"ipv6Address"] = CIRandomIPv6(region[@"ipv6"]);
-    profile[@"macAddress"] = CIRandomMAC();
+    profile[@"macAddress"] = wifi;
     profile[@"wifiSSID"] = CIRandomSSID(region, name, ipv4);
     profile[@"wifiBSSID"] = CIRandomBSSID();
     profile[@"wifiGateway"] = CIGatewayFromIPv4(ipv4);
@@ -644,6 +760,16 @@ NSString *ChengIOSProfileSummary(NSDictionary *profile) {
     [text appendFormat:@"iOS %@ (%@)\n", profile[@"spoofedSystemVersion"], profile[@"spoofedBuild"]];
     [text appendFormat:@"Tên: %@\n", profile[@"spoofedName"]];
     [text appendFormat:@"Host: %@", profile[@"spoofedHostname"]];
+    if ([profile[@"hwModelStr"] length] || [profile[@"spoofedSerialNumber"] length]) {
+        [text appendFormat:@"\nBoard: %@", profile[@"hwModelStr"] ?: @"-"];
+        [text appendFormat:@"\nChip: %@  RAM: %@ GB", profile[@"hardwarePlatform"] ?: @"-", profile[@"memoryGB"] ?: @"-"];
+        [text appendFormat:@"\nSerial: %@", profile[@"spoofedSerialNumber"] ?: @"-"];
+        [text appendFormat:@"\nUDID: %@", profile[@"spoofedUniqueDeviceID"] ?: @"-"];
+        [text appendFormat:@"\nIDFV: %@", profile[@"spoofedVendorUUID"] ?: @"-"];
+        if ([profile[@"spoofedIMEI"] length]) {
+            [text appendFormat:@"\nIMEI: %@", profile[@"spoofedIMEI"]];
+        }
+    }
     if ([profile[@"localeIdentifier"] length] || [profile[@"wifiSSID"] length] || [profile[@"ipv4Address"] length]) {
         [text appendFormat:@"\nLocale: %@ / %@", profile[@"localeIdentifier"], profile[@"timeZoneName"]];
         [text appendFormat:@"\nNhà mạng: %@ (%@-%@)", profile[@"carrierName"], profile[@"mobileCountryCode"], profile[@"mobileNetworkCode"]];
@@ -722,5 +848,18 @@ NSDictionary *ChengIOSLoadSavedProfile(void) {
     profile[@"wifiRSSI"] = CIFirstString(prefs, @[@"wifiRSSI"]);
     profile[@"customAppVersion"] = CIFirstString(prefs, @[@"customAppVersion"]);
     profile[@"interfaceName"] = CIFirstString(prefs, @[@"interfaceName"]);
+    profile[@"hwModelStr"] = CIFirstString(prefs, @[@"hwModelStr"]);
+    profile[@"hardwarePlatform"] = CIFirstString(prefs, @[@"hardwarePlatform"]);
+    profile[@"memoryGB"] = CIFirstString(prefs, @[@"memoryGB"]);
+    profile[@"ncpu"] = CIFirstString(prefs, @[@"ncpu"]);
+    profile[@"spoofedSerialNumber"] = CIFirstString(prefs, @[@"spoofedSerialNumber"]);
+    profile[@"spoofedUniqueDeviceID"] = CIFirstString(prefs, @[@"spoofedUniqueDeviceID"]);
+    profile[@"spoofedVendorUUID"] = CIFirstString(prefs, @[@"spoofedVendorUUID"]);
+    profile[@"spoofedAdvertisingUUID"] = CIFirstString(prefs, @[@"spoofedAdvertisingUUID"]);
+    profile[@"spoofedIMEI"] = CIFirstString(prefs, @[@"spoofedIMEI"]);
+    profile[@"wifiAddress"] = CIFirstString(prefs, @[@"wifiAddress", @"macAddress"]);
+    profile[@"bluetoothAddress"] = CIFirstString(prefs, @[@"bluetoothAddress"]);
+    profile[@"regionInfo"] = CIFirstString(prefs, @[@"regionInfo"]);
+    profile[@"radioAccessTechnology"] = CIFirstString(prefs, @[@"radioAccessTechnology"]);
     return profile;
 }

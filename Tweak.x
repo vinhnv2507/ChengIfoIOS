@@ -6,6 +6,7 @@
 #import <string.h>
 #import <sys/sysctl.h>
 #import <sys/types.h>
+#import <stdint.h>
 
 static BOOL OVSIsMainBundle(NSBundle *bundle) {
     NSString *mainPath = OVSMainBundlePath();
@@ -51,8 +52,7 @@ static NSDictionary *OVSRewriteHeaderDictionary(NSDictionary *headers) {
     return rewritten;
 }
 
-static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
-    size_t length = strlen(value) + 1;
+static int OVSSysctlCopyBytes(void *oldp, size_t *oldlenp, const void *value, size_t length) {
     if (!oldp) {
         if (oldlenp) {
             *oldlenp = length;
@@ -71,9 +71,17 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
     return 0;
 }
 
+static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
+    return OVSSysctlCopyBytes(oldp, oldlenp, value, strlen(value) + 1);
+}
+
 %hook NSProcessInfo
 - (NSOperatingSystemVersion)operatingSystemVersion {
-    return OVSSpoofingEnabled() ? OVSSpoofedOSVersion() : %orig;
+    if (!OVSSpoofingEnabled()) {
+        NSOperatingSystemVersion original = %orig;
+        return original;
+    }
+    return OVSSpoofedOSVersion();
 }
 
 - (NSString *)operatingSystemVersionString {
@@ -98,37 +106,100 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (NSString *)hostName {
-    return OVSShouldSpoofHostName() ? OVSSpoofedHostName() : %orig;
+    if (!OVSShouldSpoofHostName()) {
+        return %orig;
+    }
+    return OVSSpoofedHostName();
+}
+
+- (NSUInteger)processorCount {
+    if (!OVSDeviceIdentityEnabled()) {
+        NSUInteger original = %orig;
+        return original;
+    }
+    NSInteger ncpu = OVSSpoofedNCPU();
+    if (ncpu <= 0) {
+        NSUInteger original = %orig;
+        return original;
+    }
+    return (NSUInteger)ncpu;
+}
+
+- (NSUInteger)activeProcessorCount {
+    if (!OVSDeviceIdentityEnabled()) {
+        NSUInteger original = %orig;
+        return original;
+    }
+    NSInteger ncpu = OVSSpoofedNCPU();
+    if (ncpu <= 0) {
+        NSUInteger original = %orig;
+        return original;
+    }
+    return (NSUInteger)ncpu;
+}
+
+- (unsigned long long)physicalMemory {
+    if (!OVSDeviceIdentityEnabled()) {
+        unsigned long long original = %orig;
+        return original;
+    }
+    unsigned long long spoofed = OVSSpoofedMemorySize();
+    if (spoofed == 0) {
+        unsigned long long original = %orig;
+        return original;
+    }
+    return spoofed;
 }
 %end
 
 %hook UIDevice
 - (NSString *)systemVersion {
-    return OVSSpoofingEnabled() ? OVSSpoofedOSVersionString() : %orig;
+    if (!OVSSpoofingEnabled()) {
+        return %orig;
+    }
+    return OVSSpoofedOSVersionString();
 }
 
 - (id)buildVersion {
-    return OVSSpoofingEnabled() ? OVSSpoofedBuildNumber() : %orig;
+    if (!OVSSpoofingEnabled()) {
+        return %orig;
+    }
+    return OVSSpoofedBuildNumber();
 }
 
 - (NSString *)name {
-    return OVSShouldSpoofDeviceName() ? OVSSpoofedDeviceName() : %orig;
+    if (!OVSShouldSpoofDeviceName()) {
+        return %orig;
+    }
+    return OVSSpoofedDeviceName();
 }
 
 - (NSString *)hostName {
-    return OVSShouldSpoofHostName() ? OVSSpoofedHostName() : %orig;
+    if (!OVSShouldSpoofHostName()) {
+        return %orig;
+    }
+    return OVSSpoofedHostName();
 }
 
 - (NSString *)model {
-    return OVSShouldSpoofModel() ? OVSSpoofedModel() : %orig;
+    if (!OVSShouldSpoofModel()) {
+        return %orig;
+    }
+    return OVSSpoofedModel();
 }
 
 - (NSString *)localizedModel {
-    return OVSShouldSpoofModel() ? OVSSpoofedModel() : %orig;
+    if (!OVSShouldSpoofModel()) {
+        return %orig;
+    }
+    return OVSSpoofedModel();
 }
 
 - (NSUUID *)identifierForVendor {
-    return OVSDeviceIdentityEnabled() ? OVSSpoofedVendorUUID() : %orig;
+    if (!OVSDeviceIdentityEnabled()) {
+        return %orig;
+    }
+    return OVSSpoofedVendorUUID();
 }
 %end
 
@@ -255,14 +326,88 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
         if (OVSSpoofingEnabled() && strcmp(name, "kern.osversion") == 0) {
             return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedBuildNumber().UTF8String);
         }
+        if (OVSSpoofingEnabled() && strcmp(name, "kern.ostype") == 0) {
+            return OVSSysctlCopyString(oldp, oldlenp, "Darwin");
+        }
+        if (OVSSpoofingEnabled() && strcmp(name, "kern.osrelease") == 0) {
+            return OVSSysctlCopyString(oldp, oldlenp, OVSDarwinRelease().UTF8String);
+        }
+        if (OVSSpoofingEnabled() && strcmp(name, "kern.version") == 0) {
+            return OVSSysctlCopyString(oldp, oldlenp, OVSDarwinVersionString().UTF8String);
+        }
         if (OVSShouldSpoofHostName() && strcmp(name, "kern.hostname") == 0) {
             return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedHostName().UTF8String);
         }
-        if (OVSShouldSpoofModel() && (strcmp(name, "hw.machine") == 0 || strcmp(name, "hw.model") == 0 || strcmp(name, "hw.product") == 0)) {
+        if (OVSShouldSpoofModel() && (strcmp(name, "hw.machine") == 0 || strcmp(name, "hw.product") == 0)) {
             return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedModel().UTF8String);
+        }
+        if (OVSShouldSpoofModel() && strcmp(name, "hw.model") == 0) {
+            NSString *hw = OVSSpoofedHwModel();
+            if (hw.length > 0) {
+                return OVSSysctlCopyString(oldp, oldlenp, hw.UTF8String);
+            }
+            return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedModel().UTF8String);
+        }
+        if (OVSDeviceIdentityEnabled() && (strcmp(name, "hw.ncpu") == 0 || strcmp(name, "hw.physicalcpu") == 0 || strcmp(name, "hw.logicalcpu") == 0)) {
+            int ncpu = (int)OVSSpoofedNCPU();
+            if (ncpu > 0) {
+                return OVSSysctlCopyBytes(oldp, oldlenp, &ncpu, sizeof(ncpu));
+            }
+        }
+        if (OVSDeviceIdentityEnabled() && strcmp(name, "hw.memsize") == 0) {
+            uint64_t mem = (uint64_t)OVSSpoofedMemorySize();
+            if (mem > 0) {
+                return OVSSysctlCopyBytes(oldp, oldlenp, &mem, sizeof(mem));
+            }
         }
     }
     return %orig(name, oldp, oldlenp, newp, newlen);
+}
+
+%hookf(int, sysctl, int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp, size_t newlen) {
+    if (!name || namelen < 2) {
+        return %orig(name, namelen, oldp, oldlenp, newp, newlen);
+    }
+    if (name[0] == CTL_KERN) {
+        if (name[1] == KERN_OSTYPE && OVSSpoofingEnabled()) {
+            return OVSSysctlCopyString(oldp, oldlenp, "Darwin");
+        }
+        if (name[1] == KERN_OSRELEASE && OVSSpoofingEnabled()) {
+            return OVSSysctlCopyString(oldp, oldlenp, OVSDarwinRelease().UTF8String);
+        }
+        if (name[1] == KERN_VERSION && OVSSpoofingEnabled()) {
+            return OVSSysctlCopyString(oldp, oldlenp, OVSDarwinVersionString().UTF8String);
+        }
+        if (name[1] == KERN_HOSTNAME && OVSShouldSpoofHostName()) {
+            return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedHostName().UTF8String);
+        }
+    } else if (name[0] == CTL_HW) {
+        if (name[1] == HW_MACHINE && OVSShouldSpoofModel()) {
+            return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedModel().UTF8String);
+        }
+        if (name[1] == HW_MODEL && OVSShouldSpoofModel()) {
+            NSString *hw = OVSSpoofedHwModel();
+            if (hw.length > 0) {
+                return OVSSysctlCopyString(oldp, oldlenp, hw.UTF8String);
+            }
+            return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedModel().UTF8String);
+        }
+        if (name[1] == HW_NCPU && OVSDeviceIdentityEnabled()) {
+            int ncpu = (int)OVSSpoofedNCPU();
+            if (ncpu > 0) {
+                return OVSSysctlCopyBytes(oldp, oldlenp, &ncpu, sizeof(ncpu));
+            }
+        }
+#ifdef HW_MEMSIZE
+        if (name[1] == HW_MEMSIZE && OVSDeviceIdentityEnabled()) {
+            uint64_t mem = (uint64_t)OVSSpoofedMemorySize();
+            if (mem > 0) {
+                return OVSSysctlCopyBytes(oldp, oldlenp, &mem, sizeof(mem));
+            }
+        }
+#endif
+    }
+    return %orig(name, namelen, oldp, oldlenp, newp, newlen);
 }
 
 %ctor {
