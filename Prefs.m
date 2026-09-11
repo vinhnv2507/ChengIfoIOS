@@ -4,6 +4,11 @@
 #import <stdint.h>
 #import <math.h>
 #import <stdlib.h>
+#import <string.h>
+#import <unistd.h>
+#import <dlfcn.h>
+#import <sys/sysctl.h>
+#import <sys/types.h>
 
 static pthread_key_t gLocationBypassKey;
 static pthread_once_t gLocationBypassOnce = PTHREAD_ONCE_INIT;
@@ -258,23 +263,139 @@ BOOL OVSIsWebKitHelperProcess(void) {
     return helper;
 }
 
+static BOOL OVSStringLooksFragile(NSString *value) {
+    NSString *text = value.lowercaseString ?: @"";
+    if (text.length == 0) {
+        return NO;
+    }
+    return [text hasPrefix:@"com.facebook."] ||
+           [text hasPrefix:@"com.meta."] ||
+           [text hasPrefix:@"com.burbn."] ||
+           [text hasPrefix:@"com.instagram."] ||
+           [text hasPrefix:@"net.whatsapp."] ||
+           [text containsString:@"facebook"] ||
+           [text containsString:@"shopee"] ||
+           [text containsString:@"instagram"] ||
+           [text containsString:@"whatsapp"];
+}
+
+static NSString *OVSParentProcessName(void) {
+    static NSString *name;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        name = @"";
+        pid_t ppid = getppid();
+        if (ppid <= 1) {
+            return;
+        }
+        int (*pidpathFn)(int, void *, uint32_t) = dlsym(RTLD_DEFAULT, "proc_pidpath");
+        if (!pidpathFn) {
+            return;
+        }
+        char path[1024];
+        memset(path, 0, sizeof(path));
+        if (pidpathFn(ppid, path, sizeof(path) - 1) > 0) {
+            name = [[[NSString stringWithUTF8String:path] lastPathComponent] copy] ?: @"";
+        }
+    });
+    return name;
+}
+
+static NSString *OVSBundleIDFromAppPath(NSString *path) {
+    NSString *dir = path;
+    for (int i = 0; i < 8 && dir.length > 1; i++) {
+        if ([dir.pathExtension.lowercaseString isEqualToString:@"app"]) {
+            NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[dir stringByAppendingPathComponent:@"Info.plist"]];
+            NSString *bundleID = info[@"CFBundleIdentifier"];
+            if (bundleID.length > 0) {
+                return bundleID;
+            }
+        }
+        dir = [dir stringByDeletingLastPathComponent];
+    }
+    return nil;
+}
+
+static NSString *OVSResponsibleBundleIdentifier(void) {
+    static NSString *bundleID;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        bundleID = @"";
+        pid_t (*responsibleFn)(pid_t) = dlsym(RTLD_DEFAULT, "responsibility_get_pid_responsible_for_pid");
+        int (*pidpathFn)(int, void *, uint32_t) = dlsym(RTLD_DEFAULT, "proc_pidpath");
+        pid_t target = getpid();
+        if (responsibleFn) {
+            pid_t responsible = responsibleFn(getpid());
+            if (responsible > 1) {
+                target = responsible;
+            }
+        }
+        if (pidpathFn && target > 1) {
+            char path[1024];
+            memset(path, 0, sizeof(path));
+            if (pidpathFn(target, path, sizeof(path) - 1) > 0) {
+                NSString *found = OVSBundleIDFromAppPath([NSString stringWithUTF8String:path]);
+                if (found.length > 0) {
+                    bundleID = [found copy];
+                }
+            }
+        }
+    });
+    return bundleID;
+}
+
+NSString *OVSEffectiveBundleIdentifier(void) {
+    static NSString *effective;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        NSString *main = OVSMainBundleIdentifier() ?: @"";
+        if (!OVSIsWebKitHelperProcess()) {
+            effective = [main copy];
+            return;
+        }
+        NSArray<NSString *> *args = [[NSProcessInfo processInfo] arguments];
+        for (NSUInteger i = 0; i + 1 < args.count; i++) {
+            NSString *arg = args[i].lowercaseString;
+            if ([arg containsString:@"client-bundle-identifier"] ||
+                [arg isEqualToString:@"-bundle-identifier"] ||
+                [arg isEqualToString:@"--bundle-identifier"]) {
+                effective = [args[i + 1] copy];
+                return;
+            }
+        }
+        NSString *responsible = OVSResponsibleBundleIdentifier();
+        if (responsible.length > 0 && ![responsible.lowercaseString hasPrefix:@"com.apple.webkit"]) {
+            effective = responsible;
+            return;
+        }
+        NSString *parent = OVSParentProcessName().lowercaseString;
+        if ([parent isEqualToString:@"mobilesafari"] || [parent isEqualToString:@"safari"]) {
+            effective = @"com.apple.mobilesafari";
+            return;
+        }
+        if ([parent isEqualToString:@"safariviewservice"]) {
+            effective = @"com.apple.SafariViewService";
+            return;
+        }
+        NSString *home = NSHomeDirectory().lowercaseString ?: @"";
+        if ([home containsString:@"mobilesafari"] || [home containsString:@"com.apple.mobilesafari"]) {
+            effective = @"com.apple.mobilesafari";
+            return;
+        }
+        effective = [main copy];
+    });
+    return effective;
+}
+
 BOOL OVSIsFragileApp(void) {
     static BOOL fragile;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        NSString *bundleID = [OVSMainBundleIdentifier() lowercaseString] ?: @"";
-        NSString *processName = [[[NSProcessInfo processInfo] processName] lowercaseString] ?: @"";
-        fragile = [bundleID hasPrefix:@"com.facebook."] ||
-                  [bundleID hasPrefix:@"com.meta."] ||
-                  [bundleID hasPrefix:@"com.burbn."] ||
-                  [bundleID hasPrefix:@"com.instagram."] ||
-                  [bundleID hasPrefix:@"net.whatsapp."] ||
-                  [bundleID containsString:@"facebook"] ||
-                  [bundleID containsString:@"shopee"] ||
-                  [processName containsString:@"facebook"] ||
-                  [processName containsString:@"shopee"] ||
-                  [processName containsString:@"instagram"] ||
-                  [processName containsString:@"whatsapp"];
+        fragile = OVSStringLooksFragile(OVSEffectiveBundleIdentifier()) ||
+                  OVSStringLooksFragile(OVSMainBundleIdentifier()) ||
+                  OVSStringLooksFragile([[NSProcessInfo processInfo] processName]) ||
+                  OVSStringLooksFragile(OVSParentProcessName()) ||
+                  OVSStringLooksFragile(NSHomeDirectory());
     });
     return fragile;
 }
@@ -316,22 +437,41 @@ BOOL OVSMasterEnabled(void) {
     return OVSBoolForKey(@"masterEnabled", YES);
 }
 
-BOOL OVSAppSelected(void) {
-    NSString *bundleIdentifier = OVSMainBundleIdentifier();
+static BOOL OVSBundleIsSelected(NSString *bundleIdentifier) {
     if (bundleIdentifier.length == 0) {
         return NO;
     }
-
     id apps = OVSObjectForKey(@"spoofedApps");
     if ([apps isKindOfClass:[NSArray class]] && [apps containsObject:bundleIdentifier]) {
         return YES;
     }
-
     id enabled = OVSObjectForKey(@"appEnabled");
     if ([enabled isKindOfClass:[NSDictionary class]]) {
         id flag = enabled[bundleIdentifier];
         if ([flag isKindOfClass:[NSNumber class]] || [flag isKindOfClass:[NSString class]]) {
             return [flag boolValue];
+        }
+    }
+    return NO;
+}
+
+BOOL OVSAppSelected(void) {
+    if (OVSBundleIsSelected(OVSEffectiveBundleIdentifier()) || OVSBundleIsSelected(OVSMainBundleIdentifier())) {
+        return YES;
+    }
+    if (!OVSIsWebKitHelperProcess() || OVSIsFragileApp()) {
+        return NO;
+    }
+    if (OVSBundleIsSelected(@"com.apple.mobilesafari") ||
+        OVSBundleIsSelected(@"com.apple.SafariViewService") ||
+        OVSBundleIsSelected(@"com.apple.webapp")) {
+        NSString *host = OVSEffectiveBundleIdentifier().lowercaseString ?: @"";
+        NSString *parent = OVSParentProcessName().lowercaseString ?: @"";
+        if (OVSStringLooksFragile(host) || OVSStringLooksFragile(parent)) {
+            return NO;
+        }
+        if ([host containsString:@"safari"] || [parent containsString:@"safari"] || [host hasPrefix:@"com.apple.webkit"] || host.length == 0) {
+            return YES;
         }
     }
     return NO;
@@ -1069,9 +1209,21 @@ static NSString *OVSReplaceFirst(NSString *input, NSString *pattern, NSString *r
     return [input stringByReplacingCharactersInRange:[match rangeAtIndex:1] withString:replacement];
 }
 
+NSString *OVSSpoofedSafariUserAgent(void) {
+    NSString *os = OVSSpoofedOSVersionUnderscore() ?: @"18_0";
+    NSString *build = OVSSpoofedBuildNumber() ?: @"22A3354";
+    NSInteger major = OVSSpoofedOSVersion().majorVersion;
+    if (major <= 0) {
+        major = 18;
+    }
+    NSString *model = OVSSpoofedModel() ?: @"";
+    NSString *device = [model.lowercaseString hasPrefix:@"ipad"] ? @"iPad" : @"iPhone";
+    return [NSString stringWithFormat:@"Mozilla/5.0 (%@; CPU %@ OS %@ like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/%ld.0 Mobile/%@ Safari/604.1", device, device, os, (long)major, build];
+}
+
 NSString *OVSRewriteUserAgent(NSString *userAgent, BOOL rewriteAppVersion) {
     if (userAgent.length == 0) {
-        return userAgent;
+        return OVSSpoofingEnabled() ? OVSSpoofedSafariUserAgent() : userAgent;
     }
 
     NSString *underscore = OVSSpoofedOSVersionUnderscore();

@@ -187,7 +187,7 @@ extern char **environ;
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     (void)tableView;
     if (section == 0) {
-        return @"Facebook/Shopee: ch\u1ebf \u0111\u1ed9 an to\u00e0n. T\u1eaft Gi\u1ea3 l\u1eadp version App r\u1ed3i force-quit.";
+        return @"Safari: tick Safari, vu\u1ed1t t\u1eaft h\u1eb3n r\u1ed3i m\u1edf l\u1ea1i tab. Facebook/Shopee v\u1eabn ch\u1ebf \u0111\u1ed9 an to\u00e0n.";
     }
     if (section == 2) {
         return @"Info M\u00e1y: model/t\u00ean/iOS. To\u00e0n B\u1ed9: th\u00eam locale/GPS/Wi-Fi.";

@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.8
+
+- Safari (deviceinfo.me / JS `navigator.userAgent`) nhận spoof: inject WebContent của Safari, `customUserAgent` + script document-start
+- WebContent của Facebook/Shopee vẫn không hook
+- AIDA64 vốn đã nhận vì là app native; Safari cần force-quit hẳn rồi mở lại tab
+
 ## 1.2.7
 
 - Facebook/Shopee: chế độ an toàn, không hook `sysctlbyname` / `uname` / `getifaddrs`, không giả version app
