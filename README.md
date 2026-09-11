@@ -31,8 +31,9 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
-## 1.2.0
+## 1.2.1
 
+- Không hook SpringBoard, Settings và daemon hệ thống — sửa watchdog Dopamine của 1.2.0
 - Tương thích prefs ChengIOS 1.0.1: `appEnabled`, `spoofedSystemVersion`, `spoofedBuild`, `spoofedName`, `spoofedHostname`, `spoofedModel`
 - **Change Apps** và **Change Info** giữ nguyên lối dùng cũ
 - Thêm danh sách **Spoofed Apps** (AltList)

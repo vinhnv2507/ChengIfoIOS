@@ -72,3 +72,11 @@ static BOOL OVSParseMACAddress(NSString *string, unsigned char outBytes[6]) {
     }
     return result;
 }
+
+%ctor {
+    if (OVSIsProtectedProcess()) {
+        return;
+    }
+    %init;
+}
+

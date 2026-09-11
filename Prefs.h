@@ -14,6 +14,7 @@ double OVSDoubleForKey(NSString *key, double defaultValue);
 NSString *OVSMainBundleIdentifier(void);
 NSString *OVSMainBundlePath(void);
 
+BOOL OVSIsProtectedProcess(void);
 BOOL OVSMasterEnabled(void);
 BOOL OVSAppSelected(void);
 BOOL OVSSpoofingEnabled(void);

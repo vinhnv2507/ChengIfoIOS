@@ -124,6 +124,9 @@
 }
 
 %ctor {
+    if (OVSIsProtectedProcess()) {
+        return;
+    }
     %init;
     if (NSClassFromString(@"CTCarrier")) {
         %init(TelephonyHooks);

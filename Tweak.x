@@ -266,6 +266,9 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 %ctor {
+    if (OVSIsProtectedProcess()) {
+        return;
+    }
     OVSRegisterPreferenceListener();
     %init;
     if (NSClassFromString(@"WKWebView")) {

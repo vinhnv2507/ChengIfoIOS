@@ -213,6 +213,34 @@ NSString *OVSMainBundlePath(void) {
     return path;
 }
 
+
+BOOL OVSIsProtectedProcess(void) {
+    static BOOL protectedProcess;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        NSString *processName = [[[NSProcessInfo processInfo] processName] lowercaseString] ?: @"";
+        NSString *bundleID = [OVSMainBundleIdentifier() lowercaseString] ?: @"";
+
+        NSArray<NSString *> *blockedNames = @[
+            @"springboard", @"backboardd", @"thermalmonitord", @"watchdogd",
+            @"mediaserverd", @"logd", @"syslogd", @"cfprefsd", @"usereventagent",
+            @"locationd", @"installd", @"assertiond", @"aggregated", @"dasd",
+            @"symptomsd", @"wifid", @"bluetoothd", @"runningboardd", @"lsd",
+            @"securityd", @"trustd", @"amfid", @"notifyd", @"configd", @"powerd",
+            @"fseventsd", @"reportcrash", @"reportmemoryexception", @"parsed",
+            @"sharingd", @"searchd", @"akd", @"nsurlsessiond", @"accountsd",
+            @"identityservicesd", @"imagent", @"preferences"
+        ];
+        NSArray<NSString *> *blockedIDs = @[
+            @"com.apple.springboard",
+            @"com.apple.preferences",
+            @"com.apple.backboardd"
+        ];
+        protectedProcess = [blockedNames containsObject:processName] || [blockedIDs containsObject:bundleID];
+    });
+    return protectedProcess;
+}
+
 BOOL OVSMasterEnabled(void) {
     return OVSBoolForKey(@"masterEnabled", YES);
 }
@@ -239,6 +267,9 @@ BOOL OVSAppSelected(void) {
 }
 
 BOOL OVSSpoofingEnabled(void) {
+    if (OVSIsProtectedProcess()) {
+        return NO;
+    }
     return OVSMasterEnabled() && OVSAppSelected();
 }
 
@@ -680,5 +711,8 @@ NSString *OVSRewriteUserAgent(NSString *userAgent, BOOL rewriteAppVersion) {
 
 __attribute__((constructor))
 static void OVSPrefsConstructor(void) {
+    if (OVSIsProtectedProcess()) {
+        return;
+    }
     OVSRegisterPreferenceListener();
 }
