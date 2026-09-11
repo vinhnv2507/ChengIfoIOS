@@ -302,8 +302,18 @@ static NSString *OVSParentProcessName(void) {
 }
 
 static NSString *OVSBundleIDFromAppPath(NSString *path) {
+    if (path.length == 0) {
+        return nil;
+    }
     NSString *dir = path;
     for (int i = 0; i < 8 && dir.length > 1; i++) {
+        NSString *last = dir.lastPathComponent.lowercaseString;
+        if ([last isEqualToString:@"mobilesafari.app"] || [last isEqualToString:@"mobilesafari"]) {
+            return @"com.apple.mobilesafari";
+        }
+        if ([last isEqualToString:@"safariviewservice.app"] || [last isEqualToString:@"safariviewservice"]) {
+            return @"com.apple.SafariViewService";
+        }
         if ([dir.pathExtension.lowercaseString isEqualToString:@"app"]) {
             NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[dir stringByAppendingPathComponent:@"Info.plist"]];
             NSString *bundleID = info[@"CFBundleIdentifier"];
@@ -314,6 +324,46 @@ static NSString *OVSBundleIDFromAppPath(NSString *path) {
         dir = [dir stringByDeletingLastPathComponent];
     }
     return nil;
+}
+
+static BOOL OVSStringLooksLikeSafari(NSString *value) {
+    NSString *text = value.lowercaseString ?: @"";
+    if (text.length == 0) {
+        return NO;
+    }
+    return [text containsString:@"mobilesafari"] ||
+           [text containsString:@"com.apple.safari"] ||
+           [text isEqualToString:@"safari"] ||
+           [text containsString:@"safariviewservice"] ||
+           [text containsString:@"com.apple.webapp"];
+}
+
+static NSString *OVSContainerBundleIdentifier(void) {
+    static NSString *identifier;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        identifier = @"";
+        NSString *home = NSHomeDirectory() ?: @"";
+        if (home.length == 0) {
+            return;
+        }
+        NSArray<NSString *> *candidates = @[
+            [home stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist"],
+            [[home stringByDeletingLastPathComponent] stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist"]
+        ];
+        for (NSString *path in candidates) {
+            NSDictionary *meta = [NSDictionary dictionaryWithContentsOfFile:path];
+            NSString *value = meta[@"MCMMetadataIdentifier"];
+            if (value.length > 0) {
+                identifier = [value copy];
+                return;
+            }
+        }
+        if (OVSStringLooksLikeSafari(home)) {
+            identifier = @"com.apple.mobilesafari";
+        }
+    });
+    return identifier;
 }
 
 static NSString *OVSResponsibleBundleIdentifier(void) {
@@ -344,6 +394,31 @@ static NSString *OVSResponsibleBundleIdentifier(void) {
     return bundleID;
 }
 
+static NSString *OVSBundleIDFromProcessArguments(void) {
+    NSArray<NSString *> *args = [[NSProcessInfo processInfo] arguments];
+    for (NSUInteger i = 0; i + 1 < args.count; i++) {
+        NSString *arg = args[i].lowercaseString;
+        if ([arg containsString:@"client-bundle-identifier"] ||
+            [arg isEqualToString:@"-bundle-identifier"] ||
+            [arg isEqualToString:@"--bundle-identifier"]) {
+            NSString *value = args[i + 1];
+            if (value.length > 0) {
+                return value;
+            }
+        }
+    }
+    for (NSString *arg in args) {
+        NSString *lower = arg.lowercaseString ?: @"";
+        if ([lower containsString:@"com.apple.mobilesafari"]) {
+            return @"com.apple.mobilesafari";
+        }
+        if ([lower containsString:@"com.apple.safariviewservice"]) {
+            return @"com.apple.SafariViewService";
+        }
+    }
+    return nil;
+}
+
 NSString *OVSEffectiveBundleIdentifier(void) {
     static NSString *effective;
     static dispatch_once_t onceToken;
@@ -353,19 +428,19 @@ NSString *OVSEffectiveBundleIdentifier(void) {
             effective = [main copy];
             return;
         }
-        NSArray<NSString *> *args = [[NSProcessInfo processInfo] arguments];
-        for (NSUInteger i = 0; i + 1 < args.count; i++) {
-            NSString *arg = args[i].lowercaseString;
-            if ([arg containsString:@"client-bundle-identifier"] ||
-                [arg isEqualToString:@"-bundle-identifier"] ||
-                [arg isEqualToString:@"--bundle-identifier"]) {
-                effective = [args[i + 1] copy];
-                return;
-            }
+        NSString *fromArgs = OVSBundleIDFromProcessArguments();
+        if (fromArgs.length > 0 && ![fromArgs.lowercaseString hasPrefix:@"com.apple.webkit"]) {
+            effective = [fromArgs copy];
+            return;
         }
         NSString *responsible = OVSResponsibleBundleIdentifier();
         if (responsible.length > 0 && ![responsible.lowercaseString hasPrefix:@"com.apple.webkit"]) {
             effective = responsible;
+            return;
+        }
+        NSString *container = OVSContainerBundleIdentifier();
+        if (container.length > 0 && ![container.lowercaseString hasPrefix:@"com.apple.webkit"]) {
+            effective = container;
             return;
         }
         NSString *parent = OVSParentProcessName().lowercaseString;
@@ -377,9 +452,13 @@ NSString *OVSEffectiveBundleIdentifier(void) {
             effective = @"com.apple.SafariViewService";
             return;
         }
-        NSString *home = NSHomeDirectory().lowercaseString ?: @"";
-        if ([home containsString:@"mobilesafari"] || [home containsString:@"com.apple.mobilesafari"]) {
+        NSString *home = NSHomeDirectory() ?: @"";
+        if (OVSStringLooksLikeSafari(home)) {
             effective = @"com.apple.mobilesafari";
+            return;
+        }
+        if (fromArgs.length > 0) {
+            effective = [fromArgs copy];
             return;
         }
         effective = [main copy];
@@ -395,7 +474,9 @@ BOOL OVSIsFragileApp(void) {
                   OVSStringLooksFragile(OVSMainBundleIdentifier()) ||
                   OVSStringLooksFragile([[NSProcessInfo processInfo] processName]) ||
                   OVSStringLooksFragile(OVSParentProcessName()) ||
-                  OVSStringLooksFragile(NSHomeDirectory());
+                  OVSStringLooksFragile(NSHomeDirectory()) ||
+                  OVSStringLooksFragile(OVSContainerBundleIdentifier()) ||
+                  OVSStringLooksFragile(OVSResponsibleBundleIdentifier());
     });
     return fragile;
 }
@@ -455,26 +536,36 @@ static BOOL OVSBundleIsSelected(NSString *bundleIdentifier) {
     return NO;
 }
 
+static BOOL OVSSafariFamilySelected(void) {
+    return OVSBundleIsSelected(@"com.apple.mobilesafari") ||
+           OVSBundleIsSelected(@"com.apple.SafariViewService") ||
+           OVSBundleIsSelected(@"com.apple.webapp");
+}
+
 BOOL OVSAppSelected(void) {
     if (OVSBundleIsSelected(OVSEffectiveBundleIdentifier()) || OVSBundleIsSelected(OVSMainBundleIdentifier())) {
         return YES;
     }
-    if (!OVSIsWebKitHelperProcess() || OVSIsFragileApp()) {
+    if (!OVSIsWebKitHelperProcess() || OVSIsFragileApp() || !OVSSafariFamilySelected()) {
         return NO;
     }
-    if (OVSBundleIsSelected(@"com.apple.mobilesafari") ||
-        OVSBundleIsSelected(@"com.apple.SafariViewService") ||
-        OVSBundleIsSelected(@"com.apple.webapp")) {
-        NSString *host = OVSEffectiveBundleIdentifier().lowercaseString ?: @"";
-        NSString *parent = OVSParentProcessName().lowercaseString ?: @"";
-        if (OVSStringLooksFragile(host) || OVSStringLooksFragile(parent)) {
-            return NO;
-        }
-        if ([host containsString:@"safari"] || [parent containsString:@"safari"] || [host hasPrefix:@"com.apple.webkit"] || host.length == 0) {
-            return YES;
-        }
+    NSString *host = OVSEffectiveBundleIdentifier() ?: @"";
+    NSString *parent = OVSParentProcessName() ?: @"";
+    NSString *home = NSHomeDirectory() ?: @"";
+    NSString *container = OVSContainerBundleIdentifier() ?: @"";
+    NSString *responsible = OVSResponsibleBundleIdentifier() ?: @"";
+    if (OVSStringLooksFragile(host) ||
+        OVSStringLooksFragile(parent) ||
+        OVSStringLooksFragile(home) ||
+        OVSStringLooksFragile(container) ||
+        OVSStringLooksFragile(responsible)) {
+        return NO;
     }
-    return NO;
+    return OVSStringLooksLikeSafari(host) ||
+           OVSStringLooksLikeSafari(parent) ||
+           OVSStringLooksLikeSafari(home) ||
+           OVSStringLooksLikeSafari(container) ||
+           OVSStringLooksLikeSafari(responsible);
 }
 
 BOOL OVSSpoofingEnabled(void) {
