@@ -319,95 +319,58 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 %end
 
 %hookf(int, sysctlbyname, const char *name, void *oldp, size_t *oldlenp, void *newp, size_t newlen) {
-    if (name) {
-        if (OVSSpoofingEnabled() && strcmp(name, "kern.osproductversion") == 0) {
-            return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedOSVersionString().UTF8String);
-        }
-        if (OVSSpoofingEnabled() && strcmp(name, "kern.osversion") == 0) {
-            return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedBuildNumber().UTF8String);
-        }
-        if (OVSSpoofingEnabled() && strcmp(name, "kern.ostype") == 0) {
-            return OVSSysctlCopyString(oldp, oldlenp, "Darwin");
-        }
-        if (OVSSpoofingEnabled() && strcmp(name, "kern.osrelease") == 0) {
-            return OVSSysctlCopyString(oldp, oldlenp, OVSDarwinRelease().UTF8String);
-        }
-        if (OVSSpoofingEnabled() && strcmp(name, "kern.version") == 0) {
-            return OVSSysctlCopyString(oldp, oldlenp, OVSDarwinVersionString().UTF8String);
-        }
-        if (OVSShouldSpoofHostName() && strcmp(name, "kern.hostname") == 0) {
-            return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedHostName().UTF8String);
-        }
-        if (OVSShouldSpoofModel() && (strcmp(name, "hw.machine") == 0 || strcmp(name, "hw.product") == 0)) {
-            return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedModel().UTF8String);
-        }
-        if (OVSShouldSpoofModel() && strcmp(name, "hw.model") == 0) {
-            NSString *hw = OVSSpoofedHwModel();
-            if (hw.length > 0) {
-                return OVSSysctlCopyString(oldp, oldlenp, hw.UTF8String);
-            }
-            return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedModel().UTF8String);
-        }
-        if (OVSDeviceIdentityEnabled() && (strcmp(name, "hw.ncpu") == 0 || strcmp(name, "hw.physicalcpu") == 0 || strcmp(name, "hw.logicalcpu") == 0)) {
-            int ncpu = (int)OVSSpoofedNCPU();
-            if (ncpu > 0) {
-                return OVSSysctlCopyBytes(oldp, oldlenp, &ncpu, sizeof(ncpu));
-            }
-        }
-        if (OVSDeviceIdentityEnabled() && strcmp(name, "hw.memsize") == 0) {
-            uint64_t mem = (uint64_t)OVSSpoofedMemorySize();
-            if (mem > 0) {
-                return OVSSysctlCopyBytes(oldp, oldlenp, &mem, sizeof(mem));
-            }
-        }
+    if (!name || !OVSBeginLowLevelHook()) {
+        return %orig(name, oldp, oldlenp, newp, newlen);
     }
-    return %orig(name, oldp, oldlenp, newp, newlen);
-}
 
-%hookf(int, sysctl, int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp, size_t newlen) {
-    if (!name || namelen < 2) {
-        return %orig(name, namelen, oldp, oldlenp, newp, newlen);
+    int result = -1;
+    BOOL handled = NO;
+    if (OVSSpoofingEnabled() && strcmp(name, "kern.osproductversion") == 0) {
+        result = OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedOSVersionString().UTF8String);
+        handled = YES;
+    } else if (OVSSpoofingEnabled() && strcmp(name, "kern.osversion") == 0) {
+        result = OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedBuildNumber().UTF8String);
+        handled = YES;
+    } else if (OVSShouldSpoofHostName() && strcmp(name, "kern.hostname") == 0) {
+        result = OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedHostName().UTF8String);
+        handled = YES;
+    } else if (OVSShouldSpoofModel() && (strcmp(name, "hw.machine") == 0 || strcmp(name, "hw.product") == 0)) {
+        result = OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedModel().UTF8String);
+        handled = YES;
+    } else if (OVSGestaltEnabled() && strcmp(name, "kern.ostype") == 0) {
+        result = OVSSysctlCopyString(oldp, oldlenp, "Darwin");
+        handled = YES;
+    } else if (OVSGestaltEnabled() && strcmp(name, "kern.osrelease") == 0) {
+        result = OVSSysctlCopyString(oldp, oldlenp, OVSDarwinRelease().UTF8String);
+        handled = YES;
+    } else if (OVSGestaltEnabled() && strcmp(name, "kern.version") == 0) {
+        result = OVSSysctlCopyString(oldp, oldlenp, OVSDarwinVersionString().UTF8String);
+        handled = YES;
+    } else if (OVSGestaltEnabled() && strcmp(name, "hw.model") == 0) {
+        NSString *hw = OVSSpoofedHwModel();
+        if (hw.length > 0) {
+            result = OVSSysctlCopyString(oldp, oldlenp, hw.UTF8String);
+            handled = YES;
+        }
+    } else if (OVSGestaltEnabled() && (strcmp(name, "hw.ncpu") == 0 || strcmp(name, "hw.physicalcpu") == 0 || strcmp(name, "hw.logicalcpu") == 0)) {
+        int ncpu = (int)OVSSpoofedNCPU();
+        if (ncpu > 0) {
+            result = OVSSysctlCopyBytes(oldp, oldlenp, &ncpu, sizeof(ncpu));
+            handled = YES;
+        }
+    } else if (OVSGestaltEnabled() && strcmp(name, "hw.memsize") == 0) {
+        uint64_t mem = (uint64_t)OVSSpoofedMemorySize();
+        if (mem > 0) {
+            result = OVSSysctlCopyBytes(oldp, oldlenp, &mem, sizeof(mem));
+            handled = YES;
+        }
     }
-    if (name[0] == CTL_KERN) {
-        if (name[1] == KERN_OSTYPE && OVSSpoofingEnabled()) {
-            return OVSSysctlCopyString(oldp, oldlenp, "Darwin");
-        }
-        if (name[1] == KERN_OSRELEASE && OVSSpoofingEnabled()) {
-            return OVSSysctlCopyString(oldp, oldlenp, OVSDarwinRelease().UTF8String);
-        }
-        if (name[1] == KERN_VERSION && OVSSpoofingEnabled()) {
-            return OVSSysctlCopyString(oldp, oldlenp, OVSDarwinVersionString().UTF8String);
-        }
-        if (name[1] == KERN_HOSTNAME && OVSShouldSpoofHostName()) {
-            return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedHostName().UTF8String);
-        }
-    } else if (name[0] == CTL_HW) {
-        if (name[1] == HW_MACHINE && OVSShouldSpoofModel()) {
-            return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedModel().UTF8String);
-        }
-        if (name[1] == HW_MODEL && OVSShouldSpoofModel()) {
-            NSString *hw = OVSSpoofedHwModel();
-            if (hw.length > 0) {
-                return OVSSysctlCopyString(oldp, oldlenp, hw.UTF8String);
-            }
-            return OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedModel().UTF8String);
-        }
-        if (name[1] == HW_NCPU && OVSDeviceIdentityEnabled()) {
-            int ncpu = (int)OVSSpoofedNCPU();
-            if (ncpu > 0) {
-                return OVSSysctlCopyBytes(oldp, oldlenp, &ncpu, sizeof(ncpu));
-            }
-        }
-#ifdef HW_MEMSIZE
-        if (name[1] == HW_MEMSIZE && OVSDeviceIdentityEnabled()) {
-            uint64_t mem = (uint64_t)OVSSpoofedMemorySize();
-            if (mem > 0) {
-                return OVSSysctlCopyBytes(oldp, oldlenp, &mem, sizeof(mem));
-            }
-        }
-#endif
+
+    if (!handled) {
+        result = %orig(name, oldp, oldlenp, newp, newlen);
     }
-    return %orig(name, namelen, oldp, oldlenp, newp, newlen);
+    OVSEndLowLevelHook();
+    return result;
 }
 
 %ctor {

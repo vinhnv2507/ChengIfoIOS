@@ -1,7 +1,15 @@
 #import "RootViewController.h"
+#import "AppListViewController.h"
 #import "../ChengIOSPrefs/ChengIOSProfiles.h"
 
-@interface RootViewController ()
+#import <spawn.h>
+#import <unistd.h>
+#import <string.h>
+
+extern char **environ;
+
+@interface RootViewController () <UITextFieldDelegate>
+@property (nonatomic, copy) NSArray<NSArray<NSDictionary *> *> *schema;
 @property (nonatomic, copy) NSString *summary;
 @end
 
@@ -11,6 +19,7 @@
     return @[
         @"chengios://random-identity",
         @"chengios://random-all",
+        @"chengios://apps",
         @"chengios://profile",
         @"chengios://copy",
         @"chengios://settings",
@@ -18,7 +27,99 @@
     ];
 }
 
+- (NSArray<NSArray<NSDictionary *> *> *)buildSchema {
+    return @[
+        @[
+            @{@"kind": @"switch", @"title": @"B\u1eadt ChengIOS", @"key": @"masterEnabled", @"defaultOn": @YES},
+            @{@"kind": @"switch", @"title": @"Spoof s\u00e2u (Gestalt / Darwin)", @"key": @"gestaltEnabled", @"defaultOn": @NO, @"detail": @"M\u1eb7c \u0111\u1ecbnh t\u1eaft. B\u1eadt r\u1ed3i force-quit app \u0111\u00edch"}
+        ],
+        @[
+            @{@"kind": @"nav", @"title": @"Change Apps", @"detail": @"C\u00f3 Safari \u1edf \u0111\u1ea7u danh s\u00e1ch"}
+        ],
+        @[
+            @{@"kind": @"button", @"title": @"Random Info M\u00e1y", @"action": @"identity"},
+            @{@"kind": @"button", @"title": @"Random To\u00e0n B\u1ed9", @"action": @"full"},
+            @{@"kind": @"button", @"title": @"Xem h\u1ed3 s\u01a1", @"action": @"profile"},
+            @{@"kind": @"button", @"title": @"Sao ch\u00e9p h\u1ed3 s\u01a1", @"action": @"copy"}
+        ],
+        @[
+            @{@"kind": @"text", @"title": @"Model", @"keys": @[@"spoofedModel", @"customDeviceModel"], @"placeholder": @"iPhone16,2"},
+            @{@"kind": @"text", @"title": @"T\u00ean", @"keys": @[@"spoofedName", @"customDeviceName"], @"placeholder": @"iPhone"},
+            @{@"kind": @"text", @"title": @"iOS", @"keys": @[@"spoofedSystemVersion", @"customOSVersion"], @"placeholder": @"18.6.1"},
+            @{@"kind": @"text", @"title": @"Build", @"keys": @[@"spoofedBuild", @"customBuildNumber"], @"placeholder": @"22G100"},
+            @{@"kind": @"text", @"title": @"Hostname", @"keys": @[@"spoofedHostname", @"customHostName"], @"placeholder": @"iPhone.local"}
+        ],
+        @[
+            @{@"kind": @"switch", @"title": @"D\u00f9ng iOS t\u00f9y ch\u1ec9nh", @"key": @"useCustomOSVersion", @"defaultOn": @NO},
+            @{@"kind": @"text", @"title": @"Custom Version", @"keys": @[@"customOSVersion", @"spoofedSystemVersion"], @"placeholder": @"18.6.1"},
+            @{@"kind": @"text", @"title": @"Custom Build", @"keys": @[@"customBuildNumber", @"spoofedBuild"], @"placeholder": @"22G100"}
+        ],
+        @[
+            @{@"kind": @"switch", @"title": @"Gi\u1ea3 l\u1eadp version App", @"key": @"appVersionEnabled", @"defaultOn": @NO},
+            @{@"kind": @"text", @"title": @"App Version", @"keys": @[@"customAppVersion"], @"placeholder": @"3.2.1"}
+        ],
+        @[
+            @{@"kind": @"switch", @"title": @"Gi\u1ea3 l\u1eadp t\u00ean / hostname / ID", @"key": @"deviceIdentityEnabled", @"defaultOn": @NO}
+        ],
+        @[
+            @{@"kind": @"switch", @"title": @"Gi\u1ea3 l\u1eadp locale", @"key": @"localeEnabled", @"defaultOn": @NO},
+            @{@"kind": @"text", @"title": @"Locale", @"keys": @[@"localeIdentifier"], @"placeholder": @"vi_VN"},
+            @{@"kind": @"text", @"title": @"Time Zone", @"keys": @[@"timeZoneName"], @"placeholder": @"Asia/Ho_Chi_Minh"}
+        ],
+        @[
+            @{@"kind": @"switch", @"title": @"Gi\u1ea3 l\u1eadp nh\u00e0 m\u1ea1ng", @"key": @"carrierEnabled", @"defaultOn": @NO},
+            @{@"kind": @"text", @"title": @"Carrier", @"keys": @[@"carrierName"], @"placeholder": @"Viettel"},
+            @{@"kind": @"text", @"title": @"MCC", @"keys": @[@"mobileCountryCode"], @"placeholder": @"452"},
+            @{@"kind": @"text", @"title": @"MNC", @"keys": @[@"mobileNetworkCode"], @"placeholder": @"04"},
+            @{@"kind": @"text", @"title": @"ISO", @"keys": @[@"isoCountryCode"], @"placeholder": @"vn"}
+        ],
+        @[
+            @{@"kind": @"switch", @"title": @"Gi\u1ea3 l\u1eadp v\u1ecb tr\u00ed", @"key": @"locationEnabled", @"defaultOn": @NO},
+            @{@"kind": @"text", @"title": @"Latitude", @"keys": @[@"latitude"], @"placeholder": @"10.762"},
+            @{@"kind": @"text", @"title": @"Longitude", @"keys": @[@"longitude"], @"placeholder": @"106.660"},
+            @{@"kind": @"text", @"title": @"Altitude", @"keys": @[@"altitude"], @"placeholder": @"10"},
+            @{@"kind": @"text", @"title": @"Accuracy", @"keys": @[@"accuracy"], @"placeholder": @"12"},
+            @{@"kind": @"text", @"title": @"GPX Path", @"keys": @[@"gpxPath"], @"placeholder": @"/var/mobile/Media/ChengIOS/route.gpx"}
+        ],
+        @[
+            @{@"kind": @"switch", @"title": @"Gi\u1ea3 l\u1eadp m\u1ea1ng / Wi-Fi", @"key": @"networkEnabled", @"defaultOn": @NO},
+            @{@"kind": @"text", @"title": @"Interface", @"keys": @[@"interfaceName"], @"placeholder": @"en0"},
+            @{@"kind": @"text", @"title": @"IPv4", @"keys": @[@"ipv4Address"], @"placeholder": @"192.168.1.20"},
+            @{@"kind": @"text", @"title": @"IPv6", @"keys": @[@"ipv6Address"], @"placeholder": @"2001:db8::1"},
+            @{@"kind": @"text", @"title": @"MAC", @"keys": @[@"macAddress", @"wifiAddress"], @"placeholder": @"02:00:00:00:00:01"},
+            @{@"kind": @"text", @"title": @"SSID", @"keys": @[@"wifiSSID"], @"placeholder": @"Viettel-5G"},
+            @{@"kind": @"text", @"title": @"BSSID", @"keys": @[@"wifiBSSID"], @"placeholder": @"50:c7:bf:12:34:56"},
+            @{@"kind": @"text", @"title": @"Gateway", @"keys": @[@"wifiGateway"], @"placeholder": @"192.168.1.1"},
+            @{@"kind": @"text", @"title": @"RSSI", @"keys": @[@"wifiRSSI"], @"placeholder": @"-52"}
+        ],
+        @[
+            @{@"kind": @"text", @"title": @"Board", @"keys": @[@"hwModelStr"], @"placeholder": @"D84AP"},
+            @{@"kind": @"text", @"title": @"Chip", @"keys": @[@"hardwarePlatform"], @"placeholder": @"t8130"},
+            @{@"kind": @"text", @"title": @"Serial", @"keys": @[@"spoofedSerialNumber"], @"placeholder": @"C02XXXXXX"},
+            @{@"kind": @"text", @"title": @"UDID", @"keys": @[@"spoofedUniqueDeviceID"], @"placeholder": @"40-hex"},
+            @{@"kind": @"text", @"title": @"IDFV", @"keys": @[@"spoofedVendorUUID"], @"placeholder": @"UUID"},
+            @{@"kind": @"text", @"title": @"IMEI", @"keys": @[@"spoofedIMEI"], @"placeholder": @"15 digits"},
+            @{@"kind": @"text", @"title": @"Wi-Fi MAC", @"keys": @[@"wifiAddress"], @"placeholder": @"02:00:00:00:00:01"},
+            @{@"kind": @"text", @"title": @"BT MAC", @"keys": @[@"bluetoothAddress"], @"placeholder": @"02:00:00:00:00:02"}
+        ],
+        @[
+            @{@"kind": @"copy", @"title": @"Sao ch\u00e9p URL", @"url": @"chengios://random-identity"},
+            @{@"kind": @"copy", @"title": @"Sao ch\u00e9p URL", @"url": @"chengios://random-all"},
+            @{@"kind": @"copy", @"title": @"Sao ch\u00e9p URL", @"url": @"chengios://apps"},
+            @{@"kind": @"copy", @"title": @"Sao ch\u00e9p URL", @"url": @"chengios://profile"},
+            @{@"kind": @"copy", @"title": @"Sao ch\u00e9p URL", @"url": @"chengios://copy"},
+            @{@"kind": @"copy", @"title": @"Sao ch\u00e9p URL", @"url": @"chengios://settings"},
+            @{@"kind": @"copy", @"title": @"Sao ch\u00e9p URL", @"url": @"chengios://random-all?silent=1"}
+        ],
+        @[
+            @{@"kind": @"button", @"title": @"M\u1edf C\u00e0i \u0111\u1eb7t ChengIOS", @"action": @"settings"},
+            @{@"kind": @"button", @"title": @"Respring", @"action": @"respring"}
+        ]
+    ];
+}
+
 - (void)viewDidLoad {
+    self.schema = [self buildSchema];
     [super viewDidLoad];
     self.title = @"ChengIOS";
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Refresh" style:UIBarButtonItemStylePlain target:self action:@selector(reloadProfile)];
@@ -38,95 +139,195 @@
     [self.tableView reloadData];
 }
 
+- (NSDictionary *)rowAt:(NSIndexPath *)indexPath {
+    return self.schema[indexPath.section][indexPath.row];
+}
+
+- (NSString *)firstText:(NSArray *)keys {
+    for (NSString *key in keys) {
+        id value = ChengIOSPrefValue(key);
+        if ([value isKindOfClass:[NSString class]] && [value length] > 0) {
+            return value;
+        }
+        if ([value isKindOfClass:[NSNumber class]]) {
+            return [value stringValue];
+        }
+    }
+    return @"";
+}
+
+- (BOOL)boolKey:(NSString *)key defaultOn:(BOOL)defaultOn {
+    id value = ChengIOSPrefValue(key);
+    if ([value isKindOfClass:[NSNumber class]] || [value isKindOfClass:[NSString class]]) {
+        return [value boolValue];
+    }
+    return defaultOn;
+}
+
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
     (void)tableView;
-    return 4;
+    return (NSInteger)self.schema.count;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     (void)tableView;
-    if (section == 0) return 2;
-    if (section == 1) return 2;
-    if (section == 2) return (NSInteger)self.schemeExamples.count;
-    return 1;
+    return (NSInteger)self.schema[section].count;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     (void)tableView;
-    if (section == 0) return @"Random";
-    if (section == 1) return @"H\u1ed3 s\u01a1 hi\u1ec7n t\u1ea1i";
-    if (section == 2) return @"Deeplink / Shortcuts";
-    return @"Kh\u00e1c";
+    NSArray *titles = @[
+        @"Chung", @"Apps", @"Random", @"Change Info", @"Phi\u00ean b\u1ea3n iOS", @"Phi\u00ean b\u1ea3n App",
+        @"\u0110\u1ecbnh danh", @"Locale", @"Nh\u00e0 m\u1ea1ng", @"V\u1ecb tr\u00ed", @"M\u1ea1ng / Wi-Fi",
+        @"Gestalt / ID", @"Deeplink / Shortcuts", @"Kh\u00e1c"
+    ];
+    return titles[section];
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     (void)tableView;
     if (section == 0) {
-        return @"Info M\u00e1y: ch\u1ec9 model, t\u00ean, hostname, iOS, build (kh\u1edbp 1 m\u00e1y th\u1eadt).\nTo\u00e0n B\u1ed9: th\u00eam locale, nh\u00e0 m\u1ea1ng, GPS, LAN, Wi-Fi SSID/BSSID/gateway v\u00e0 version app c\u00f9ng v\u00f9ng.";
-    }
-    if (section == 1) {
-        return self.summary;
+        return @"Spoof s\u00e2u m\u1eb7c \u0111\u1ecbnh t\u1eaft \u0111\u1ec3 Facebook/Shopee kh\u1ecfng v\u0103ng. B\u1eadt khi c\u1ea7n Gestalt/Darwin.";
     }
     if (section == 2) {
-        return @"Shortcuts: th\u00eam thao t\u00e1c M\u1edf URL. V\u00ed d\u1ee5 chengios://random-all?silent=1\nC\u0169ng d\u00f9ng chengios://x-callback-url/random-all?x-success=shortcuts://";
+        return @"Info M\u00e1y: model/t\u00ean/iOS. To\u00e0n B\u1ed9: th\u00eam locale/GPS/Wi-Fi.";
     }
-    return @"Force-quit app \u0111\u00edch sau khi random. Kh\u00f4ng c\u1ea7n respring.";
+    if (section == 11) {
+        return self.summary;
+    }
+    if (section == 12) {
+        return @"Shortcuts: thao t\u00e1c M\u1edf URL.";
+    }
+    if (section == 13) {
+        return @"Force-quit app \u0111\u00edch sau Random. Kh\u00f4ng c\u1ea7n respring tr\u1eeb khi process k\u1eb9t.";
+    }
+    return nil;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    static NSString *cellId = @"cell";
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellId];
+    NSDictionary *row = [self rowAt:indexPath];
+    NSString *kind = row[@"kind"];
+    if ([kind isEqualToString:@"switch"]) {
+        UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"sw"];
+        if (!cell) {
+            cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"sw"];
+            cell.selectionStyle = UITableViewCellSelectionStyleNone;
+            cell.detailTextLabel.numberOfLines = 2;
+        }
+        cell.textLabel.text = row[@"title"];
+        cell.detailTextLabel.text = row[@"detail"];
+        UISwitch *toggle = [[UISwitch alloc] init];
+        toggle.on = [self boolKey:row[@"key"] defaultOn:[row[@"defaultOn"] boolValue]];
+        toggle.tag = indexPath.section * 100 + indexPath.row;
+        [toggle addTarget:self action:@selector(toggleChanged:) forControlEvents:UIControlEventValueChanged];
+        cell.accessoryView = toggle;
+        return cell;
+    }
+    if ([kind isEqualToString:@"text"]) {
+        UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"tx"];
+        UITextField *field = nil;
+        if (!cell) {
+            cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:@"tx"];
+            cell.selectionStyle = UITableViewCellSelectionStyleNone;
+            field = [[UITextField alloc] initWithFrame:CGRectZero];
+            field.tag = 50;
+            field.textAlignment = NSTextAlignmentRight;
+            field.autocorrectionType = UITextAutocorrectionTypeNo;
+            field.autocapitalizationType = UITextAutocapitalizationTypeNone;
+            field.clearButtonMode = UITextFieldViewModeWhileEditing;
+            field.delegate = self;
+            [field addTarget:self action:@selector(textChanged:) forControlEvents:UIControlEventEditingDidEnd];
+            [cell.contentView addSubview:field];
+        } else {
+            field = [cell.contentView viewWithTag:50];
+        }
+        cell.textLabel.text = row[@"title"];
+        field.placeholder = row[@"placeholder"];
+        field.text = [self firstText:row[@"keys"]];
+        field.accessibilityIdentifier = [row[@"keys"] componentsJoinedByString:@","];
+        field.frame = CGRectMake(140, 8, cell.contentView.bounds.size.width - 156, 28);
+        field.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+        cell.accessoryView = nil;
+        return cell;
+    }
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"bt"];
     if (!cell) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellId];
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"bt"];
         cell.textLabel.numberOfLines = 2;
         cell.detailTextLabel.numberOfLines = 2;
     }
+    cell.accessoryView = nil;
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-    cell.detailTextLabel.text = nil;
-    if (indexPath.section == 0) {
-        if (indexPath.row == 0) {
-            cell.textLabel.text = @"Random Info M\u00e1y";
-            cell.detailTextLabel.text = @"Ch\u1ec9 \u0111\u1ecbnh danh m\u00e1y";
-        } else {
-            cell.textLabel.text = @"Random To\u00e0n B\u1ed9";
-            cell.detailTextLabel.text = @"M\u00e1y + locale + GPS + Wi-Fi";
-        }
-    } else if (indexPath.section == 1) {
-        if (indexPath.row == 0) {
-            cell.textLabel.text = @"Xem h\u1ed3 s\u01a1";
-        } else {
-            cell.textLabel.text = @"Sao ch\u00e9p h\u1ed3 s\u01a1";
-        }
-    } else if (indexPath.section == 2) {
-        cell.textLabel.text = @"Sao ch\u00e9p URL";
-        cell.detailTextLabel.text = self.schemeExamples[indexPath.row];
+    cell.textLabel.text = row[@"title"];
+    cell.detailTextLabel.text = row[@"detail"] ?: row[@"url"];
+    if ([kind isEqualToString:@"info"]) {
         cell.accessoryType = UITableViewCellAccessoryNone;
-    } else {
-        cell.textLabel.text = @"M\u1edf C\u00e0i \u0111\u1eb7t ChengIOS";
+        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        cell.detailTextLabel.text = [self firstText:row[@"keys"]] ?: @"\u2014";
+    } else if ([kind isEqualToString:@"copy"]) {
+        cell.accessoryType = UITableViewCellAccessoryNone;
+        cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     }
     return cell;
 }
 
+- (void)toggleChanged:(UISwitch *)toggle {
+    NSInteger section = toggle.tag / 100;
+    NSInteger row = toggle.tag % 100;
+    NSDictionary *item = self.schema[section][row];
+    ChengIOSSetPrefValue(item[@"key"], @(toggle.on));
+}
+
+- (void)textChanged:(UITextField *)field {
+    NSArray *keys = [field.accessibilityIdentifier componentsSeparatedByString:@","];
+    NSString *text = field.text ?: @"";
+    NSMutableDictionary *payload = [NSMutableDictionary dictionary];
+    for (NSString *key in keys) {
+        if (key.length > 0) {
+            payload[key] = text;
+        }
+    }
+    if (payload.count > 0) {
+        ChengIOSApplyProfile(payload);
+    }
+}
+
+- (BOOL)textFieldShouldReturn:(UITextField *)textField {
+    [textField resignFirstResponder];
+    return YES;
+}
+
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    if (indexPath.section == 0) {
-        [self runRandom:indexPath.row == 1 silent:NO];
+    NSDictionary *row = [self rowAt:indexPath];
+    NSString *kind = row[@"kind"];
+    if ([kind isEqualToString:@"nav"]) {
+        AppListViewController *list = [[AppListViewController alloc] initWithStyle:UITableViewStyleGrouped];
+        [self.navigationController pushViewController:list animated:YES];
         return;
     }
-    if (indexPath.section == 1) {
-        if (indexPath.row == 0) {
-            [self showSummaryTitle:@"H\u1ed3 s\u01a1 hi\u1ec7n t\u1ea1i" profile:ChengIOSLoadSavedProfile()];
-        } else {
-            [self copySummary];
-        }
-        return;
-    }
-    if (indexPath.section == 2) {
-        [UIPasteboard generalPasteboard].string = self.schemeExamples[indexPath.row];
+    if ([kind isEqualToString:@"copy"]) {
+        [UIPasteboard generalPasteboard].string = row[@"url"];
         [self toast:@"\u0110\u00e3 sao ch\u00e9p URL"];
         return;
     }
-    [self openSettings];
+    if (![kind isEqualToString:@"button"]) {
+        return;
+    }
+    NSString *action = row[@"action"];
+    if ([action isEqualToString:@"identity"]) {
+        [self runRandom:NO silent:NO];
+    } else if ([action isEqualToString:@"full"]) {
+        [self runRandom:YES silent:NO];
+    } else if ([action isEqualToString:@"profile"]) {
+        [self showSummaryTitle:@"H\u1ed3 s\u01a1 hi\u1ec7n t\u1ea1i" profile:ChengIOSLoadSavedProfile()];
+    } else if ([action isEqualToString:@"copy"]) {
+        [self copySummary];
+    } else if ([action isEqualToString:@"settings"]) {
+        [self openSettings];
+    } else if ([action isEqualToString:@"respring"]) {
+        [self respring];
+    }
 }
 
 - (void)runRandom:(BOOL)full silent:(BOOL)silent {
@@ -173,48 +374,46 @@
 }
 
 - (void)openSettings {
-    NSArray<NSString *> *candidates = @[
-        @"prefs:root=ChengIOS",
-        @"App-prefs:root=ChengIOS",
-        @"App-prefs:ChengIOS"
-    ];
+    NSArray<NSString *> *candidates = @[@"prefs:root=ChengIOS", @"App-prefs:root=ChengIOS", @"App-prefs:ChengIOS"];
     for (NSString *raw in candidates) {
         NSURL *url = [NSURL URLWithString:raw];
-        if (!url) {
-            continue;
-        }
+        if (!url) continue;
         if (@available(iOS 10.0, *)) {
             [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
             return;
         }
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        if ([[UIApplication sharedApplication] openURL:url]) {
-            return;
+    }
+}
+
+- (void)respring {
+    pid_t pid = 0;
+    const char *candidates[] = {
+        "/var/jb/usr/bin/sbreload", "/usr/bin/sbreload",
+        "/var/jb/usr/bin/killall", "/usr/bin/killall", NULL
+    };
+    for (int i = 0; candidates[i] != NULL; i++) {
+        if (access(candidates[i], X_OK) != 0) continue;
+        if (strstr(candidates[i], "sbreload") != NULL) {
+            const char *args[] = {candidates[i], NULL};
+            if (posix_spawn(&pid, candidates[i], NULL, NULL, (char *const *)args, environ) == 0) return;
+        } else {
+            const char *args[] = {candidates[i], "-9", "SpringBoard", NULL};
+            if (posix_spawn(&pid, candidates[i], NULL, NULL, (char *const *)args, environ) == 0) return;
         }
-#pragma clang diagnostic pop
     }
 }
 
 - (NSString *)tokenFromURL:(NSURL *)url {
-    if (!url) {
-        return @"";
-    }
+    if (!url) return @"";
     NSMutableArray<NSString *> *parts = [NSMutableArray array];
-    if (url.host.length > 0) {
-        [parts addObject:url.host.lowercaseString];
-    }
+    if (url.host.length > 0) [parts addObject:url.host.lowercaseString];
     for (NSString *piece in [url.path componentsSeparatedByString:@"/"]) {
-        if (piece.length == 0) {
-            continue;
-        }
+        if (piece.length == 0) continue;
         [parts addObject:piece.lowercaseString];
     }
     NSMutableArray<NSString *> *filtered = [NSMutableArray array];
     for (NSString *part in parts) {
-        if ([part isEqualToString:@"x-callback-url"] || [part isEqualToString:@"x-callback"]) {
-            continue;
-        }
+        if ([part isEqualToString:@"x-callback-url"] || [part isEqualToString:@"x-callback"]) continue;
         [filtered addObject:part];
     }
     return [[filtered componentsJoinedByString:@"-"] stringByReplacingOccurrencesOfString:@"_" withString:@"-"];
@@ -224,11 +423,8 @@
     NSURLComponents *components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
     for (NSURLQueryItem *item in components.queryItems) {
         for (NSString *name in names) {
-            if ([item.name caseInsensitiveCompare:name] != NSOrderedSame) {
-                continue;
-            }
-            if (item.value.length == 0 ||
-                [item.value isEqualToString:@"1"] ||
+            if ([item.name caseInsensitiveCompare:name] != NSOrderedSame) continue;
+            if (item.value.length == 0 || [item.value isEqualToString:@"1"] ||
                 [item.value caseInsensitiveCompare:@"true"] == NSOrderedSame ||
                 [item.value caseInsensitiveCompare:@"yes"] == NSOrderedSame) {
                 return YES;
@@ -241,75 +437,52 @@
 - (NSString *)queryValue:(NSURL *)url name:(NSString *)name {
     NSURLComponents *components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
     for (NSURLQueryItem *item in components.queryItems) {
-        if ([item.name caseInsensitiveCompare:name] == NSOrderedSame) {
-            return item.value;
-        }
+        if ([item.name caseInsensitiveCompare:name] == NSOrderedSame) return item.value;
     }
     return nil;
 }
 
 - (void)openCallback:(NSString *)raw {
-    if (raw.length == 0) {
-        return;
-    }
+    if (raw.length == 0) return;
     NSURL *url = [NSURL URLWithString:raw];
-    if (!url) {
-        return;
-    }
+    if (!url) return;
     if (@available(iOS 10.0, *)) {
         [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
-    } else {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        [[UIApplication sharedApplication] openURL:url];
-#pragma clang diagnostic pop
     }
 }
 
 - (BOOL)token:(NSString *)token hasAny:(NSArray<NSString *> *)names {
     for (NSString *name in names) {
-        if ([token isEqualToString:name] || [token containsString:name]) {
-            return YES;
-        }
+        if ([token isEqualToString:name] || [token containsString:name]) return YES;
     }
     return NO;
 }
 
 - (void)handleURL:(NSURL *)url {
-    if (!url) {
-        return;
-    }
+    if (!url) return;
     NSString *token = [self tokenFromURL:url];
     NSString *mode = [self queryValue:url name:@"mode"];
     BOOL silent = [self queryFlag:url names:@[@"silent", @"quiet", @"x-silent"]];
     BOOL did = NO;
-
-    BOOL modeAll = [mode caseInsensitiveCompare:@"all"] == NSOrderedSame ||
-                   [mode caseInsensitiveCompare:@"full"] == NSOrderedSame;
-    BOOL modeIdentity = [mode caseInsensitiveCompare:@"identity"] == NSOrderedSame ||
-                        [mode caseInsensitiveCompare:@"machine"] == NSOrderedSame ||
-                        [mode caseInsensitiveCompare:@"info"] == NSOrderedSame;
-
+    BOOL modeAll = [mode caseInsensitiveCompare:@"all"] == NSOrderedSame || [mode caseInsensitiveCompare:@"full"] == NSOrderedSame;
+    BOOL modeIdentity = [mode caseInsensitiveCompare:@"identity"] == NSOrderedSame || [mode caseInsensitiveCompare:@"machine"] == NSOrderedSame || [mode caseInsensitiveCompare:@"info"] == NSOrderedSame;
     if (modeAll || [self token:token hasAny:@[@"random-all", @"randomall", @"toan-bo", @"toanbo", @"full"]]) {
-        [self runRandom:YES silent:silent];
-        did = YES;
+        [self runRandom:YES silent:silent]; did = YES;
     } else if ([token isEqualToString:@"random"] && !modeIdentity) {
-        [self runRandom:YES silent:silent];
-        did = YES;
+        [self runRandom:YES silent:silent]; did = YES;
     } else if (modeIdentity || [self token:token hasAny:@[@"random-identity", @"random-info", @"identity", @"info-may", @"infomay", @"machine"]]) {
-        [self runRandom:NO silent:silent];
-        did = YES;
+        [self runRandom:NO silent:silent]; did = YES;
     } else if ([self token:token hasAny:@[@"copy"]]) {
-        [self copySummary];
-        did = YES;
+        [self copySummary]; did = YES;
     } else if ([self token:token hasAny:@[@"profile", @"current", @"hoso", @"ho-so", @"info"]]) {
-        [self showSummaryTitle:@"H\u1ed3 s\u01a1 hi\u1ec7n t\u1ea1i" profile:ChengIOSLoadSavedProfile()];
+        [self showSummaryTitle:@"H\u1ed3 s\u01a1 hi\u1ec7n t\u1ea1i" profile:ChengIOSLoadSavedProfile()]; did = YES;
+    } else if ([self token:token hasAny:@[@"apps", @"change-apps", @"applist", @"safari"]]) {
+        AppListViewController *list = [[AppListViewController alloc] initWithStyle:UITableViewStyleGrouped];
+        [self.navigationController pushViewController:list animated:YES];
         did = YES;
     } else if ([self token:token hasAny:@[@"setting", @"prefs"]]) {
-        [self openSettings];
-        did = YES;
+        [self openSettings]; did = YES;
     }
-
     NSString *success = [self queryValue:url name:@"x-success"];
     if (did && success.length > 0) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{

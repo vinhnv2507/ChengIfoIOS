@@ -1,60 +1,64 @@
 #import "Prefs.h"
 
 #import <CoreFoundation/CoreFoundation.h>
-
 #import <dlfcn.h>
-#import <stdio.h>
 #import <substrate.h>
 
-typedef CFTypeRef (*MGCopyAnswer_t)(CFStringRef);
+typedef CFTypeRef (*MGCopyAnswer_t)(CFStringRef question, uint32_t *typeCode);
 static MGCopyAnswer_t orig_MGCopyAnswer;
 
-static CFTypeRef OVSCopyGestaltCFAnswer(NSString *key) {
-    id value = OVSGestaltObjectForKey(key);
-    if (!value) {
-        return NULL;
+static BOOL OVSGestaltQuestionIsPlainKey(CFStringRef question) {
+    if (!question || CFGetTypeID(question) != CFStringGetTypeID()) {
+        return NO;
     }
-    if ([value isKindOfClass:[NSString class]]) {
-        NSString *text = (NSString *)value;
-        if ([key caseInsensitiveCompare:@"UniqueDeviceIDData"] == NSOrderedSame) {
-            NSMutableData *data = [NSMutableData data];
-            NSString *hex = [[text lowercaseString] stringByReplacingOccurrencesOfString:@" " withString:@""];
-            if (hex.length % 2 == 0 && hex.length > 0) {
-                const char *cString = hex.UTF8String;
-                for (NSUInteger i = 0; i + 1 < hex.length; i += 2) {
-                    unsigned int byte = 0;
-                    sscanf(cString + i, "%2x", &byte);
-                    unsigned char b = (unsigned char)byte;
-                    [data appendBytes:&b length:1];
-                }
-                return (CFTypeRef)CFBridgingRetain(data);
-            }
+    CFIndex length = CFStringGetLength(question);
+    if (length < 2 || length > 64) {
+        return NO;
+    }
+    UniChar chars[65];
+    CFStringGetCharacters(question, CFRangeMake(0, length), chars);
+    for (CFIndex i = 0; i < length; i++) {
+        UniChar c = chars[i];
+        BOOL ok = (c >= 'A' && c <= 'Z') ||
+                  (c >= 'a' && c <= 'z') ||
+                  (c >= '0' && c <= '9') ||
+                  c == '-' || c == '_';
+        if (!ok) {
+            return NO;
         }
-        return (CFTypeRef)CFBridgingRetain(text);
     }
-    if ([value isKindOfClass:[NSNumber class]]) {
-        return (CFTypeRef)CFBridgingRetain(value);
-    }
-    if ([value isKindOfClass:[NSData class]]) {
-        return (CFTypeRef)CFBridgingRetain(value);
-    }
-    return NULL;
+    return YES;
 }
 
-static CFTypeRef hooked_MGCopyAnswer(CFStringRef question) {
-    if (!question || !OVSSpoofingEnabled()) {
-        return orig_MGCopyAnswer ? orig_MGCopyAnswer(question) : NULL;
+static CFTypeRef hooked_MGCopyAnswer(CFStringRef question, uint32_t *typeCode) {
+    if (!orig_MGCopyAnswer) {
+        return NULL;
     }
-    NSString *key = (__bridge NSString *)question;
-    CFTypeRef spoofed = OVSCopyGestaltCFAnswer(key);
-    if (spoofed) {
-        return spoofed;
+    if (!OVSBeginLowLevelHook()) {
+        return orig_MGCopyAnswer(question, typeCode);
     }
-    return orig_MGCopyAnswer ? orig_MGCopyAnswer(question) : NULL;
+
+    CFTypeRef result = NULL;
+    if (OVSGestaltEnabled() && OVSGestaltQuestionIsPlainKey(question)) {
+        NSString *key = (__bridge NSString *)question;
+        id value = OVSGestaltObjectForKey(key);
+        if ([value isKindOfClass:[NSString class]] && [(NSString *)value length] > 0) {
+            result = CFBridgingRetain(value);
+        }
+    }
+    if (!result) {
+        result = orig_MGCopyAnswer(question, typeCode);
+    }
+    OVSEndLowLevelHook();
+    return result;
 }
 
 %ctor {
-    if (OVSIsProtectedProcess()) {
+    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess()) {
+        return;
+    }
+    OVSRegisterPreferenceListener();
+    if (!OVSGestaltEnabled()) {
         return;
     }
     void *handle = dlopen("/usr/lib/libMobileGestalt.dylib", RTLD_LAZY);
