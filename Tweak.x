@@ -563,24 +563,25 @@ static void OVSApplyWebViewUserAgent(id webView) {
         return;
     }
     OVSRegisterPreferenceListener();
-    if (OVSIsWebKitHelperProcess()) {
-        if (!OVSSpoofingEnabled() || OVSIsFragileApp()) {
-            return;
-        }
-        %init;
-        if (NSClassFromString(@"WKWebView")) {
-            %init(WebKitHooks);
-        }
+
+    BOOL webkitHelper = OVSIsWebKitHelperProcess();
+    BOOL fragile = OVSIsFragileApp();
+    BOOL spoof = OVSSpoofingEnabled();
+    if (webkitHelper && (!spoof || fragile)) {
         return;
     }
+
     %init;
+    if (!fragile && NSClassFromString(@"WKWebView")) {
+        %init(WebKitHooks);
+    }
+    if (webkitHelper) {
+        return;
+    }
     if (OVSAppVersionEnabled()) {
         %init(BundleHooks);
     }
-    if (!OVSIsFragileApp() && NSClassFromString(@"WKWebView")) {
-        %init(WebKitHooks);
-    }
-    if (!OVSIsFragileApp() && NSClassFromString(@"TabDocument")) {
+    if (!fragile && NSClassFromString(@"TabDocument")) {
         %init(SafariTabHooks);
     }
     if (OVSLowLevelHooksEnabled()) {
