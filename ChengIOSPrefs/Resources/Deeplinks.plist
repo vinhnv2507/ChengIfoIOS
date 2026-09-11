@@ -78,6 +78,66 @@
 			<key>action</key>
 			<string>copyURL:</string>
 			<key>label</key>
+			<string>Random United Kingdom</string>
+			<key>url</key>
+			<string>chengios://random-all?region=gb</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Random Thailand</string>
+			<key>url</key>
+			<string>chengios://random-all?region=th</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Random Singapore</string>
+			<key>url</key>
+			<string>chengios://random-all?region=sg</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Random Australia</string>
+			<key>url</key>
+			<string>chengios://random-all?region=au</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Random Taiwan</string>
+			<key>url</key>
+			<string>chengios://random-all?region=tw</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Random theo vung</string>
+			<key>url</key>
+			<string>chengios://regions</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
 			<string>Change Apps</string>
 			<key>url</key>
 			<string>chengios://apps</string>

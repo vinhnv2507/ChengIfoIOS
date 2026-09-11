@@ -8,6 +8,30 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
+			<string>Refresh / Respring</string>
+			<key>footerText</key>
+			<string>Refresh nap lai prefs. Respring de moi app nhan ChengIOS. Hai nut nam dau trang va tren app (trai Respring, phai Refresh).</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>refreshPrefs</string>
+			<key>label</key>
+			<string>Refresh</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>respring</string>
+			<key>label</key>
+			<string>Respring</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
 			<string>Chung</string>
 			<key>footerText</key>
 			<string>Chỉ app được chọn mới bị giả lập. App không nằm trong Change Apps hoặc Spoofed Apps sẽ không bị sửa.</string>
@@ -43,28 +67,6 @@
 			<string>Spoof sâu (Gestalt / Darwin)</string>
 			<key>PostNotification</key>
 			<string>com.vinhnv2507.chengiosprefs/changed</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>Hanh dong</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>action</key>
-			<string>refreshPrefs</string>
-			<key>label</key>
-			<string>Refresh</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>action</key>
-			<string>respring</string>
-			<key>label</key>
-			<string>Respring</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -499,7 +501,7 @@
 			<key>label</key>
 			<string>Vị trí</string>
 			<key>footerText</key>
-			<string>Tắt mặc định. Cần bật công tắc và điền lat/long, hoặc đường dẫn GPX đọc được.</string>
+			<string>Tat mac dinh. Can bat va dien lat/long. Safari: vuot tat han, mo tab moi, bam Detect. Region/City/ISP tren deviceinfo.me la IP cong cong that (Viettel/Hung Yen) - can VPN neu muon IP US/KR. Tweak khong doi IP public.</string>
 		</dict>
 		<dict>
 			<key>cell</key>

@@ -209,19 +209,35 @@ static void OVSUntrackManager(CLLocationManager *manager) {
 
 %hook CLLocationManager
 + (BOOL)locationServicesEnabled {
-    return OVSLocationEnabled() ? YES : %orig;
+    if (OVSLocationEnabled()) {
+        return YES;
+    }
+    BOOL original = %orig;
+    return original;
 }
 
 + (NSInteger)authorizationStatus {
-    return OVSLocationEnabled() ? kCLAuthorizationStatusAuthorizedAlways : %orig;
+    if (OVSLocationEnabled()) {
+        return kCLAuthorizationStatusAuthorizedAlways;
+    }
+    NSInteger original = %orig;
+    return original;
 }
 
 - (NSInteger)authorizationStatus {
-    return OVSLocationEnabled() ? kCLAuthorizationStatusAuthorizedAlways : %orig;
+    if (OVSLocationEnabled()) {
+        return kCLAuthorizationStatusAuthorizedAlways;
+    }
+    NSInteger original = %orig;
+    return original;
 }
 
 - (NSInteger)accuracyAuthorization {
-    return OVSLocationEnabled() ? 0 : %orig;
+    if (OVSLocationEnabled()) {
+        return 0;
+    }
+    NSInteger original = %orig;
+    return original;
 }
 
 - (CLLocation *)location {
@@ -232,6 +248,14 @@ static void OVSUntrackManager(CLLocationManager *manager) {
         }
     }
     return %orig;
+}
+
+- (void)setDelegate:(id)delegate {
+    %orig;
+    if (OVSLocationEnabled() && delegate) {
+        OVSTrackManager(self);
+        OVSDeliverAuthorization(self);
+    }
 }
 
 - (void)requestWhenInUseAuthorization {
