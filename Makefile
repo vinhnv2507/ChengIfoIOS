@@ -13,6 +13,7 @@ $(TWEAK_NAME)_WEAK_FRAMEWORKS = NetworkExtension
 $(TWEAK_NAME)_CFLAGS = -fobjc-arc -Wno-unused-variable -Wno-deprecated-declarations -Wno-unused-function -Wno-unguarded-availability-new
 
 SUBPROJECTS += ChengIOSPrefs
+SUBPROJECTS += ChengIOSApp
 
 include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/tweak.mk

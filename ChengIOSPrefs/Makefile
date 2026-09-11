@@ -12,7 +12,7 @@ ChengIOSPrefs_FILES = APPRootListController.m ChengIOSChangeInfoController.m Che
 ChengIOSPrefs_FRAMEWORKS = UIKit
 ChengIOSPrefs_PRIVATE_FRAMEWORKS = Preferences
 ChengIOSPrefs_INSTALL_PATH = /Library/PreferenceBundles
-ChengIOSPrefs_CFLAGS = -fobjc-arc -Wno-unguarded-availability-new
+ChengIOSPrefs_CFLAGS = -fobjc-arc -Wno-unguarded-availability-new -Wno-deprecated-declarations
 
 include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/bundle.mk

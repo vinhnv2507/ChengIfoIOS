@@ -95,7 +95,7 @@
 			<key>label</key>
 			<string>Random Info</string>
 			<key>footerText</key>
-			<string>Random chọn 1 hồ sơ máy thật, không trộn thông số lẻ. Info Máy: model/tên/hostname/iOS/build khớp nhau. Toàn Bộ: thêm locale, nhà mạng, GPS, LAN và version app của cùng vùng.</string>
+			<string>Random chọn 1 hồ sơ máy thật, không trộn thông số lẻ. Info Máy: model/tên/hostname/iOS/build khớp nhau. Toàn Bộ: thêm locale, nhà mạng, GPS, LAN, Wi-Fi SSID/BSSID/gateway và version app của cùng vùng. App ChengIOS trên màn hình chính và URL scheme chengios:// (Shortcuts).</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -691,7 +691,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>ChengIOS 1.2.3
+			<string>ChengIOS 1.2.4
 by vinhnv2507</string>
 			<key>isStaticText</key>
 			<true/>

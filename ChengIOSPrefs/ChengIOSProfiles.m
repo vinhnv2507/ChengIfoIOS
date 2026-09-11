@@ -2,6 +2,47 @@
 
 #import <CoreFoundation/CoreFoundation.h>
 #import <stdint.h>
+#import <notify.h>
+
+
+static NSArray<NSString *> *CIPrefsPaths(void) {
+    return @[
+        @"/var/jb/var/mobile/Library/Preferences/com.vinhnv2507.chengiosprefs.plist",
+        @"/var/mobile/Library/Preferences/com.vinhnv2507.chengiosprefs.plist",
+        @"/private/var/mobile/Library/Preferences/com.vinhnv2507.chengiosprefs.plist"
+    ];
+}
+
+static BOOL CIIsPlistValue(id value) {
+    return [value isKindOfClass:[NSString class]] ||
+           [value isKindOfClass:[NSNumber class]] ||
+           [value isKindOfClass:[NSArray class]] ||
+           [value isKindOfClass:[NSDictionary class]] ||
+           [value isKindOfClass:[NSData class]] ||
+           [value isKindOfClass:[NSDate class]];
+}
+
+static NSMutableDictionary *CILoadRawPrefs(void) {
+    NSMutableDictionary *prefs = [NSMutableDictionary dictionary];
+    for (NSString *path in CIPrefsPaths()) {
+        NSDictionary *file = [NSDictionary dictionaryWithContentsOfFile:path];
+        if (file.count > 0) {
+            [prefs addEntriesFromDictionary:file];
+            break;
+        }
+    }
+    CFStringRef appID = CFSTR("com.vinhnv2507.chengiosprefs");
+    CFArrayRef keys = CFPreferencesCopyKeyList(appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+    if (keys) {
+        CFDictionaryRef dict = CFPreferencesCopyMultiple(keys, appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+        if (dict) {
+            [prefs addEntriesFromDictionary:(__bridge NSDictionary *)dict];
+            CFRelease(dict);
+        }
+        CFRelease(keys);
+    }
+    return prefs;
+}
 
 static id CIPick(NSArray *items) {
     if (items.count == 0) {
@@ -618,18 +659,33 @@ NSString *ChengIOSProfileSummary(NSDictionary *profile) {
     return text;
 }
 
-NSDictionary *ChengIOSLoadSavedProfile(void) {
-    NSMutableDictionary *prefs = [NSMutableDictionary dictionary];
-    CFStringRef appID = CFSTR("com.vinhnv2507.chengiosprefs");
-    CFArrayRef keys = CFPreferencesCopyKeyList(appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-    if (keys) {
-        CFDictionaryRef dict = CFPreferencesCopyMultiple(keys, appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-        if (dict) {
-            [prefs addEntriesFromDictionary:(__bridge NSDictionary *)dict];
-            CFRelease(dict);
-        }
-        CFRelease(keys);
+void ChengIOSApplyProfile(NSDictionary *profile) {
+    if (profile.count == 0) {
+        return;
     }
+    NSMutableDictionary *merged = CILoadRawPrefs();
+    [profile enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
+        (void)stop;
+        if (![key isKindOfClass:[NSString class]] || [key hasPrefix:@"_"] || !CIIsPlistValue(value)) {
+            return;
+        }
+        merged[key] = value;
+        CFPreferencesSetAppValue((__bridge CFStringRef)key, (__bridge CFPropertyListRef)value, CFSTR("com.vinhnv2507.chengiosprefs"));
+    }];
+    CFPreferencesAppSynchronize(CFSTR("com.vinhnv2507.chengiosprefs"));
+    for (NSString *path in CIPrefsPaths()) {
+        NSString *dir = [path stringByDeletingLastPathComponent];
+        if (![[NSFileManager defaultManager] fileExistsAtPath:dir]) {
+            continue;
+        }
+        [merged writeToFile:path atomically:YES];
+    }
+    notify_post("com.vinhnv2507.chengiosprefs/changed");
+    notify_post("com.vinhnv2507.chengiosprefs/ReloadPrefs");
+}
+
+NSDictionary *ChengIOSLoadSavedProfile(void) {
+    NSMutableDictionary *prefs = CILoadRawPrefs();
 
     NSString *model = CIFirstString(prefs, @[@"spoofedModel", @"customDeviceModel"]);
     NSString *name = CIFirstString(prefs, @[@"spoofedName", @"customDeviceName"]);

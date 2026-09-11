@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "ChengIOS is installed!"
-killall -9 Preferences >/dev/null 2>&1 || true
 killall -9 ChengIOSApp >/dev/null 2>&1 || true
 
 UICACHE=""
@@ -16,10 +14,10 @@ fi
 
 if [ -n "$UICACHE" ]; then
   if [ -d /Applications/ChengIOSApp.app ]; then
-    "$UICACHE" -p /Applications/ChengIOSApp.app >/dev/null 2>&1 || true
+    "$UICACHE" -u /Applications/ChengIOSApp.app >/dev/null 2>&1 || true
   fi
   if [ -d /var/jb/Applications/ChengIOSApp.app ]; then
-    "$UICACHE" -p /var/jb/Applications/ChengIOSApp.app >/dev/null 2>&1 || true
+    "$UICACHE" -u /var/jb/Applications/ChengIOSApp.app >/dev/null 2>&1 || true
   fi
 fi
 
