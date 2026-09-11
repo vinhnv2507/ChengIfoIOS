@@ -301,6 +301,9 @@ static void OVSUntrackManager(CLLocationManager *manager) {
 %end
 
 %ctor {
+    if (OVSIsProtectedProcess()) {
+        return;
+    }
     if (NSClassFromString(@"CLLocationManager")) {
         %init(LocationHooks);
     }

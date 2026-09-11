@@ -6,8 +6,6 @@ else
 TARGET := iphone:clang:latest:12.0
 endif
 
-INSTALL_TARGET_PROCESSES = SpringBoard
-
 TWEAK_NAME = ChengIOS
 $(TWEAK_NAME)_FILES = Prefs.m Tweak.x HooksDevice.x HooksLocation.x HooksNetwork.x
 $(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation CoreLocation CoreTelephony
