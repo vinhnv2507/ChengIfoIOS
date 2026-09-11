@@ -1,6 +1,7 @@
 #import "Prefs.h"
 
 #import <UIKit/UIKit.h>
+#import <objc/runtime.h>
 
 #import <errno.h>
 #import <string.h>
@@ -277,67 +278,118 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 %end
 
-@interface WKUserScript : NSObject
+
+@interface NSObject (ChengIOSWebKit)
+- (id)userContentController;
+- (id)configuration;
+- (NSArray *)userScripts;
+- (void)addUserScript:(id)script;
 - (instancetype)initWithSource:(NSString *)source injectionTime:(NSInteger)injectionTime forMainFrameOnly:(BOOL)forMainFrameOnly;
 - (NSString *)source;
+- (NSString *)customUserAgent;
+- (void)setCustomUserAgent:(NSString *)customUserAgent;
 @end
 
-@interface WKUserContentController : NSObject
-- (void)addUserScript:(WKUserScript *)userScript;
-- (NSArray *)userScripts;
-@end
-
-@interface WKWebViewConfiguration (ChengIOS)
-@property (nonatomic, strong) WKUserContentController *userContentController;
-@end
+static char kChengIOSAppliedUAKey;
 
 static NSString *OVSNavigatorSpoofJavaScript(void) {
-    NSString *ua = OVSSpoofedSafariUserAgent();
+    NSString *ua = OVSSpoofedSafariUserAgent() ?: @"";
     ua = [[ua stringByReplacingOccurrencesOfString:@"\\" withString:@"\\\\"] stringByReplacingOccurrencesOfString:@"'" withString:@"\\'"];
     NSString *model = OVSSpoofedModel() ?: @"";
     NSString *platform = [model.lowercaseString hasPrefix:@"ipad"] ? @"iPad" : @"iPhone";
-    return [NSString stringWithFormat:@"(function(){if(window.__chengios_ua)return;window.__chengios_ua=1;var u='%@';var p='%@';try{var n=Navigator.prototype;Object.defineProperty(n,'userAgent',{configurable:true,get:function(){return u}});Object.defineProperty(n,'appVersion',{configurable:true,get:function(){return u}});Object.defineProperty(n,'platform',{configurable:true,get:function(){return p}});}catch(e){}})();", ua, platform];
+    return [NSString stringWithFormat:@"(function(){if(window.__chengios_ua)return;window.__chengios_ua=1;var u='%@';var p='%@';function d(o,k,v){try{Object.defineProperty(o,k,{configurable:true,enumerable:true,get:function(){return v}})}catch(e){}}try{d(Navigator.prototype,'userAgent',u);d(Navigator.prototype,'appVersion',u);d(Navigator.prototype,'platform',p);d(navigator,'userAgent',u);d(navigator,'appVersion',u);d(navigator,'platform',p);}catch(e){}})();", ua, platform];
+}
+
+static void OVSAttachUserScriptToController(id controller) {
+    if (!controller) {
+        return;
+    }
+    if ([controller respondsToSelector:@selector(userScripts)]) {
+        for (id script in [controller userScripts]) {
+            if ([script respondsToSelector:@selector(source)] && [[script source] containsString:@"__chengios_ua"]) {
+                return;
+            }
+        }
+    }
+    Class scriptClass = NSClassFromString(@"WKUserScript");
+    if (!scriptClass) {
+        return;
+    }
+    id userScript = [[scriptClass alloc] initWithSource:OVSNavigatorSpoofJavaScript() injectionTime:0 forMainFrameOnly:NO];
+    if (userScript && [controller respondsToSelector:@selector(addUserScript:)]) {
+        [controller addUserScript:userScript];
+    }
 }
 
 static void OVSAttachWebKitSpoof(id configuration) {
     if (!OVSSpoofingEnabled() || !configuration) {
         return;
     }
-    WKUserContentController *controller = nil;
+    id controller = nil;
     if ([configuration respondsToSelector:@selector(userContentController)]) {
         controller = [configuration userContentController];
     }
-    if (!controller) {
+    OVSAttachUserScriptToController(controller);
+}
+
+static void OVSApplyWebViewUserAgent(id webView) {
+    if (!webView || !OVSSpoofingEnabled()) {
         return;
     }
-    for (id script in controller.userScripts) {
-        if ([script respondsToSelector:@selector(source)] && [[script source] containsString:@"__chengios_ua"]) {
-            return;
-        }
+    NSString *ua = OVSSpoofedSafariUserAgent();
+    NSString *applied = objc_getAssociatedObject(webView, &kChengIOSAppliedUAKey);
+    if (![applied isEqualToString:ua] && [webView respondsToSelector:@selector(setCustomUserAgent:)]) {
+        [webView setCustomUserAgent:ua];
+        objc_setAssociatedObject(webView, &kChengIOSAppliedUAKey, ua, OBJC_ASSOCIATION_COPY_NONATOMIC);
     }
-    WKUserScript *userScript = [[WKUserScript alloc] initWithSource:OVSNavigatorSpoofJavaScript() injectionTime:0 forMainFrameOnly:NO];
-    [controller addUserScript:userScript];
+    if ([webView respondsToSelector:@selector(configuration)]) {
+        OVSAttachWebKitSpoof([webView configuration]);
+    }
 }
 
 %group WebKitHooks
 %hook WKWebView
-- (instancetype)initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)configuration {
+- (id)initWithFrame:(CGRect)frame configuration:(id)configuration {
     OVSAttachWebKitSpoof(configuration);
-    WKWebView *webView = %orig;
-    if (OVSSpoofingEnabled()) {
-        [webView setCustomUserAgent:OVSSpoofedSafariUserAgent()];
-    }
-    return webView;
+    self = %orig;
+    OVSApplyWebViewUserAgent(self);
+    return self;
+}
+
+- (id)initWithCoder:(NSCoder *)coder {
+    self = %orig;
+    OVSApplyWebViewUserAgent(self);
+    return self;
+}
+- (void)setNavigationDelegate:(id)delegate {
+    %orig;
+    OVSApplyWebViewUserAgent(self);
+}
+
+- (id)loadRequest:(id)request {
+    OVSApplyWebViewUserAgent(self);
+    return %orig;
+}
+
+- (id)loadHTMLString:(NSString *)string baseURL:(id)baseURL {
+    OVSApplyWebViewUserAgent(self);
+    return %orig;
+}
+
+- (id)loadFileURL:(id)URL allowingReadAccessToURL:(id)readAccessURL {
+    OVSApplyWebViewUserAgent(self);
+    return %orig;
+}
+
+
+- (void)didMoveToWindow {
+    %orig;
+    OVSApplyWebViewUserAgent(self);
 }
 
 - (void)layoutSubviews {
     %orig;
-    if (OVSSpoofingEnabled()) {
-        NSString *ua = OVSSpoofedSafariUserAgent();
-        if (![self.customUserAgent isEqualToString:ua]) {
-            [self setCustomUserAgent:ua];
-        }
-    }
+    OVSApplyWebViewUserAgent(self);
 }
 
 - (NSString *)_userAgent {
@@ -357,7 +409,12 @@ static void OVSAttachWebKitSpoof(id configuration) {
 }
 
 - (void)setCustomUserAgent:(NSString *)userAgent {
-    %orig(OVSRewriteIfNeeded(userAgent));
+    if (OVSSpoofingEnabled()) {
+        NSString *spoofed = OVSSpoofedSafariUserAgent();
+        %orig(spoofed);
+        return;
+    }
+    %orig(userAgent);
 }
 
 - (NSString *)_applicationNameForUserAgent {
@@ -372,6 +429,21 @@ static void OVSAttachWebKitSpoof(id configuration) {
 %end
 
 %hook WKWebViewConfiguration
+- (id)userContentController {
+    id controller = %orig;
+    if (OVSSpoofingEnabled()) {
+        OVSAttachUserScriptToController(controller);
+    }
+    return controller;
+}
+
+- (void)setUserContentController:(id)controller {
+    %orig;
+    if (OVSSpoofingEnabled()) {
+        OVSAttachUserScriptToController(controller);
+    }
+}
+
 - (NSString *)applicationNameForUserAgent {
     NSString *originalAgent = %orig;
     return OVSRewriteIfNeeded(originalAgent);
@@ -391,6 +463,40 @@ static void OVSAttachWebKitSpoof(id configuration) {
 - (NSString *)applicationNameForUserAgent {
     NSString *originalAgent = %orig;
     return OVSRewriteIfNeeded(originalAgent);
+}
+%end
+%end
+
+%group SafariTabHooks
+%hook TabDocument
+- (NSString *)userAgent {
+    if (OVSSpoofingEnabled()) {
+        return OVSSpoofedSafariUserAgent();
+    }
+    return %orig;
+}
+
+- (NSString *)customUserAgent {
+    if (OVSSpoofingEnabled()) {
+        return OVSSpoofedSafariUserAgent();
+    }
+    return %orig;
+}
+
+- (void)setCustomUserAgent:(NSString *)userAgent {
+    if (OVSSpoofingEnabled()) {
+        NSString *spoofed = OVSSpoofedSafariUserAgent();
+        %orig(spoofed);
+        return;
+    }
+    %orig(userAgent);
+}
+
+- (NSString *)_userAgentForSandboxProcess {
+    if (OVSSpoofingEnabled()) {
+        return OVSSpoofedSafariUserAgent();
+    }
+    return %orig;
 }
 %end
 %end
@@ -450,28 +556,6 @@ static void OVSAttachWebKitSpoof(id configuration) {
     OVSEndLowLevelHook();
     return result;
 }
-%end
-
-%group SafariTabHooks
-%hook TabDocument
-- (NSString *)userAgent {
-    if (OVSSpoofingEnabled()) {
-        return OVSSpoofedSafariUserAgent();
-    }
-    return %orig;
-}
-
-- (NSString *)customUserAgent {
-    if (OVSSpoofingEnabled()) {
-        return OVSSpoofedSafariUserAgent();
-    }
-    return %orig;
-}
-
-- (void)setCustomUserAgent:(NSString *)userAgent {
-    %orig(OVSRewriteIfNeeded(userAgent));
-}
-%end
 %end
 
 %ctor {
