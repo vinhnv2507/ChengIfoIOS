@@ -1,0 +1,62 @@
+#import "DeeplinkListViewController.h"
+
+@interface DeeplinkListViewController ()
+@property (nonatomic, copy) NSArray<NSDictionary *> *items;
+@end
+
+@implementation DeeplinkListViewController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"Deeplink";
+    self.items = @[
+        @{@"title": @"Random Info May", @"url": @"chengios://random-identity"},
+        @{@"title": @"Random Toan Bo", @"url": @"chengios://random-all"},
+        @{@"title": @"Random Viet Nam", @"url": @"chengios://random-all?region=vn"},
+        @{@"title": @"Random United States", @"url": @"chengios://random-all?region=us"},
+        @{@"title": @"Random Korea", @"url": @"chengios://random-all?region=kr"},
+        @{@"title": @"Random Japan", @"url": @"chengios://random-all?region=jp"},
+        @{@"title": @"Change Apps", @"url": @"chengios://apps"},
+        @{@"title": @"Xem ho so", @"url": @"chengios://profile"},
+        @{@"title": @"Sao chep ho so", @"url": @"chengios://copy"},
+        @{@"title": @"Mo Settings", @"url": @"chengios://settings"},
+        @{@"title": @"Respring", @"url": @"chengios://respring"},
+        @{@"title": @"Random silent", @"url": @"chengios://random-all?silent=1"}
+    ];
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    (void)tableView; (void)section;
+    return (NSInteger)self.items.count;
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    (void)tableView; (void)section;
+    return @"An 1 dong de sao chep URL. Shortcuts: thao tac Mo URL.";
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"d"];
+    if (!cell) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"d"];
+        cell.detailTextLabel.numberOfLines = 2;
+        cell.detailTextLabel.adjustsFontSizeToFitWidth = YES;
+    }
+    NSDictionary *item = self.items[indexPath.row];
+    cell.textLabel.text = item[@"title"];
+    cell.detailTextLabel.text = item[@"url"];
+    return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    NSString *url = self.items[indexPath.row][@"url"];
+    [UIPasteboard generalPasteboard].string = url;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Da sao chep"
+                                                                   message:url
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+@end

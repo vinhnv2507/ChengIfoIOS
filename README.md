@@ -32,6 +32,13 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.10
+
+- Safari GPS: bam Detect tren deviceinfo.me (Region/City/ISP van la IP cong cong that)
+- Ho so hien User-Agent
+- Deeplink chuyen vao muc con; Respring + Refresh len dau
+- Random theo vung: US/KR/JP... doi locale, GPS, nha mang, Wi-Fi, LAN/IPv6 cho khop
+
 ## 1.2.9
 
 - Sua crash-loop Safari cua 1.2.8: khong inject WebContent, khong spoof iOS version ben trong Safari

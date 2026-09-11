@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Random theo vung</string>
+			<key>footerText</key>
+			<string>Chon vung de dien locale, nha mang, GPS, Wi-Fi, IPv6/LAN cho khop. Website van nhin thay IP cong cong that (Viettel/Hung Yen) neu khong dung VPN.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeRegionAuto</string>
+			<key>label</key>
+			<string>Tu dong (theo ti le)</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeRegionVN</string>
+			<key>label</key>
+			<string>Viet Nam</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeRegionUS</string>
+			<key>label</key>
+			<string>United States</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeRegionKR</string>
+			<key>label</key>
+			<string>Korea</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeRegionJP</string>
+			<key>label</key>
+			<string>Japan</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeRegionGB</string>
+			<key>label</key>
+			<string>United Kingdom</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeRegionTH</string>
+			<key>label</key>
+			<string>Thailand</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeRegionSG</string>
+			<key>label</key>
+			<string>Singapore</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeRegionAU</string>
+			<key>label</key>
+			<string>Australia</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeRegionTW</string>
+			<key>label</key>
+			<string>Taiwan</string>
+		</dict>
+	</array>
+	<key>title</key>
+	<string>Random theo vung</string>
+</dict>
+</plist>

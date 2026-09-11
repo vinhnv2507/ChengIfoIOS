@@ -135,17 +135,64 @@ static NSString *CIRandomMAC(void) {
             arc4random_uniform(256)];
 }
 
-static NSString *CIRandomIPv4(void) {
+static NSString *CIRandomIPv4ForISO(NSString *iso) {
     uint32_t roll = arc4random_uniform(100);
     NSUInteger host = 20 + arc4random_uniform(180);
     if (roll < 5) {
         return [NSString stringWithFormat:@"172.20.10.%lu", (unsigned long)(2 + arc4random_uniform(12))];
     }
-    if (roll < 18) {
-        return [NSString stringWithFormat:@"10.0.0.%lu", (unsigned long)host];
+    NSString *code = iso.lowercaseString ?: @"";
+    NSArray<NSNumber *> *nets = @[@1, @0, @1];
+    if ([code isEqualToString:@"us"]) {
+        if (roll < 30) {
+            return [NSString stringWithFormat:@"10.0.0.%lu", (unsigned long)host];
+        }
+        if (roll < 42) {
+            return [NSString stringWithFormat:@"10.1.10.%lu", (unsigned long)host];
+        }
+        nets = @[@0, @1, @1, @2, @10];
+    } else if ([code isEqualToString:@"kr"]) {
+        if (roll < 28) {
+            return [NSString stringWithFormat:@"172.30.1.%lu", (unsigned long)host];
+        }
+        nets = @[@0, @0, @1];
+    } else if ([code isEqualToString:@"jp"]) {
+        nets = @[@1, @0, @11, @11, @2];
+    } else if ([code isEqualToString:@"vn"]) {
+        if (roll < 22) {
+            return [NSString stringWithFormat:@"10.0.0.%lu", (unsigned long)host];
+        }
+        nets = @[@1, @1, @2, @0, @3];
+    } else if ([code isEqualToString:@"gb"] || [code isEqualToString:@"au"]) {
+        nets = @[@0, @1, @1, @0];
+    } else if ([code isEqualToString:@"tw"] || [code isEqualToString:@"th"] || [code isEqualToString:@"sg"]) {
+        nets = @[@1, @0, @2];
     }
-    NSArray<NSNumber *> *nets = @[@0, @1, @1, @1, @2, @10, @31, @50, @100, @101];
     return [NSString stringWithFormat:@"192.168.%@.%lu", CIPick(nets), (unsigned long)host];
+}
+
+static NSString *CISafariUserAgentFrom(NSString *model, NSString *version, NSString *build) {
+    NSString *os = [version length] ? [version stringByReplacingOccurrencesOfString:@"." withString:@"_"] : @"18_0";
+    NSString *mobile = build.length ? build : @"22A3354";
+    NSInteger major = version.integerValue;
+    if (major <= 0) {
+        major = 18;
+    }
+    NSString *device = [model.lowercaseString hasPrefix:@"ipad"] ? @"iPad" : @"iPhone";
+    return [NSString stringWithFormat:@"Mozilla/5.0 (%@; CPU %@ OS %@ like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/%ld.0 Mobile/%@ Safari/604.1", device, device, os, (long)major, mobile];
+}
+
+static NSDictionary *CIRegionForISO(NSString *iso) {
+    if (iso.length == 0) {
+        return nil;
+    }
+    NSString *want = iso.lowercaseString;
+    for (NSDictionary *region in CIRegions()) {
+        if ([region[@"iso"] isEqualToString:want]) {
+            return region;
+        }
+    }
+    return nil;
 }
 
 static NSString *CIRandomIPv6(NSArray<NSString *> *prefixes) {
@@ -655,10 +702,13 @@ static NSString *CIRadioForModel(NSString *model) {
     return @"CTRadioAccessTechnologyNR";
 }
 
-static NSDictionary *CIBuildProfile(BOOL full) {
+static NSDictionary *CIBuildProfile(BOOL full, NSString *iso) {
     NSDictionary *device = CIPickWeighted(CIDevices(), @"weight");
     NSDictionary *os = CIPick(CIBiasRecent(device[@"os"]));
-    NSDictionary *region = CIPickWeighted(CIRegions(), @"weight");
+    NSDictionary *region = CIRegionForISO(iso);
+    if (!region) {
+        region = CIPickWeighted(CIRegions(), @"weight");
+    }
     NSDictionary *carrier = CIPick(region[@"carriers"]);
     NSDictionary *city = CIPick(region[@"cities"]);
     NSString *product = device[@"product"];
@@ -706,6 +756,9 @@ static NSDictionary *CIBuildProfile(BOOL full) {
     profile[@"bluetoothAddress"] = CIRandomMAC();
     profile[@"regionInfo"] = [NSString stringWithFormat:@"%@/A", [region[@"iso"] uppercaseString] ?: @"US"];
     profile[@"radioAccessTechnology"] = CIRadioForModel(device[@"model"]);
+    profile[@"isoCountryCode"] = region[@"iso"] ?: @"vn";
+    profile[@"profileRegion"] = region[@"locale"] ?: @"vi_VN";
+    profile[@"spoofedUserAgent"] = CISafariUserAgentFrom(device[@"model"], os[@"version"], os[@"build"]);
 
     if (!full) {
         return profile;
@@ -731,7 +784,7 @@ static NSDictionary *CIBuildProfile(BOOL full) {
     profile[@"altitude"] = [NSString stringWithFormat:@"%.0f", alt];
     profile[@"accuracy"] = [NSString stringWithFormat:@"%u", 5 + arc4random_uniform(16)];
     profile[@"gpxPath"] = @"";
-    NSString *ipv4 = CIRandomIPv4();
+    NSString *ipv4 = CIRandomIPv4ForISO(region[@"iso"]);
     profile[@"networkEnabled"] = @YES;
     profile[@"interfaceName"] = @"en0";
     profile[@"ipv4Address"] = ipv4;
@@ -747,17 +800,47 @@ static NSDictionary *CIBuildProfile(BOOL full) {
 }
 
 NSDictionary *ChengIOSRandomIdentity(void) {
-    return CIBuildProfile(NO);
+    return CIBuildProfile(NO, nil);
 }
 
 NSDictionary *ChengIOSRandomFullProfile(void) {
-    return CIBuildProfile(YES);
+    return CIBuildProfile(YES, nil);
+}
+
+NSDictionary *ChengIOSRandomFullProfileInRegion(NSString *iso) {
+    return CIBuildProfile(YES, iso);
+}
+
+NSArray<NSDictionary *> *ChengIOSRegionChoices(void) {
+    return @[
+        @{@"iso": @"", @"title": @"Tu dong (theo ti le)"},
+        @{@"iso": @"vn", @"title": @"Viet Nam"},
+        @{@"iso": @"us", @"title": @"United States"},
+        @{@"iso": @"kr", @"title": @"Korea"},
+        @{@"iso": @"jp", @"title": @"Japan"},
+        @{@"iso": @"gb", @"title": @"United Kingdom"},
+        @{@"iso": @"th", @"title": @"Thailand"},
+        @{@"iso": @"sg", @"title": @"Singapore"},
+        @{@"iso": @"au", @"title": @"Australia"},
+        @{@"iso": @"tw", @"title": @"Taiwan"}
+    ];
 }
 
 NSString *ChengIOSProfileSummary(NSDictionary *profile) {
     NSMutableString *text = [NSMutableString string];
     [text appendFormat:@"%@ (%@)\n", profile[@"_product"] ?: @"iPhone", profile[@"spoofedModel"]];
     [text appendFormat:@"iOS %@ (%@)\n", profile[@"spoofedSystemVersion"], profile[@"spoofedBuild"]];
+
+    NSString *ua = profile[@"spoofedUserAgent"];
+    if (ua.length == 0) {
+        ua = CISafariUserAgentFrom(profile[@"spoofedModel"], profile[@"spoofedSystemVersion"], profile[@"spoofedBuild"]);
+    }
+    if (ua.length > 0) {
+        [text appendFormat:@"UA: %@\n", ua];
+    }
+    if ([profile[@"isoCountryCode"] length] || [profile[@"profileRegion"] length]) {
+        [text appendFormat:@"Vung: %@ (%@)\n", [profile[@"isoCountryCode"] uppercaseString] ?: @"-", profile[@"profileRegion"] ?: @"-"];
+    }
     [text appendFormat:@"Tên: %@\n", profile[@"spoofedName"]];
     [text appendFormat:@"Host: %@", profile[@"spoofedHostname"]];
     if ([profile[@"hwModelStr"] length] || [profile[@"spoofedSerialNumber"] length]) {
@@ -774,7 +857,7 @@ NSString *ChengIOSProfileSummary(NSDictionary *profile) {
         [text appendFormat:@"\nLocale: %@ / %@", profile[@"localeIdentifier"], profile[@"timeZoneName"]];
         [text appendFormat:@"\nNhà mạng: %@ (%@-%@)", profile[@"carrierName"], profile[@"mobileCountryCode"], profile[@"mobileNetworkCode"]];
         [text appendFormat:@"\nGPS: %@, %@ (%@)", profile[@"latitude"], profile[@"longitude"], profile[@"_city"] ?: @""];
-        [text appendFormat:@"\nIP: %@\nMAC: %@", profile[@"ipv4Address"], profile[@"macAddress"]];
+        [text appendFormat:@"\nLAN: %@ (web van thay IP cong cong nha mang)\nMAC: %@", profile[@"ipv4Address"], profile[@"macAddress"]];
         if ([profile[@"wifiSSID"] length] || [profile[@"wifiBSSID"] length]) {
             [text appendFormat:@"\nWi-Fi: %@", profile[@"wifiSSID"] ?: @"-"];
             [text appendFormat:@"\nBSSID: %@", profile[@"wifiBSSID"] ?: @"-"];
@@ -848,6 +931,8 @@ NSDictionary *ChengIOSLoadSavedProfile(void) {
     profile[@"spoofedHostname"] = host;
     profile[@"_product"] = product.length ? product : (model.length ? model : @"iPhone");
     profile[@"_city"] = city;
+    profile[@"spoofedUserAgent"] = CIFirstString(prefs, @[@"spoofedUserAgent"]);
+    profile[@"profileRegion"] = CIFirstString(prefs, @[@"profileRegion", @"localeIdentifier"]);
     profile[@"localeIdentifier"] = CIFirstString(prefs, @[@"localeIdentifier"]);
     profile[@"timeZoneName"] = CIFirstString(prefs, @[@"timeZoneName"]);
     profile[@"carrierName"] = CIFirstString(prefs, @[@"carrierName"]);
