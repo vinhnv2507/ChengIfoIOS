@@ -20,7 +20,9 @@ BOOL OVSMasterEnabled(void);
 BOOL OVSAppSelected(void);
 BOOL OVSSpoofingEnabled(void);
 BOOL OVSIsWebKitHelperProcess(void);
+BOOL OVSIsFragileApp(void);
 BOOL OVSGestaltEnabled(void);
+BOOL OVSLowLevelHooksEnabled(void);
 BOOL OVSBeginLowLevelHook(void);
 void OVSEndLowLevelHook(void);
 

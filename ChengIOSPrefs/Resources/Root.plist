@@ -48,7 +48,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>Mặc định tắt. Bật nếu cần Gestalt/Darwin rồi force-quit app đích. Nếu Facebook/Shopee văng thì tắt. Safari luôn ở đầu Change Apps.</string>
+			<string>Facebook/Shopee chạy chế độ an toàn: không hook sysctl/uname, không giả CFBundleVersion. Tắt Giả lập phiên bản App. Force-quit app đích sau khi cập nhật.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -211,7 +211,7 @@
 			<key>label</key>
 			<string>Phiên bản App</string>
 			<key>footerText</key>
-			<string>Sửa CFBundleShortVersionString, CFBundleVersion và một số tham số appver trên User-Agent. Tắt nếu app kiểm tra phiên bản quá chặt.</string>
+			<string>Mặc định tắt. Đừng bật cho Facebook/Shopee — app sẽ văng vì lệch Info.plist.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -219,7 +219,7 @@
 			<key>cellClass</key>
 			<string>SRSwitchTableCell</string>
 			<key>default</key>
-			<true/>
+			<false/>
 			<key>defaults</key>
 			<string>com.vinhnv2507.chengiosprefs</string>
 			<key>key</key>
@@ -713,7 +713,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>ChengIOS 1.2.6
+			<string>ChengIOS 1.2.7
 by vinhnv2507</string>
 			<key>isStaticText</key>
 			<true/>

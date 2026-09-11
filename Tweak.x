@@ -77,7 +77,7 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 
 %hook NSProcessInfo
 - (NSOperatingSystemVersion)operatingSystemVersion {
-    if (!OVSSpoofingEnabled()) {
+    if (!OVSSpoofingEnabled() || OVSIsFragileApp()) {
         NSOperatingSystemVersion original = %orig;
         return original;
     }
@@ -92,7 +92,7 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (BOOL)isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion)version {
-    if (!OVSSpoofingEnabled()) {
+    if (!OVSSpoofingEnabled() || OVSIsFragileApp()) {
         return %orig;
     }
     NSOperatingSystemVersion spoofed = OVSSpoofedOSVersion();
@@ -113,7 +113,7 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (NSUInteger)processorCount {
-    if (!OVSDeviceIdentityEnabled()) {
+    if (!OVSLowLevelHooksEnabled() || !OVSDeviceIdentityEnabled()) {
         NSUInteger original = %orig;
         return original;
     }
@@ -126,7 +126,7 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (NSUInteger)activeProcessorCount {
-    if (!OVSDeviceIdentityEnabled()) {
+    if (!OVSLowLevelHooksEnabled() || !OVSDeviceIdentityEnabled()) {
         NSUInteger original = %orig;
         return original;
     }
@@ -139,7 +139,7 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (unsigned long long)physicalMemory {
-    if (!OVSDeviceIdentityEnabled()) {
+    if (!OVSLowLevelHooksEnabled() || !OVSDeviceIdentityEnabled()) {
         unsigned long long original = %orig;
         return original;
     }
@@ -196,13 +196,14 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (NSUUID *)identifierForVendor {
-    if (!OVSDeviceIdentityEnabled()) {
+    if (!OVSDeviceIdentityEnabled() || OVSIsFragileApp()) {
         return %orig;
     }
     return OVSSpoofedVendorUUID();
 }
 %end
 
+%group BundleHooks
 %hook NSBundle
 - (NSDictionary *)infoDictionary {
     NSDictionary *original = %orig;
@@ -224,6 +225,7 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
     }
     return original;
 }
+%end
 %end
 
 %hook NSMutableURLRequest
@@ -318,6 +320,7 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 %end
 %end
 
+%group LowLevelSysctl
 %hookf(int, sysctlbyname, const char *name, void *oldp, size_t *oldlenp, void *newp, size_t newlen) {
     if (!name || !OVSBeginLowLevelHook()) {
         return %orig(name, oldp, oldlenp, newp, newlen);
@@ -372,14 +375,21 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
     OVSEndLowLevelHook();
     return result;
 }
+%end
 
 %ctor {
-    if (OVSIsProtectedProcess()) {
+    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess()) {
         return;
     }
     OVSRegisterPreferenceListener();
     %init;
-    if (NSClassFromString(@"WKWebView")) {
+    if (OVSAppVersionEnabled()) {
+        %init(BundleHooks);
+    }
+    if (!OVSIsFragileApp() && NSClassFromString(@"WKWebView")) {
         %init(WebKitHooks);
+    }
+    if (OVSLowLevelHooksEnabled()) {
+        %init(LowLevelSysctl);
     }
 }

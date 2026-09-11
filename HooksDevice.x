@@ -5,6 +5,7 @@
 #import <string.h>
 #import <sys/utsname.h>
 
+%group LocaleClassHooks
 %hook NSLocale
 + (NSArray *)preferredLanguages {
     if (!OVSLocaleEnabled()) {
@@ -66,7 +67,9 @@
     return %orig;
 }
 %end
+%end
 
+%group LocaleDefaultsHooks
 %hook NSUserDefaults
 - (id)objectForKey:(NSString *)defaultName {
     if (OVSLocaleEnabled()) {
@@ -93,6 +96,7 @@
     }
     return %orig;
 }
+%end
 %end
 
 %group TelephonyHooks
@@ -183,6 +187,7 @@
 }
 %end
 
+%group LowLevelUname
 %hookf(int, uname, struct utsname *name) {
     int result = %orig(name);
     if (result == 0 && name) {
@@ -209,16 +214,26 @@
     }
     return result;
 }
+%end
 
 %ctor {
-    if (OVSIsProtectedProcess()) {
+    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess()) {
         return;
     }
     %init;
-    if (NSClassFromString(@"CTCarrier") || NSClassFromString(@"CTTelephonyNetworkInfo")) {
-        %init(TelephonyHooks);
+    if (!OVSIsFragileApp()) {
+        %init(LocaleClassHooks);
+        if (OVSLocaleEnabled()) {
+            %init(LocaleDefaultsHooks);
+        }
+        if (NSClassFromString(@"CTCarrier") || NSClassFromString(@"CTTelephonyNetworkInfo")) {
+            %init(TelephonyHooks);
+        }
+        if (NSClassFromString(@"ASIdentifierManager")) {
+            %init(AdSupportHooks);
+        }
     }
-    if (NSClassFromString(@"ASIdentifierManager")) {
-        %init(AdSupportHooks);
+    if (OVSLowLevelHooksEnabled()) {
+        %init(LowLevelUname);
     }
 }
