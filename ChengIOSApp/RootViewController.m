@@ -42,8 +42,8 @@ extern char **environ;
             @{@"kind": @"button", @"title": @"Random Info M\u00e1y", @"action": @"identity"},
             @{@"kind": @"button", @"title": @"Random To\u00e0n B\u1ed9", @"action": @"full"},
             @{@"kind": @"button", @"title": @"Xem h\u1ed3 s\u01a1", @"action": @"profile"},
-            @{@"kind": @"button", @"title": @"Sao ch\u00e9p h\u1ed3 s\u01a1", @"action": @"copy"}
-            @{@"kind": @"nav", @"title": @"Random theo vung", @"page": @"region", @"detail": @"VN / US / KR / JP..."},
+            @{@"kind": @"button", @"title": @"Sao ch\u00e9p h\u1ed3 s\u01a1", @"action": @"copy"},
+            @{@"kind": @"nav", @"title": @"Random theo vùng", @"page": @"region", @"detail": @"VN / US / KR / JP..."},
             @{@"kind": @"nav", @"title": @"Deeplink / Shortcuts", @"page": @"deeplink", @"detail": @"chengios://"}
         ],
         @[
@@ -51,7 +51,8 @@ extern char **environ;
             @{@"kind": @"text", @"title": @"T\u00ean", @"keys": @[@"spoofedName", @"customDeviceName"], @"placeholder": @"iPhone"},
             @{@"kind": @"text", @"title": @"iOS", @"keys": @[@"spoofedSystemVersion", @"customOSVersion"], @"placeholder": @"18.6.1"},
             @{@"kind": @"text", @"title": @"Build", @"keys": @[@"spoofedBuild", @"customBuildNumber"], @"placeholder": @"22G100"},
-            @{@"kind": @"text", @"title": @"Hostname", @"keys": @[@"spoofedHostname", @"customHostName"], @"placeholder": @"iPhone.local"}
+            @{@"kind": @"text", @"title": @"Hostname", @"keys": @[@"spoofedHostname", @"customHostName"], @"placeholder": @"iPhone.local"},
+            @{@"kind": @"info", @"title": @"User-Agent", @"keys": @[@"spoofedUserAgent"]},
         ],
         @[
             @{@"kind": @"switch", @"title": @"D\u00f9ng iOS t\u00f9y ch\u1ec9nh", @"key": @"useCustomOSVersion", @"defaultOn": @NO},
@@ -315,6 +316,14 @@ extern char **environ;
         [self toast:@"\u0110\u00e3 sao ch\u00e9p URL"];
         return;
     }
+    if ([kind isEqualToString:@"info"]) {
+        NSString *text = [self firstText:row[@"keys"]];
+        if (text.length > 0) {
+            [UIPasteboard generalPasteboard].string = text;
+            [self toast:@"\u0110\u00e3 sao ch\u00e9p"];
+        }
+        return;
+    }
     if (![kind isEqualToString:@"button"]) {
         return;
     }
@@ -493,6 +502,14 @@ extern char **environ;
         [self showSummaryTitle:@"H\u1ed3 s\u01a1 hi\u1ec7n t\u1ea1i" profile:ChengIOSLoadSavedProfile()]; did = YES;
     } else if ([self token:token hasAny:@[@"apps", @"change-apps", @"applist", @"safari"]]) {
         AppListViewController *list = [[AppListViewController alloc] initWithStyle:UITableViewStyleGrouped];
+        [self.navigationController pushViewController:list animated:YES];
+        did = YES;
+    } else if ([self token:token hasAny:@[@"regions", @"region", @"vung", @"vung-mien"]]) {
+        RegionListViewController *list = [[RegionListViewController alloc] initWithStyle:UITableViewStyleGrouped];
+        [self.navigationController pushViewController:list animated:YES];
+        did = YES;
+    } else if ([self token:token hasAny:@[@"deeplink", @"deeplinks", @"urls", @"shortcuts"]]) {
+        DeeplinkListViewController *list = [[DeeplinkListViewController alloc] initWithStyle:UITableViewStyleGrouped];
         [self.navigationController pushViewController:list animated:YES];
         did = YES;
     } else if ([self token:token hasAny:@[@"setting", @"prefs"]]) {

@@ -1,6 +1,8 @@
 #import "ChengIOSRegionController.h"
 #import "ChengIOSProfiles.h"
 
+#import <UIKit/UIKit.h>
+
 @implementation ChengIOSRegionController
 
 - (NSArray *)specifiers {
@@ -13,7 +15,23 @@
 - (void)randomizeISO:(NSString *)iso title:(NSString *)title {
     NSDictionary *profile = iso.length ? ChengIOSRandomFullProfileInRegion(iso) : ChengIOSRandomFullProfile();
     [self chengApplyProfile:profile];
-    [self chengShowProfile:profile title:title full:YES];
+    NSString *summary = ChengIOSProfileSummary(profile);
+    if (![UIAlertController class]) {
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
+                                                                   message:summary
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Random lai" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        (void)action;
+        [self randomizeISO:iso title:title];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Sao chep" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        (void)action;
+        [UIPasteboard generalPasteboard].string = summary;
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)randomizeRegionAuto { [self randomizeISO:nil title:@"Random tu dong"]; }

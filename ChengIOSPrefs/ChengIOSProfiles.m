@@ -135,6 +135,8 @@ static NSString *CIRandomMAC(void) {
             arc4random_uniform(256)];
 }
 
+static NSArray<NSDictionary *> *CIRegions(void);
+
 static NSString *CIRandomIPv4ForISO(NSString *iso) {
     uint32_t roll = arc4random_uniform(100);
     NSUInteger host = 20 + arc4random_uniform(180);
