@@ -1,24 +1,37 @@
 #import "Prefs.h"
 
+#import <CoreFoundation/CoreFoundation.h>
+
 #import <string.h>
 #import <sys/utsname.h>
 
 %hook NSLocale
 + (NSArray *)preferredLanguages {
-    return OVSLocaleEnabled() ? @[OVSSpoofedLanguageCode()] : %orig;
+    if (!OVSLocaleEnabled()) {
+        return %orig;
+    }
+    return @[OVSSpoofedLanguageCode()];
 }
 
-
 + (NSLocale *)currentLocale {
-    return OVSLocaleEnabled() ? [[NSLocale alloc] initWithLocaleIdentifier:OVSSpoofedLocaleIdentifier()] : %orig;
+    if (!OVSLocaleEnabled()) {
+        return %orig;
+    }
+    return [[NSLocale alloc] initWithLocaleIdentifier:OVSSpoofedLocaleIdentifier()];
 }
 
 + (NSLocale *)systemLocale {
-    return OVSLocaleEnabled() ? [[NSLocale alloc] initWithLocaleIdentifier:OVSSpoofedLocaleIdentifier()] : %orig;
+    if (!OVSLocaleEnabled()) {
+        return %orig;
+    }
+    return [[NSLocale alloc] initWithLocaleIdentifier:OVSSpoofedLocaleIdentifier()];
 }
 
 + (NSLocale *)autoupdatingCurrentLocale {
-    return OVSLocaleEnabled() ? [[NSLocale alloc] initWithLocaleIdentifier:OVSSpoofedLocaleIdentifier()] : %orig;
+    if (!OVSLocaleEnabled()) {
+        return %orig;
+    }
+    return [[NSLocale alloc] initWithLocaleIdentifier:OVSSpoofedLocaleIdentifier()];
 }
 %end
 
@@ -66,24 +79,117 @@
     }
     return %orig;
 }
+
+- (NSArray *)arrayForKey:(NSString *)defaultName {
+    if (OVSLocaleEnabled() && [defaultName isEqualToString:@"AppleLanguages"]) {
+        return @[OVSSpoofedLanguageCode()];
+    }
+    return %orig;
+}
+
+- (NSString *)stringForKey:(NSString *)defaultName {
+    if (OVSLocaleEnabled() && [defaultName isEqualToString:@"AppleLocale"]) {
+        return OVSSpoofedLocaleIdentifier();
+    }
+    return %orig;
+}
 %end
+
+%hookf(CFLocaleRef, CFLocaleCopyCurrent) {
+    if (!OVSLocaleEnabled()) {
+        CFLocaleRef original = %orig();
+        return original;
+    }
+    NSLocale *locale = [[NSLocale alloc] initWithLocaleIdentifier:OVSSpoofedLocaleIdentifier()];
+    return (CFLocaleRef)CFBridgingRetain(locale);
+}
+
+%hookf(CFTimeZoneRef, CFTimeZoneCopySystem) {
+    if (!OVSLocaleEnabled()) {
+        CFTimeZoneRef original = %orig();
+        return original;
+    }
+    NSTimeZone *timeZone = [NSTimeZone timeZoneWithName:OVSSpoofedTimeZoneName()];
+    if (!timeZone) {
+        CFTimeZoneRef original = %orig();
+        return original;
+    }
+    return (CFTimeZoneRef)CFBridgingRetain(timeZone);
+}
+
+%hookf(CFTimeZoneRef, CFTimeZoneCopyDefault) {
+    if (!OVSLocaleEnabled()) {
+        CFTimeZoneRef original = %orig();
+        return original;
+    }
+    NSTimeZone *timeZone = [NSTimeZone timeZoneWithName:OVSSpoofedTimeZoneName()];
+    if (!timeZone) {
+        CFTimeZoneRef original = %orig();
+        return original;
+    }
+    return (CFTimeZoneRef)CFBridgingRetain(timeZone);
+}
 
 %group TelephonyHooks
 %hook CTCarrier
 - (NSString *)carrierName {
-    return OVSCarrierEnabled() ? OVSSpoofedCarrierName() : %orig;
+    if (!OVSCarrierEnabled()) {
+        return %orig;
+    }
+    return OVSSpoofedCarrierName();
 }
 
 - (NSString *)mobileCountryCode {
-    return OVSCarrierEnabled() ? OVSSpoofedMCC() : %orig;
+    if (!OVSCarrierEnabled()) {
+        return %orig;
+    }
+    return OVSSpoofedMCC();
 }
 
 - (NSString *)mobileNetworkCode {
-    return OVSCarrierEnabled() ? OVSSpoofedMNC() : %orig;
+    if (!OVSCarrierEnabled()) {
+        return %orig;
+    }
+    return OVSSpoofedMNC();
 }
 
 - (NSString *)isoCountryCode {
-    return OVSCarrierEnabled() ? OVSSpoofedISOCountryCode() : %orig;
+    if (!OVSCarrierEnabled()) {
+        return %orig;
+    }
+    return OVSSpoofedISOCountryCode();
+}
+
+- (BOOL)allowsVOIP {
+    if (!OVSCarrierEnabled()) {
+        return %orig;
+    }
+    return YES;
+}
+%end
+
+%hook CTTelephonyNetworkInfo
+- (NSString *)currentRadioAccessTechnology {
+    if (!OVSCarrierEnabled()) {
+        return %orig;
+    }
+    return OVSSpoofedRadioAccessTechnology();
+}
+
+- (NSDictionary *)serviceCurrentRadioAccessTechnology {
+    NSDictionary *original = %orig;
+    if (!OVSCarrierEnabled()) {
+        return original;
+    }
+    NSString *tech = OVSSpoofedRadioAccessTechnology();
+    if ([original isKindOfClass:[NSDictionary class]] && original.count > 0) {
+        NSMutableDictionary *rewritten = [original mutableCopy];
+        for (id key in original.allKeys) {
+            rewritten[key] = tech;
+        }
+        return rewritten;
+    }
+    return @{@"0000000100000001": tech};
 }
 %end
 %end
@@ -91,18 +197,27 @@
 %group AdSupportHooks
 %hook ASIdentifierManager
 - (NSUUID *)advertisingIdentifier {
-    return OVSDeviceIdentityEnabled() ? OVSSpoofedAdvertisingUUID() : %orig;
+    if (!OVSDeviceIdentityEnabled()) {
+        return %orig;
+    }
+    return OVSSpoofedAdvertisingUUID();
 }
 
 - (BOOL)isAdvertisingTrackingEnabled {
-    return OVSDeviceIdentityEnabled() ? NO : %orig;
+    if (!OVSDeviceIdentityEnabled()) {
+        return %orig;
+    }
+    return NO;
 }
 %end
 %end
 
 %hook BrowserController
 - (NSUUID *)UUID {
-    return OVSDeviceIdentityEnabled() ? OVSSpoofedVendorUUID() : %orig;
+    if (!OVSDeviceIdentityEnabled()) {
+        return %orig;
+    }
+    return OVSSpoofedVendorUUID();
 }
 %end
 
@@ -119,6 +234,16 @@
             strncpy(name->machine, model.UTF8String, sizeof(name->machine) - 1);
             name->machine[sizeof(name->machine) - 1] = '\0';
         }
+        if (OVSSpoofingEnabled()) {
+            strncpy(name->sysname, "Darwin", sizeof(name->sysname) - 1);
+            name->sysname[sizeof(name->sysname) - 1] = '\0';
+            NSString *release = OVSDarwinRelease();
+            strncpy(name->release, release.UTF8String, sizeof(name->release) - 1);
+            name->release[sizeof(name->release) - 1] = '\0';
+            NSString *version = OVSDarwinVersionString();
+            strncpy(name->version, version.UTF8String, sizeof(name->version) - 1);
+            name->version[sizeof(name->version) - 1] = '\0';
+        }
     }
     return result;
 }
@@ -128,7 +253,7 @@
         return;
     }
     %init;
-    if (NSClassFromString(@"CTCarrier")) {
+    if (NSClassFromString(@"CTCarrier") || NSClassFromString(@"CTTelephonyNetworkInfo")) {
         %init(TelephonyHooks);
     }
     if (NSClassFromString(@"ASIdentifierManager")) {

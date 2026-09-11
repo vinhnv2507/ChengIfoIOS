@@ -137,6 +137,84 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
+			<string>Gestalt / ID</string>
+			<key>footerText</key>
+			<string>Serial, UDID, IDFV giữ nguyên đến lần Random tiếp theo. Không đổi màn hình.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSTitleValueCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>label</key>
+			<string>Board</string>
+			<key>key</key>
+			<string>hwModelStr</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSTitleValueCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>label</key>
+			<string>Chip</string>
+			<key>key</key>
+			<string>hardwarePlatform</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSTitleValueCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>label</key>
+			<string>RAM (GB)</string>
+			<key>key</key>
+			<string>memoryGB</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSTitleValueCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>label</key>
+			<string>Serial</string>
+			<key>key</key>
+			<string>spoofedSerialNumber</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSTitleValueCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>label</key>
+			<string>UDID</string>
+			<key>key</key>
+			<string>spoofedUniqueDeviceID</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSTitleValueCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>label</key>
+			<string>IDFV</string>
+			<key>key</key>
+			<string>spoofedVendorUUID</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSTitleValueCell</string>
+			<key>defaults</key>
+			<string>com.vinhnv2507.chengiosprefs</string>
+			<key>label</key>
+			<string>IMEI</string>
+			<key>key</key>
+			<string>spoofedIMEI</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
 			<string>App</string>
 		</dict>
 		<dict>
