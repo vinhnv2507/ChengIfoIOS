@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.9
+
+- Sua crash-loop Safari cua 1.2.8: khong inject WebContent, khong spoof iOS version ben trong Safari
+- Safari chi doi User-Agent mot lan (`customUserAgent`); AIDA64 van spoof native
+- Tat ChengIOS thi khong gan WebKit hooks
+
 ## 1.2.8
 
 - Safari (deviceinfo.me / JS `navigator.userAgent`) nhận spoof: inject WebContent của Safari, `customUserAgent` + script document-start
