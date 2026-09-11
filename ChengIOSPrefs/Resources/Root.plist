@@ -48,7 +48,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>Facebook/Shopee chạy chế độ an toàn: không hook sysctl/uname, không giả CFBundleVersion. Tắt Giả lập phiên bản App. Force-quit app đích sau khi cập nhật.</string>
+			<string>Tick Safari rồi vuốt tắt hẳn Safari (kể cả WebContent). Trang web đọc UA trong process WebContent. Facebook/Shopee vẫn chế độ an toàn.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -713,7 +713,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>ChengIOS 1.2.7
+			<string>ChengIOS 1.2.8
 by vinhnv2507</string>
 			<key>isStaticText</key>
 			<true/>

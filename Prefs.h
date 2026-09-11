@@ -14,6 +14,8 @@ double OVSDoubleForKey(NSString *key, double defaultValue);
 
 NSString *OVSMainBundleIdentifier(void);
 NSString *OVSMainBundlePath(void);
+NSString *OVSEffectiveBundleIdentifier(void);
+NSString *OVSSpoofedSafariUserAgent(void);
 
 BOOL OVSIsProtectedProcess(void);
 BOOL OVSMasterEnabled(void);
