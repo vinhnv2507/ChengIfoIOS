@@ -11,7 +11,6 @@
 #import <sys/socket.h>
 #import <sys/types.h>
 
-#import <SystemConfiguration/SystemConfiguration.h>
 #import <SystemConfiguration/CaptiveNetwork.h>
 
 @interface NEHotspotNetwork : NSObject
@@ -105,41 +104,6 @@ static BOOL OVSParseMACAddress(NSString *string, unsigned char outBytes[6]) {
         return %orig;
     }
     return (__bridge_retained CFDictionaryRef)info;
-}
-
-%hookf(CFPropertyListRef, SCDynamicStoreCopyValue, SCDynamicStoreRef store, CFStringRef key) {
-    CFPropertyListRef original = %orig;
-    if (!OVSNetworkEnabled() || !key) {
-        return original;
-    }
-    NSString *name = (__bridge NSString *)key;
-    if (![name isEqualToString:@"State:/Network/Global/IPv4"]) {
-        return original;
-    }
-    NSString *gateway = OVSSpoofedWifiGateway();
-    NSString *ipv4 = OVSSpoofedIPv4();
-    NSString *iface = OVSSpoofedInterfaceName();
-    if (gateway.length == 0 && ipv4.length == 0) {
-        return original;
-    }
-    if ([iface isEqualToString:@"*"] || iface.length == 0) {
-        iface = @"en0";
-    }
-    NSMutableDictionary *dict = [NSMutableDictionary dictionary];
-    if (original && CFGetTypeID(original) == CFDictionaryGetTypeID()) {
-        [dict addEntriesFromDictionary:(__bridge NSDictionary *)original];
-    }
-    if (gateway.length > 0) {
-        dict[@"Router"] = gateway;
-    }
-    if (ipv4.length > 0) {
-        dict[@"PrimaryIP"] = ipv4;
-    }
-    dict[@"PrimaryInterface"] = iface;
-    if (original) {
-        CFRelease(original);
-    }
-    return (__bridge_retained CFPropertyListRef)[dict copy];
 }
 
 %group HotspotHooks
