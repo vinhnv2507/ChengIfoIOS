@@ -389,6 +389,133 @@ static NSArray<NSDictionary *> *CIRegions(void) {
 }
 
 
+
+static NSString *CIHexUpper(NSUInteger width) {
+    if (width >= 4) {
+        return [NSString stringWithFormat:@"%04X", arc4random_uniform(0xFFFF)];
+    }
+    return [NSString stringWithFormat:@"%02X", arc4random_uniform(256)];
+}
+
+static NSString *CIOwnerHint(NSString *name) {
+    NSString *latin = CILatin(name ?: @"");
+    NSArray<NSString *> *parts = [latin componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSString *last = parts.lastObject;
+    if (last.length == 0 || [last caseInsensitiveCompare:@"iPhone"] == NSOrderedSame) {
+        return @"Home";
+    }
+    if ([last caseInsensitiveCompare:@"Pro"] == NSOrderedSame ||
+        [last caseInsensitiveCompare:@"Max"] == NSOrderedSame ||
+        [last caseInsensitiveCompare:@"Air"] == NSOrderedSame ||
+        [last caseInsensitiveCompare:@"Plus"] == NSOrderedSame ||
+        [last caseInsensitiveCompare:@"mini"] == NSOrderedSame) {
+        return @"Home";
+    }
+    return last;
+}
+
+static NSString *CIRandomSSID(NSDictionary *region, NSString *deviceName, NSString *ipv4) {
+    if ([ipv4 hasPrefix:@"172.20.10."]) {
+        return deviceName.length > 0 ? deviceName : @"iPhone";
+    }
+    NSString *locale = region[@"locale"] ?: @"vi_VN";
+    NSString *hex4 = CIHexUpper(4);
+    NSString *hex2 = CIHexUpper(2);
+    NSString *owner = CIOwnerHint(deviceName);
+    uint32_t roll = arc4random_uniform(100);
+    NSArray *router = @[
+        [NSString stringWithFormat:@"TP-Link_%@", hex4],
+        [NSString stringWithFormat:@"TP-Link_%@_5G", hex4],
+        [NSString stringWithFormat:@"Xiaomi-%@", hex4],
+        [NSString stringWithFormat:@"Redmi%@", hex4],
+        [NSString stringWithFormat:@"ASUS_%@", hex2]
+    ];
+    NSArray *isp = nil;
+    NSArray *home = nil;
+    if ([locale hasPrefix:@"vi"]) {
+        isp = @[@"Viettel", @"Viettel-5G", @"Viettel Fiber", @"FPT", @"FPT-Fiber", @"FPT Telecom", @"VNPT-Fiber", @"VNPT-Wifi",
+                [NSString stringWithFormat:@"Viettel_%@", hex4], [NSString stringWithFormat:@"FPT_%@", hex2]];
+        home = @[[NSString stringWithFormat:@"%@_Wifi", owner], [NSString stringWithFormat:@"WiFi-%@", owner], [NSString stringWithFormat:@"%@_5G", owner]];
+    } else if ([locale isEqualToString:@"en_US"]) {
+        isp = @[@"ATT-WiFi", @"MySpectrumWiFi", [NSString stringWithFormat:@"NETGEAR%@", hex2], [NSString stringWithFormat:@"ATT-%@", hex4], @"HomeInternet"];
+        home = @[[NSString stringWithFormat:@"%@ WiFi", owner], [NSString stringWithFormat:@"%@ Network", owner]];
+    } else if ([locale isEqualToString:@"ja_JP"]) {
+        isp = @[@"au-Wi-Fi", @"docomo", @"SoftBank-WiFi", [NSString stringWithFormat:@"Buffalo-%@", hex4]];
+        home = @[[NSString stringWithFormat:@"%@-WiFi", owner]];
+    } else if ([locale isEqualToString:@"ko_KR"]) {
+        isp = @[@"KT_WiFi", @"SK_WiFi", [NSString stringWithFormat:@"iptime_%@", hex2]];
+        home = @[[NSString stringWithFormat:@"%@_WiFi", owner]];
+    } else if ([locale isEqualToString:@"en_GB"]) {
+        isp = @[@"BT-WiFi", @"Virgin Media", [NSString stringWithFormat:@"SKY%@", hex4]];
+        home = @[[NSString stringWithFormat:@"%@ WiFi", owner]];
+    } else if ([locale isEqualToString:@"th_TH"]) {
+        isp = @[@"AIS Fibre", @"TRUE-WiFi", @"3BB"];
+        home = @[[NSString stringWithFormat:@"%@_WiFi", owner]];
+    } else if ([locale isEqualToString:@"en_SG"]) {
+        isp = @[@"Singtel-WiFi", @"StarHub", @"M1-Fibre"];
+        home = @[[NSString stringWithFormat:@"%@ WiFi", owner]];
+    } else if ([locale isEqualToString:@"en_AU"]) {
+        isp = @[@"Telstra", @"Optus-WiFi", @"NBN"];
+        home = @[[NSString stringWithFormat:@"%@ WiFi", owner]];
+    } else if ([locale isEqualToString:@"zh_TW"]) {
+        isp = @[@"Hinet", @"Chunghwa", @"HiNet-WiFi"];
+        home = @[[NSString stringWithFormat:@"%@_WiFi", owner]];
+    } else {
+        isp = @[@"WiFi", @"Home-WiFi"];
+        home = @[[NSString stringWithFormat:@"%@_WiFi", owner]];
+    }
+    if (roll < 40 && isp.count > 0) {
+        return CIPick(isp);
+    }
+    if (roll < 80) {
+        return CIPick(router);
+    }
+    return CIPick(home);
+}
+
+static NSString *CIRandomBSSID(void) {
+    NSArray<NSString *> *ouis = @[
+        @"50:c7:bf", @"14:eb:b6", @"98:da:c4",
+        @"64:b4:73", @"28:6c:07", @"04:d4:c4",
+        @"2c:56:dc", @"20:08:ed", @"a8:5e:45",
+        @"c8:3a:35", @"e4:d3:32", @"10:fe:ed"
+    ];
+    NSString *oui = CIPick(ouis);
+    return [NSString stringWithFormat:@"%@:%02x:%02x:%02x",
+            oui,
+            arc4random_uniform(256),
+            arc4random_uniform(256),
+            arc4random_uniform(256)];
+}
+
+static NSString *CIGatewayFromIPv4(NSString *ipv4) {
+    NSArray<NSString *> *parts = [ipv4 componentsSeparatedByString:@"."];
+    if (parts.count != 4) {
+        return @"192.168.1.1";
+    }
+    return [NSString stringWithFormat:@"%@.%@.%@.1", parts[0], parts[1], parts[2]];
+}
+
+static NSString *CIRandomRSSI(void) {
+    int rssi = -38 - (int)arc4random_uniform(28);
+    return [NSString stringWithFormat:@"%d", rssi];
+}
+
+static NSString *CIFirstString(NSDictionary *prefs, NSArray<NSString *> *keys) {
+    for (NSString *key in keys) {
+        id value = prefs[key];
+        if ([value isKindOfClass:[NSString class]]) {
+            NSString *text = [(NSString *)value stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if (text.length > 0) {
+                return text;
+            }
+        } else if ([value isKindOfClass:[NSNumber class]]) {
+            return [value stringValue];
+        }
+    }
+    return @"";
+}
+
 static NSDictionary *CIBuildProfile(BOOL full) {
     NSDictionary *device = CIPickWeighted(CIDevices(), @"weight");
     NSDictionary *os = CIPick(CIBiasRecent(device[@"os"]));
@@ -416,6 +543,8 @@ static NSDictionary *CIBuildProfile(BOOL full) {
         @"customHostName": host,
         @"useCustomOSVersion": @YES,
         @"deviceIdentityEnabled": @YES,
+        @"profileProduct": product,
+        @"profileCity": city[@"name"] ?: @"",
         @"_product": product,
         @"_region": region[@"locale"],
         @"_city": city[@"name"] ?: @""
@@ -445,11 +574,16 @@ static NSDictionary *CIBuildProfile(BOOL full) {
     profile[@"altitude"] = [NSString stringWithFormat:@"%.0f", alt];
     profile[@"accuracy"] = [NSString stringWithFormat:@"%u", 5 + arc4random_uniform(16)];
     profile[@"gpxPath"] = @"";
+    NSString *ipv4 = CIRandomIPv4();
     profile[@"networkEnabled"] = @YES;
     profile[@"interfaceName"] = @"en0";
-    profile[@"ipv4Address"] = CIRandomIPv4();
+    profile[@"ipv4Address"] = ipv4;
     profile[@"ipv6Address"] = CIRandomIPv6(region[@"ipv6"]);
     profile[@"macAddress"] = CIRandomMAC();
+    profile[@"wifiSSID"] = CIRandomSSID(region, name, ipv4);
+    profile[@"wifiBSSID"] = CIRandomBSSID();
+    profile[@"wifiGateway"] = CIGatewayFromIPv4(ipv4);
+    profile[@"wifiRSSI"] = CIRandomRSSI();
     profile[@"appVersionEnabled"] = @YES;
     profile[@"customAppVersion"] = CIRandomAppVersion();
     return profile;
@@ -469,12 +603,68 @@ NSString *ChengIOSProfileSummary(NSDictionary *profile) {
     [text appendFormat:@"iOS %@ (%@)\n", profile[@"spoofedSystemVersion"], profile[@"spoofedBuild"]];
     [text appendFormat:@"Tên: %@\n", profile[@"spoofedName"]];
     [text appendFormat:@"Host: %@", profile[@"spoofedHostname"]];
-    if (profile[@"localeIdentifier"]) {
+    if ([profile[@"localeIdentifier"] length] || [profile[@"wifiSSID"] length] || [profile[@"ipv4Address"] length]) {
         [text appendFormat:@"\nLocale: %@ / %@", profile[@"localeIdentifier"], profile[@"timeZoneName"]];
         [text appendFormat:@"\nNhà mạng: %@ (%@-%@)", profile[@"carrierName"], profile[@"mobileCountryCode"], profile[@"mobileNetworkCode"]];
         [text appendFormat:@"\nGPS: %@, %@ (%@)", profile[@"latitude"], profile[@"longitude"], profile[@"_city"] ?: @""];
         [text appendFormat:@"\nIP: %@\nMAC: %@", profile[@"ipv4Address"], profile[@"macAddress"]];
+        if ([profile[@"wifiSSID"] length] || [profile[@"wifiBSSID"] length]) {
+            [text appendFormat:@"\nWi-Fi: %@", profile[@"wifiSSID"] ?: @"-"];
+            [text appendFormat:@"\nBSSID: %@", profile[@"wifiBSSID"] ?: @"-"];
+            [text appendFormat:@"\nGW: %@  RSSI: %@", profile[@"wifiGateway"] ?: @"-", profile[@"wifiRSSI"] ?: @"-"];
+        }
         [text appendFormat:@"\nApp: %@", profile[@"customAppVersion"]];
     }
     return text;
+}
+
+NSDictionary *ChengIOSLoadSavedProfile(void) {
+    NSMutableDictionary *prefs = [NSMutableDictionary dictionary];
+    CFStringRef appID = CFSTR("com.vinhnv2507.chengiosprefs");
+    CFArrayRef keys = CFPreferencesCopyKeyList(appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+    if (keys) {
+        CFDictionaryRef dict = CFPreferencesCopyMultiple(keys, appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+        if (dict) {
+            [prefs addEntriesFromDictionary:(__bridge NSDictionary *)dict];
+            CFRelease(dict);
+        }
+        CFRelease(keys);
+    }
+
+    NSString *model = CIFirstString(prefs, @[@"spoofedModel", @"customDeviceModel"]);
+    NSString *name = CIFirstString(prefs, @[@"spoofedName", @"customDeviceName"]);
+    NSString *version = CIFirstString(prefs, @[@"spoofedSystemVersion", @"customOSVersion"]);
+    NSString *build = CIFirstString(prefs, @[@"spoofedBuild", @"customBuildNumber"]);
+    NSString *host = CIFirstString(prefs, @[@"spoofedHostname", @"customHostName"]);
+    NSString *product = CIFirstString(prefs, @[@"profileProduct"]);
+    NSString *city = CIFirstString(prefs, @[@"profileCity"]);
+
+    NSMutableDictionary *profile = [NSMutableDictionary dictionary];
+    profile[@"spoofedModel"] = model;
+    profile[@"spoofedName"] = name;
+    profile[@"spoofedSystemVersion"] = version;
+    profile[@"spoofedBuild"] = build;
+    profile[@"spoofedHostname"] = host;
+    profile[@"_product"] = product.length ? product : (model.length ? model : @"iPhone");
+    profile[@"_city"] = city;
+    profile[@"localeIdentifier"] = CIFirstString(prefs, @[@"localeIdentifier"]);
+    profile[@"timeZoneName"] = CIFirstString(prefs, @[@"timeZoneName"]);
+    profile[@"carrierName"] = CIFirstString(prefs, @[@"carrierName"]);
+    profile[@"mobileCountryCode"] = CIFirstString(prefs, @[@"mobileCountryCode"]);
+    profile[@"mobileNetworkCode"] = CIFirstString(prefs, @[@"mobileNetworkCode"]);
+    profile[@"isoCountryCode"] = CIFirstString(prefs, @[@"isoCountryCode"]);
+    profile[@"latitude"] = CIFirstString(prefs, @[@"latitude"]);
+    profile[@"longitude"] = CIFirstString(prefs, @[@"longitude"]);
+    profile[@"altitude"] = CIFirstString(prefs, @[@"altitude"]);
+    profile[@"accuracy"] = CIFirstString(prefs, @[@"accuracy"]);
+    profile[@"ipv4Address"] = CIFirstString(prefs, @[@"ipv4Address"]);
+    profile[@"ipv6Address"] = CIFirstString(prefs, @[@"ipv6Address"]);
+    profile[@"macAddress"] = CIFirstString(prefs, @[@"macAddress"]);
+    profile[@"wifiSSID"] = CIFirstString(prefs, @[@"wifiSSID"]);
+    profile[@"wifiBSSID"] = CIFirstString(prefs, @[@"wifiBSSID"]);
+    profile[@"wifiGateway"] = CIFirstString(prefs, @[@"wifiGateway"]);
+    profile[@"wifiRSSI"] = CIFirstString(prefs, @[@"wifiRSSI"]);
+    profile[@"customAppVersion"] = CIFirstString(prefs, @[@"customAppVersion"]);
+    profile[@"interfaceName"] = CIFirstString(prefs, @[@"interfaceName"]);
+    return profile;
 }

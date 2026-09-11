@@ -6,4 +6,6 @@
 - (void)performRespring;
 - (void)randomizeIdentity;
 - (void)randomizeAll;
+- (void)showCurrentInfo;
+- (void)copyCurrentInfo;
 @end

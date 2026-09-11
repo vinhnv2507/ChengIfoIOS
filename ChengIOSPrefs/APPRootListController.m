@@ -142,4 +142,41 @@ extern char **environ;
 }
 
 
+- (void)showCurrentInfo {
+    NSDictionary *profile = ChengIOSLoadSavedProfile();
+    NSString *summary = ChengIOSProfileSummary(profile);
+    if (summary.length == 0 || [profile[@"spoofedModel"] length] == 0) {
+        summary = @"Chưa có hồ sơ. Bấm Random Info Máy hoặc Random Toàn Bộ trước.";
+    }
+    if (![UIAlertController class]) {
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Hồ sơ hiện tại"
+                                                                   message:summary
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Sao chép" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        (void)action;
+        [UIPasteboard generalPasteboard].string = summary;
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)copyCurrentInfo {
+    NSString *summary = ChengIOSProfileSummary(ChengIOSLoadSavedProfile());
+    if (summary.length == 0) {
+        return;
+    }
+    [UIPasteboard generalPasteboard].string = summary;
+    if (![UIAlertController class]) {
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Đã sao chép"
+                                                                   message:summary
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+
 @end

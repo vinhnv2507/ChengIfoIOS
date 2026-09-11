@@ -11,6 +11,15 @@
 #import <sys/socket.h>
 #import <sys/types.h>
 
+#import <SystemConfiguration/SystemConfiguration.h>
+#import <SystemConfiguration/CaptiveNetwork.h>
+
+@interface NEHotspotNetwork : NSObject
+@property (nonatomic, readonly, strong) NSString *SSID;
+@property (nonatomic, readonly, strong) NSString *BSSID;
+@property (nonatomic, readonly) double signalStrength;
+@end
+
 static BOOL OVSShouldSpoofInterface(const char *name) {
     if (!name) {
         return NO;
@@ -73,10 +82,105 @@ static BOOL OVSParseMACAddress(NSString *string, unsigned char outBytes[6]) {
     return result;
 }
 
+%hookf(CFArrayRef, CNCopySupportedInterfaces) {
+    if (!OVSNetworkEnabled() || (OVSSpoofedWifiSSID().length == 0 && OVSSpoofedWifiBSSID().length == 0)) {
+        return %orig;
+    }
+    NSString *iface = OVSSpoofedInterfaceName();
+    if ([iface isEqualToString:@"*"] || iface.length == 0) {
+        iface = @"en0";
+    }
+    return (__bridge_retained CFArrayRef)@[iface];
+}
+
+%hookf(CFDictionaryRef, CNCopyCurrentNetworkInfo, CFStringRef interfaceName) {
+    if (!OVSNetworkEnabled()) {
+        return %orig;
+    }
+    if (interfaceName && !OVSShouldSpoofInterface([(__bridge NSString *)interfaceName UTF8String])) {
+        return %orig;
+    }
+    NSDictionary *info = OVSSpoofedCaptiveNetworkInfo();
+    if (info.count == 0) {
+        return %orig;
+    }
+    return (__bridge_retained CFDictionaryRef)info;
+}
+
+%hookf(CFPropertyListRef, SCDynamicStoreCopyValue, SCDynamicStoreRef store, CFStringRef key) {
+    CFPropertyListRef original = %orig;
+    if (!OVSNetworkEnabled() || !key) {
+        return original;
+    }
+    NSString *name = (__bridge NSString *)key;
+    if (![name isEqualToString:@"State:/Network/Global/IPv4"]) {
+        return original;
+    }
+    NSString *gateway = OVSSpoofedWifiGateway();
+    NSString *ipv4 = OVSSpoofedIPv4();
+    NSString *iface = OVSSpoofedInterfaceName();
+    if (gateway.length == 0 && ipv4.length == 0) {
+        return original;
+    }
+    if ([iface isEqualToString:@"*"] || iface.length == 0) {
+        iface = @"en0";
+    }
+    NSMutableDictionary *dict = [NSMutableDictionary dictionary];
+    if (original && CFGetTypeID(original) == CFDictionaryGetTypeID()) {
+        [dict addEntriesFromDictionary:(__bridge NSDictionary *)original];
+    }
+    if (gateway.length > 0) {
+        dict[@"Router"] = gateway;
+    }
+    if (ipv4.length > 0) {
+        dict[@"PrimaryIP"] = ipv4;
+    }
+    dict[@"PrimaryInterface"] = iface;
+    if (original) {
+        CFRelease(original);
+    }
+    return (__bridge_retained CFPropertyListRef)[dict copy];
+}
+
+%group HotspotHooks
+%hook NEHotspotNetwork
+- (NSString *)SSID {
+    if (!OVSNetworkEnabled()) {
+        return %orig;
+    }
+    NSString *ssid = OVSSpoofedWifiSSID();
+    if (ssid.length > 0) {
+        return ssid;
+    }
+    return %orig;
+}
+
+- (NSString *)BSSID {
+    if (!OVSNetworkEnabled()) {
+        return %orig;
+    }
+    NSString *bssid = OVSSpoofedWifiBSSID();
+    if (bssid.length > 0) {
+        return bssid;
+    }
+    return %orig;
+}
+
+- (double)signalStrength {
+    if (!OVSNetworkEnabled() || OVSSpoofedWifiRSSI().length == 0) {
+        return %orig;
+    }
+    return OVSSpoofedWifiSignalStrength();
+}
+%end
+%end
+
 %ctor {
     if (OVSIsProtectedProcess()) {
         return;
     }
     %init;
+    if (NSClassFromString(@"NEHotspotNetwork")) {
+        %init(HotspotHooks);
+    }
 }
-

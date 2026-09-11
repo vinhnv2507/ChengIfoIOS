@@ -652,7 +652,12 @@ BOOL OVSNetworkEnabled(void) {
     if (!OVSSpoofingEnabled() || !OVSBoolForKey(@"networkEnabled", NO)) {
         return NO;
     }
-    return OVSSpoofedIPv4().length > 0 || OVSSpoofedIPv6().length > 0 || OVSSpoofedMACAddress().length > 0;
+    return OVSSpoofedIPv4().length > 0 ||
+           OVSSpoofedIPv6().length > 0 ||
+           OVSSpoofedMACAddress().length > 0 ||
+           OVSSpoofedWifiSSID().length > 0 ||
+           OVSSpoofedWifiBSSID().length > 0 ||
+           OVSSpoofedWifiGateway().length > 0;
 }
 
 NSString *OVSSpoofedIPv4(void) {
@@ -669,6 +674,58 @@ NSString *OVSSpoofedMACAddress(void) {
 
 NSString *OVSSpoofedInterfaceName(void) {
     return OVSStringForKey(@"interfaceName", @"en0");
+}
+
+NSString *OVSSpoofedWifiSSID(void) {
+    return OVSStringForKey(@"wifiSSID", nil);
+}
+
+NSString *OVSSpoofedWifiBSSID(void) {
+    return OVSStringForKey(@"wifiBSSID", nil);
+}
+
+NSString *OVSSpoofedWifiGateway(void) {
+    return OVSStringForKey(@"wifiGateway", nil);
+}
+
+NSString *OVSSpoofedWifiRSSI(void) {
+    return OVSStringForKey(@"wifiRSSI", nil);
+}
+
+NSDictionary *OVSSpoofedCaptiveNetworkInfo(void) {
+    NSString *ssid = OVSSpoofedWifiSSID();
+    NSString *bssid = OVSSpoofedWifiBSSID();
+    if (ssid.length == 0 && bssid.length == 0) {
+        return nil;
+    }
+    NSMutableDictionary *info = [NSMutableDictionary dictionary];
+    if (ssid.length > 0) {
+        info[@"SSID"] = ssid;
+        NSData *data = [ssid dataUsingEncoding:NSUTF8StringEncoding];
+        if (data.length > 0) {
+            info[@"SSIDDATA"] = data;
+        }
+    }
+    if (bssid.length > 0) {
+        info[@"BSSID"] = bssid;
+    }
+    return [info copy];
+}
+
+double OVSSpoofedWifiSignalStrength(void) {
+    NSString *raw = OVSSpoofedWifiRSSI();
+    if (raw.length == 0) {
+        return 0.72;
+    }
+    double dbm = raw.doubleValue;
+    double normalized = (dbm + 90.0) / 60.0;
+    if (normalized < 0.0) {
+        return 0.0;
+    }
+    if (normalized > 1.0) {
+        return 1.0;
+    }
+    return normalized;
 }
 
 static NSString *OVSReplaceFirst(NSString *input, NSString *pattern, NSString *replacement) {
