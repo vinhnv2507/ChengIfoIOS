@@ -28,8 +28,19 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 - Locale, múi giờ, nhà mạng (tắt mặc định)
 - Vị trí `CLLocationManager` (tọa độ cố định hoặc GPX, tắt mặc định)
 - `getifaddrs` IPv4/IPv6/MAC (best-effort, tắt mặc định)
+- Wi-Fi SSID/BSSID/gateway qua `CNCopyCurrentNetworkInfo` / `NEHotspotNetwork`
 
 Kích thước màn hình không bị đổi.
+
+## 1.2.4
+
+- App **ChengIOS** trên màn hình chính: Random, xem hồ sơ, sao chép, mở Settings
+- URL scheme `chengios://` cho Shortcuts / deeplink
+- `chengios://random-identity` = Random Info Máy
+- `chengios://random-all` = Random Toàn Bộ
+- `chengios://profile`, `chengios://copy`, `chengios://settings`
+- `?silent=1` không hiện alert; `x-success=` cho x-callback-url
+- `uicache` sau khi cài để hiện icon
 
 ## 1.2.3
 
@@ -60,13 +71,31 @@ Vị trí và mạng **tắt** cho đến khi bạn bật và điền giá trị
 
 ## Cài đặt
 
-Mở **Cài đặt → ChengIOS**.
+Mở app **ChengIOS** trên màn hình chính, hoặc **Cài đặt → ChengIOS**.
 
 1. Để **Bật ChengIOS** sáng.
 2. Chọn app trong **Change Apps** (danh sách 1.0.1) hoặc **Spoofed Apps**.
-3. Bấm **Random Info Máy** hoặc **Random Toàn Bộ**, hoặc vào **Change Info** để điền tay model / tên / iOS / build / hostname.
-4. Tùy chọn: bật giả lập phiên bản app, locale, nhà mạng, vị trí, mạng.
+3. Bấm **Random Info Máy** hoặc **Random Toàn Bộ**, hoặc vào **Change Info** để điền tay.
+4. Tùy chọn: bật giả lập phiên bản app, locale, nhà mạng, vị trí, mạng/Wi-Fi.
 5. Force-quit app đích (hoặc Respring) sau khi đổi setting.
+
+**Random Info Máy** chỉ đổi định danh: model, tên, hostname, iOS, build. **Random Toàn Bộ** thêm locale, nhà mạng, GPS, LAN, Wi-Fi và version app, cùng một vùng.
+
+Nếu cài xong không thấy icon, Respring hoặc chạy `uicache -p /var/jb/Applications/ChengIOSApp.app` (rootless) / `uicache -p /Applications/ChengIOSApp.app` (rootful).
+
+### Deeplink / Shortcuts
+
+Thêm thao tác **Mở URL**:
+
+- `chengios://random-identity` — Random Info Máy
+- `chengios://random-all` — Random Toàn Bộ
+- `chengios://random-all?silent=1` — Random Toàn Bộ, không alert
+- `chengios://profile` — xem hồ sơ hiện tại
+- `chengios://copy` — sao chép hồ sơ
+- `chengios://settings` — mở Settings
+- `chengios://x-callback-url/random-all?x-success=shortcuts://`
+
+Alias: `random-info`, `info-may`, `toan-bo`, `hoso`, `prefs`. Query `mode=identity` / `mode=all`.
 
 ### Vị trí
 
@@ -76,7 +105,7 @@ Mở **Cài đặt → ChengIOS**.
 
 ### Mạng
 
-- Cần **Giả lập định danh mạng** và ít nhất một trong IPv4, IPv6, MAC.
+- Cần **Giả lập định danh mạng** và ít nhất một trong IPv4, IPv6, MAC, SSID, BSSID.
 - Interface mặc định `en0`. Dùng `*` cho mọi interface không phải loopback.
 - iOS hiện tại không có API Wi-Fi MAC được hỗ trợ. Hook MAC không đảm bảo phủ hết.
 

@@ -88,24 +88,7 @@ extern char **environ;
 }
 
 - (void)chengApplyProfile:(NSDictionary *)profile {
-    [profile enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
-        (void)stop;
-        if (![key isKindOfClass:[NSString class]] || [key hasPrefix:@"_"]) {
-            return;
-        }
-        if (![value isKindOfClass:[NSString class]] &&
-            ![value isKindOfClass:[NSNumber class]] &&
-            ![value isKindOfClass:[NSArray class]] &&
-            ![value isKindOfClass:[NSDictionary class]] &&
-            ![value isKindOfClass:[NSData class]] &&
-            ![value isKindOfClass:[NSDate class]]) {
-            return;
-        }
-        CFPreferencesSetAppValue((__bridge CFStringRef)key, (__bridge CFPropertyListRef)value, (__bridge CFStringRef)kChengPrefsID);
-    }];
-    CFPreferencesAppSynchronize((__bridge CFStringRef)kChengPrefsID);
-    notify_post(kChengPrefsChanged);
-    notify_post(kChengPrefsReload);
+    ChengIOSApplyProfile(profile);
     [self reloadSpecifiers];
 }
 
