@@ -31,6 +31,13 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.2
+
+- **Random Info Máy**: chọn 1 hồ sơ thiết bị thật (model + tên + hostname + iOS/build khớp nhau)
+- **Random Toàn Bộ**: điền thêm locale, nhà mạng, GPS, LAN IPv4/IPv6/MAC và version app theo đúng vùng
+- Không trộn locale Nhật với Viettel, không gán iOS 26 cho iPhone 11, iPhone 17 không chạy iOS 18
+- Version app random dạng `x.y` / `x.y.z`, không dùng `2147483647`
+
 ## 1.2.1
 
 - Không hook SpringBoard, Settings và daemon hệ thống — sửa watchdog Dopamine của 1.2.0
@@ -51,7 +58,7 @@ Mở **Cài đặt → ChengIOS**.
 
 1. Để **Bật ChengIOS** sáng.
 2. Chọn app trong **Change Apps** (danh sách 1.0.1) hoặc **Spoofed Apps**.
-3. Vào **Change Info** để điền model / tên / iOS / build / hostname, hoặc dùng các ô phiên bản trên trang chính.
+3. Bấm **Random Info Máy** hoặc **Random Toàn Bộ**, hoặc vào **Change Info** để điền tay model / tên / iOS / build / hostname.
 4. Tùy chọn: bật giả lập phiên bản app, locale, nhà mạng, vị trí, mạng.
 5. Force-quit app đích (hoặc Respring) sau khi đổi setting.
 

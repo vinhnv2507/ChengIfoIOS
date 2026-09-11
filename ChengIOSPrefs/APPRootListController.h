@@ -4,4 +4,6 @@
 @interface APPRootListController : PSListController
 - (void)respring;
 - (void)performRespring;
+- (void)randomizeIdentity;
+- (void)randomizeAll;
 @end

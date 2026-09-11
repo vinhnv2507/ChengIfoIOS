@@ -8,6 +8,30 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
+			<string>Random</string>
+			<key>footerText</key>
+			<string>Random chọn 1 hồ sơ máy thật: model, tên, hostname, iOS và build khớp nhau. Toàn bộ còn điền locale/nhà mạng/GPS/mạng/app theo đúng vùng đó.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeIdentity</string>
+			<key>label</key>
+			<string>Random Info Máy</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeAll</string>
+			<key>label</key>
+			<string>Random Toàn Bộ</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
 			<string>Change Info</string>
 			<key>footerText</key>
 			<string>Các khóa này tương thích ChengIOS 1.0.1. Nếu điền phiên bản iOS, tweak sẽ dùng đúng giá trị đó.</string>
@@ -21,10 +45,10 @@
 			<string>spoofedModel</string>
 			<key>label</key>
 			<string>Model</string>
-			<key>PostNotification</key>
-			<string>com.vinhnv2507.chengiosprefs/changed</string>
 			<key>placeholder</key>
 			<string>iPhone16,2</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -35,10 +59,10 @@
 			<string>spoofedName</string>
 			<key>label</key>
 			<string>Device Name</string>
-			<key>PostNotification</key>
-			<string>com.vinhnv2507.chengiosprefs/changed</string>
 			<key>placeholder</key>
 			<string>iPhone</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -49,10 +73,10 @@
 			<string>spoofedSystemVersion</string>
 			<key>label</key>
 			<string>iOS Version</string>
-			<key>PostNotification</key>
-			<string>com.vinhnv2507.chengiosprefs/changed</string>
 			<key>placeholder</key>
 			<string>18.6.1</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -63,10 +87,10 @@
 			<string>spoofedBuild</string>
 			<key>label</key>
 			<string>iOS Build</string>
-			<key>PostNotification</key>
-			<string>com.vinhnv2507.chengiosprefs/changed</string>
 			<key>placeholder</key>
 			<string>22G100</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -77,10 +101,10 @@
 			<string>spoofedHostname</string>
 			<key>label</key>
 			<string>Hostname</string>
-			<key>PostNotification</key>
-			<string>com.vinhnv2507.chengiosprefs/changed</string>
 			<key>placeholder</key>
 			<string>iPhone.local</string>
+			<key>PostNotification</key>
+			<string>com.vinhnv2507.chengiosprefs/changed</string>
 		</dict>
 	</array>
 	<key>title</key>

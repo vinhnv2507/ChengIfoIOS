@@ -1,4 +1,5 @@
 #import "APPRootListController.h"
+#import "ChengIOSProfiles.h"
 
 #import <notify.h>
 #import <spawn.h>
@@ -85,5 +86,60 @@ extern char **environ;
         }
     }
 }
+
+- (void)chengApplyProfile:(NSDictionary *)profile {
+    [profile enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
+        (void)stop;
+        if (![key isKindOfClass:[NSString class]] || [key hasPrefix:@"_"]) {
+            return;
+        }
+        if (![value isKindOfClass:[NSString class]] &&
+            ![value isKindOfClass:[NSNumber class]] &&
+            ![value isKindOfClass:[NSArray class]] &&
+            ![value isKindOfClass:[NSDictionary class]] &&
+            ![value isKindOfClass:[NSData class]] &&
+            ![value isKindOfClass:[NSDate class]]) {
+            return;
+        }
+        CFPreferencesSetAppValue((__bridge CFStringRef)key, (__bridge CFPropertyListRef)value, (__bridge CFStringRef)kChengPrefsID);
+    }];
+    CFPreferencesAppSynchronize((__bridge CFStringRef)kChengPrefsID);
+    notify_post(kChengPrefsChanged);
+    notify_post(kChengPrefsReload);
+    [self reloadSpecifiers];
+}
+
+- (void)chengShowProfile:(NSDictionary *)profile title:(NSString *)title full:(BOOL)full {
+    NSString *summary = ChengIOSProfileSummary(profile);
+    if (![UIAlertController class]) {
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
+                                                                   message:summary
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Random lại" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        (void)action;
+        if (full) {
+            [self randomizeAll];
+        } else {
+            [self randomizeIdentity];
+        }
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)randomizeIdentity {
+    NSDictionary *profile = ChengIOSRandomIdentity();
+    [self chengApplyProfile:profile];
+    [self chengShowProfile:profile title:@"Random Info Máy" full:NO];
+}
+
+- (void)randomizeAll {
+    NSDictionary *profile = ChengIOSRandomFullProfile();
+    [self chengApplyProfile:profile];
+    [self chengShowProfile:profile title:@"Random Toàn Bộ" full:YES];
+}
+
 
 @end

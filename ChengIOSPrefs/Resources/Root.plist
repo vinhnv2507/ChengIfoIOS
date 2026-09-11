@@ -93,6 +93,30 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
+			<string>Random Info</string>
+			<key>footerText</key>
+			<string>Random chọn 1 hồ sơ máy thật, không trộn thông số lẻ. Info Máy: model/tên/hostname/iOS/build khớp nhau. Toàn Bộ: thêm locale, nhà mạng, GPS, LAN và version app của cùng vùng.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeIdentity</string>
+			<key>label</key>
+			<string>Random Info Máy</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeAll</string>
+			<key>label</key>
+			<string>Random Toàn Bộ</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
 			<string>Phiên bản iOS</string>
 			<key>footerText</key>
 			<string>Nếu bật tùy chỉnh hoặc đã điền Change Info, ChengIOS dùng đúng chuỗi bạn nhập (ví dụ 18.6.1). Nếu trống, tweak ước lượng phiên bản iOS hiện tại theo ngày.</string>
@@ -593,7 +617,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>ChengIOS 1.2.1
+			<string>ChengIOS 1.2.2
 by vinhnv2507</string>
 			<key>isStaticText</key>
 			<true/>
