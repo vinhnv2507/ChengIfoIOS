@@ -18,5 +18,7 @@
 	<true/>
 	<key>com.apple.frontboard.launchapplications</key>
 	<true/>
+	<key>com.apple.keystore.access-keychain-keys</key>
+	<true/>
 </dict>
 </plist>

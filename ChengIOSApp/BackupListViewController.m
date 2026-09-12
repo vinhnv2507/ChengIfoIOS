@@ -133,11 +133,11 @@ static void CIRunBusy(UIViewController *host, NSString *title, void (^work)(void
     }];
 }
 
-void ChengIOSRunCreateBackup(UIViewController *host, NSString *name, BOOL includeAppData, BOOL silent) {
+void ChengIOSRunCreateBackup(UIViewController *host, NSString *name, BOOL includeAppData, NSArray<NSString *> *bundleIDs, BOOL silent) {
     void (^go)(void) = ^{
         CIRunBusy(host, includeAppData ? @"Dang backup ho so + data" : @"Dang backup ho so", ^(void (^done)(NSString *, NSString *)) {
             NSError *error = nil;
-            NSArray *bundles = includeAppData ? ChengIOSUserSelectedBundleIDs() : @[];
+            NSArray *bundles = includeAppData ? (bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs()) : @[];
             NSDictionary *meta = ChengIOSCreateBackup(name, bundles, includeAppData, &error);
             NSString *title = error ? @"Backup loi" : @"Da backup";
             done(title, CIResultText(meta, error, includeAppData ? @"Da luu ho so va data app (bo Caches/tmp)." : @"Da luu ho so ChengIOS."));
@@ -163,7 +163,7 @@ void ChengIOSRunCreateBackup(UIViewController *host, NSString *name, BOOL includ
         (void)action;
         NSString *typed = alert.textFields.firstObject.text;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            ChengIOSRunCreateBackup(host, typed, includeAppData, YES);
+            ChengIOSRunCreateBackup(host, typed, includeAppData, bundleIDs, YES);
         });
     }]];
     [host presentViewController:alert animated:YES completion:nil];
@@ -209,11 +209,11 @@ void ChengIOSRunRestore(UIViewController *host, NSString *backupID, BOOL restore
 }
 
 void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BOOL silent) {
-    NSArray *targets = bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs();
-    void (^go)(void) = ^{
+    NSArray *fallback = ChengIOSUserSelectedBundleIDs();
+    void (^go)(NSArray *) = ^(NSArray *list) {
         CIRunBusy(host, @"Dang xoa data app", ^(void (^done)(NSString *, NSString *)) {
             NSError *error = nil;
-            NSDictionary *result = ChengIOSEraseBundles(targets, &error);
+            NSDictionary *result = ChengIOSEraseBundles(list, &error);
             NSMutableString *msg = [NSMutableString string];
             NSArray *ok = result[@"ok"];
             NSArray *failed = result[@"failed"];
@@ -233,12 +233,42 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
             if (msg.length == 0) {
                 [msg appendString:@"Khong xoa duoc app nao."];
             }
-            [msg appendString:@"\nKhong xoa keychain iCloud. Mo lai app se nhu cai moi."];
+            [msg appendString:@"\nDa xoa sandbox/snapshot. Keychain app: best-effort. Khong xoa iCloud keychain. Group dung chung app khac se giu."];
             done(ok.count ? @"Da xoa data" : @"Xoa data", msg);
         });
     };
+    NSArray *targets = bundleIDs.count ? bundleIDs : fallback;
     if (silent) {
-        go();
+        go(targets);
+        return;
+    }
+    if (bundleIDs.count == 0 && fallback.count > 1) {
+        UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Xoa sach data app"
+                                                                       message:@"Chon 1 app hoac xoa tat ca app user da chon. Khong undo neu chua backup."
+                                                                preferredStyle:UIAlertControllerStyleActionSheet];
+        [sheet addAction:[UIAlertAction actionWithTitle:@"Xoa TAT CA app da chon" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+            (void)action;
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                go(fallback);
+            });
+        }]];
+        for (NSString *bundle in fallback) {
+            NSString *captured = [bundle copy];
+            [sheet addAction:[UIAlertAction actionWithTitle:captured style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+                (void)action;
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    go(@[captured]);
+                });
+            }]];
+        }
+        [sheet addAction:[UIAlertAction actionWithTitle:@"Huy" style:UIAlertActionStyleCancel handler:nil]];
+        UIPopoverPresentationController *pop = sheet.popoverPresentationController;
+        if (pop) {
+            pop.sourceView = host.view;
+            pop.sourceRect = CGRectMake(CGRectGetMidX(host.view.bounds), CGRectGetMidY(host.view.bounds), 1, 1);
+            pop.permittedArrowDirections = 0;
+        }
+        [host presentViewController:sheet animated:YES completion:nil];
         return;
     }
     NSString *list = targets.count ? [targets componentsJoinedByString:@"\n"] : @"(khong co app user nao duoc chon)";
@@ -249,7 +279,7 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
     [alert addAction:[UIAlertAction actionWithTitle:@"Xoa" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
         (void)action;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            go();
+            go(targets);
         });
     }]];
     [host presentViewController:alert animated:YES completion:nil];
@@ -266,11 +296,11 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     NSString *backupID = CIQuery(url, @"id") ?: CIQuery(url, @"backup") ?: CIQuery(url, @"backup-id");
 
     if ([token containsString:@"backup-apps"] || [token containsString:@"backup-data"] || [token containsString:@"backup-all"] || [token containsString:@"backup-now"]) {
-        ChengIOSRunCreateBackup(host, name, YES, silent);
+        ChengIOSRunCreateBackup(host, name, YES, CIBundlesFromQuery(url), silent);
         return YES;
     }
     if ([token containsString:@"backup-profile"] || [token containsString:@"backup-info"] || [token containsString:@"backup-hoso"]) {
-        ChengIOSRunCreateBackup(host, name, NO, silent);
+        ChengIOSRunCreateBackup(host, name, NO, @[], silent);
         return YES;
     }
     if ([token isEqualToString:@"backup"] || [token isEqualToString:@"backups"] || [token containsString:@"backup-manager"] || [token containsString:@"quan-ly-backup"]) {
@@ -334,7 +364,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
 }
 
 - (void)promptBackupIncludingAppData:(BOOL)includeAppData suggestedName:(NSString *)name silent:(BOOL)silent {
-    ChengIOSRunCreateBackup(self, name, includeAppData, silent);
+    ChengIOSRunCreateBackup(self, name, includeAppData, nil, silent);
 }
 
 - (void)promptEraseBundles:(NSArray<NSString *> *)bundleIDs silent:(BOOL)silent {
@@ -364,7 +394,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     if (section == 0) {
         NSArray *apps = ChengIOSUserSelectedBundleIDs();
         NSString *list = apps.count ? [apps componentsJoinedByString:@", "] : @"chua chon app user nao";
-        return [NSString stringWithFormat:@"App da chon (khong tinh Safari): %@.\nBackup data bo Caches/tmp. Xoa data khong dong keychain iCloud. Deeplink: chengios://backup-profile , chengios://backup-apps , chengios://restore-latest , chengios://erase-apps", list];
+        return [NSString stringWithFormat:@"App da chon (khong tinh Safari): %@.\nBackup data bo Caches/tmp. Xoa sandbox + snapshot + keychain app (best-effort). Group chia se voi app khac se giu. Deeplink: chengios://backup-profile , chengios://backup-apps?bundle=ID , chengios://restore-latest?data=1 , chengios://erase-apps", list];
     }
     return [NSString stringWithFormat:@"Thu muc: %@", ChengIOSBackupRoot()];
 }
@@ -429,9 +459,9 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     if (indexPath.section == 0) {
         if (indexPath.row == 0) {
-            ChengIOSRunCreateBackup(self, nil, NO, NO);
+            ChengIOSRunCreateBackup(self, nil, NO, nil, NO);
         } else if (indexPath.row == 1) {
-            ChengIOSRunCreateBackup(self, nil, YES, NO);
+            ChengIOSRunCreateBackup(self, nil, YES, nil, NO);
         } else {
             ChengIOSRunErase(self, nil, NO);
         }

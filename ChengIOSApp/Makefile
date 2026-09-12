@@ -9,7 +9,7 @@ endif
 APPLICATION_NAME = ChengIOSApp
 
 ChengIOSApp_FILES = main.m AppDelegate.m RootViewController.m AppListViewController.m DeeplinkListViewController.m RegionListViewController.m BackupListViewController.m ../ChengIOSPrefs/ChengIOSProfiles.m ../ChengIOSPrefs/ChengIOSBackup.m
-ChengIOSApp_FRAMEWORKS = UIKit Foundation
+ChengIOSApp_FRAMEWORKS = UIKit Foundation Security
 ChengIOSApp_CFLAGS = -fobjc-arc -Wno-unguarded-availability-new -Wno-deprecated-declarations
 ChengIOSApp_CODESIGN_FLAGS = -Sentitlements.plist
 ChengIOSApp_INSTALL_PATH = /Applications

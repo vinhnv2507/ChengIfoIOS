@@ -197,7 +197,7 @@ extern char **environ;
         return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";
     }
     if (section == 3) {
-        return @"Backup ho so nho. Backup data bo Caches. Xoa data kill app + sandbox, khong xoa keychain iCloud. Safari khong bi xoa.";
+        return @"Backup ho so nho. Backup data bo Caches. Xoa sandbox/snapshot/keychain app (best-effort). Group chia se app khac se giu. Safari khong bi xoa.";
     }
     if (section == 10) {
         return @"deviceinfo.me Region/City/ISP la IP cong cong that (Viettel/Hung Yen). Bam nut Detect de dung GPS gia lap.";
@@ -495,6 +495,9 @@ extern char **environ;
     NSString *mode = [self queryValue:url name:@"mode"];
     BOOL silent = [self queryFlag:url names:@[@"silent", @"quiet", @"x-silent"]];
     BOOL did = NO;
+    if (ChengIOSHandleBackupURL(url, self.navigationController.topViewController ?: self)) {
+        did = YES;
+    } else {
     BOOL modeAll = [mode caseInsensitiveCompare:@"all"] == NSOrderedSame || [mode caseInsensitiveCompare:@"full"] == NSOrderedSame;
     BOOL modeIdentity = [mode caseInsensitiveCompare:@"identity"] == NSOrderedSame || [mode caseInsensitiveCompare:@"machine"] == NSOrderedSame || [mode caseInsensitiveCompare:@"info"] == NSOrderedSame;
     if (modeAll || [self token:token hasAny:@[@"random-all", @"randomall", @"toan-bo", @"toanbo", @"full"]]) {
@@ -514,8 +517,6 @@ extern char **environ;
         [self runRandom:YES silent:silent]; did = YES;
     } else if (modeIdentity || [self token:token hasAny:@[@"random-identity", @"random-info", @"identity", @"info-may", @"infomay", @"machine"]]) {
         [self runRandom:NO silent:silent]; did = YES;
-    } else if (ChengIOSHandleBackupURL(url, self.navigationController.topViewController ?: self)) {
-        did = YES;
     } else if ([self token:token hasAny:@[@"copy"]]) {
         [self copySummary]; did = YES;
     } else if ([self token:token hasAny:@[@"profile", @"current", @"hoso", @"ho-so", @"info"]]) {
@@ -536,6 +537,7 @@ extern char **environ;
         [self openSettings]; did = YES;
     } else if ([self token:token hasAny:@[@"respring", @"sbreload", @"ldrestart"]]) {
         [self respring]; did = YES;
+    }
     }
     NSString *success = [self queryValue:url name:@"x-success"];
     if (did && success.length > 0) {

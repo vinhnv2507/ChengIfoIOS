@@ -5,6 +5,7 @@
 #import <spawn.h>
 #import <sys/wait.h>
 #import <unistd.h>
+#import <Security/Security.h>
 
 extern char **environ;
 
@@ -68,18 +69,66 @@ static NSString *CIFirstExistingDir(NSArray<NSString *> *candidates, BOOL create
     return fallback;
 }
 
+static NSArray<NSString *> *CIBackupRootCandidates(void) {
+    return @[
+        @"/var/mobile/Media/ChengIOS/Backups",
+        @"/private/var/mobile/Media/ChengIOS/Backups",
+        @"/var/mobile/Documents/ChengIOS/Backups",
+        @"/var/jb/var/mobile/Documents/ChengIOS/Backups"
+    ];
+}
+
+static BOOL CIValidBackupID(NSString *backupID) {
+    if (backupID.length < 4 || backupID.length > 80) {
+        return NO;
+    }
+    if ([backupID hasPrefix:@"."] || [backupID containsString:@".."] ||
+        [backupID containsString:@"/"] || [backupID containsString:@"\\"]) {
+        return NO;
+    }
+    for (NSUInteger i = 0; i < backupID.length; i++) {
+        unichar c = [backupID characterAtIndex:i];
+        BOOL ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                  (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.';
+        if (!ok) {
+            return NO;
+        }
+    }
+    return YES;
+}
+
 NSString *ChengIOSBackupRoot(void) {
-    static NSString *root;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        root = CIFirstExistingDir(@[
-            @"/var/mobile/Media/ChengIOS/Backups",
-            @"/private/var/mobile/Media/ChengIOS/Backups",
-            @"/var/mobile/Documents/ChengIOS/Backups",
-            @"/var/jb/var/mobile/Documents/ChengIOS/Backups"
-        ], YES);
-    });
-    return root;
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSArray<NSString *> *preferred = @[
+        @"/var/mobile/Media/ChengIOS/Backups",
+        @"/private/var/mobile/Media/ChengIOS/Backups"
+    ];
+    for (NSString *path in preferred) {
+        BOOL dir = NO;
+        if ([fm fileExistsAtPath:path isDirectory:&dir] && dir) {
+            return path;
+        }
+        if ([fm createDirectoryAtPath:path withIntermediateDirectories:YES attributes:nil error:nil] ||
+            [fm fileExistsAtPath:path]) {
+            return path;
+        }
+    }
+    return CIFirstExistingDir(CIBackupRootCandidates(), YES);
+}
+
+static NSString *CIBackupDirForID(NSString *backupID) {
+    if (!CIValidBackupID(backupID)) {
+        return nil;
+    }
+    NSFileManager *fm = [NSFileManager defaultManager];
+    for (NSString *root in CIBackupRootCandidates()) {
+        NSString *dir = [root stringByAppendingPathComponent:backupID];
+        if ([fm fileExistsAtPath:[dir stringByAppendingPathComponent:@"meta.plist"]] ||
+            [fm fileExistsAtPath:[dir stringByAppendingPathComponent:@"profile.plist"]]) {
+            return dir;
+        }
+    }
+    return nil;
 }
 
 static NSString *CISanitizeName(NSString *name) {
@@ -146,7 +195,12 @@ BOOL ChengIOSBundleIsProtected(NSString *bundleID) {
         @"org.coolstar.sileo",
         @"xyz.willy.zebra",
         @"com.tigisoftware.filza",
-        @"com.opa334.altlist"
+        @"com.opa334.altlist",
+        @"com.opa334.trollstore",
+        @"ws.hbang.newterm2",
+        @"com.apptapp.installer",
+        @"org.coolstar.electra",
+        @"science.xnu.undecimus"
     ];
     if ([blocked containsObject:low]) {
         return YES;
@@ -155,6 +209,10 @@ BOOL ChengIOSBundleIsProtected(NSString *bundleID) {
         return YES;
     }
     if ([low hasPrefix:@"com.vinhnv2507.chengios"]) {
+        return YES;
+    }
+    if ([low hasPrefix:@"com.saurik."] || [low hasPrefix:@"org.coolstar.sileo"] ||
+        [low hasPrefix:@"xyz.willy.zebra"]) {
         return YES;
     }
     return NO;
@@ -349,6 +407,9 @@ static BOOL CIPathSafeToMutate(NSString *path) {
     if ([low containsString:@"/library/preferences/"] && [low hasSuffix:@".plist"]) {
         return YES;
     }
+    if ([low containsString:@"/library/saved application state/"] && parts.count >= 6) {
+        return YES;
+    }
     return NO;
 }
 
@@ -479,21 +540,116 @@ static NSArray<NSString *> *CIExtraWipePaths(NSString *bundleID) {
         [paths addObject:[root stringByAppendingPathComponent:bundleID]];
         [paths addObject:[root stringByAppendingPathComponent:[@"sceneID:" stringByAppendingString:bundleID]]];
     }
+    NSArray<NSString *> *stateRoots = @[
+        @"/var/mobile/Library/Saved Application State",
+        @"/private/var/mobile/Library/Saved Application State"
+    ];
+    for (NSString *root in stateRoots) {
+        [paths addObject:[root stringByAppendingPathComponent:[bundleID stringByAppendingString:@".savedState"]]];
+    }
     return paths;
 }
 
+static BOOL CIGroupUsedByOtherApps(NSString *group, NSString *bundleID, NSArray<NSString *> *erasing) {
+    if (group.length == 0) {
+        return NO;
+    }
+    Class wsClass = objc_getClass("LSApplicationWorkspace");
+    id ws = [wsClass respondsToSelector:@selector(defaultWorkspace)] ? [wsClass defaultWorkspace] : nil;
+    if (![ws respondsToSelector:@selector(allInstalledApplications)]) {
+        return NO;
+    }
+    NSArray *apps = [ws allInstalledApplications];
+    for (id app in apps) {
+        NSString *other = nil;
+        if ([app respondsToSelector:@selector(applicationIdentifier)]) {
+            other = [app applicationIdentifier];
+        }
+        if (other.length == 0 && [app respondsToSelector:@selector(bundleIdentifier)]) {
+            other = [app bundleIdentifier];
+        }
+        if (other.length == 0 || [other isEqualToString:bundleID]) {
+            continue;
+        }
+        if ([erasing containsObject:other]) {
+            continue;
+        }
+        NSDictionary *urls = nil;
+        if ([app respondsToSelector:@selector(groupContainerURLs)]) {
+            urls = [app groupContainerURLs];
+        }
+        if ([urls isKindOfClass:[NSDictionary class]] && urls[group]) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+static void CIWipeKeychainForProxy(LSApplicationProxy *proxy, NSString *bundleID) {
+    if (bundleID.length == 0) {
+        return;
+    }
+    NSMutableArray<NSString *> *groups = [NSMutableArray array];
+    id ents = nil;
+    if ([proxy respondsToSelector:@selector(entitlements)]) {
+        ents = proxy.entitlements;
+    }
+    if ([ents isKindOfClass:[NSDictionary class]]) {
+        id kag = ents[@"keychain-access-groups"];
+        if ([kag isKindOfClass:[NSArray class]]) {
+            for (id group in kag) {
+                if ([group isKindOfClass:[NSString class]] && [group length] > 0) {
+                    [groups addObject:group];
+                }
+            }
+        }
+        id appId = ents[@"application-identifier"];
+        if ([appId isKindOfClass:[NSString class]] && [appId length] > 0) {
+            [groups addObject:appId];
+        }
+    }
+    [groups addObject:bundleID];
+    NSArray *classes = @[
+        (__bridge id)kSecClassGenericPassword,
+        (__bridge id)kSecClassInternetPassword,
+        (__bridge id)kSecClassKey,
+        (__bridge id)kSecClassCertificate,
+        (__bridge id)kSecClassIdentity
+    ];
+    NSMutableSet<NSString *> *seen = [NSMutableSet set];
+    for (NSString *group in groups) {
+        if ([seen containsObject:group]) {
+            continue;
+        }
+        [seen addObject:group];
+        NSString *low = group.lowercaseString;
+        if ([low hasPrefix:@"com.apple."] && ![low containsString:bundleID.lowercaseString]) {
+            continue;
+        }
+        for (id cls in classes) {
+            NSDictionary *query = @{
+                (__bridge id)kSecClass: cls,
+                (__bridge id)kSecAttrAccessGroup: group,
+                (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
+            };
+            SecItemDelete((__bridge CFDictionaryRef)query);
+        }
+    }
+}
+
 static NSDictionary *CIReadMeta(NSString *backupID) {
-    if (backupID.length == 0) {
+    NSString *dir = CIBackupDirForID(backupID);
+    if (dir.length == 0) {
         return nil;
     }
-    NSString *path = [[ChengIOSBackupRoot() stringByAppendingPathComponent:backupID] stringByAppendingPathComponent:@"meta.plist"];
+    NSString *path = [dir stringByAppendingPathComponent:@"meta.plist"];
     NSDictionary *meta = [NSDictionary dictionaryWithContentsOfFile:path];
-    if (![meta isKindOfClass:[NSDictionary class]]) {
-        return nil;
-    }
-    NSMutableDictionary *out = [meta mutableCopy];
+    NSMutableDictionary *out = [meta isKindOfClass:[NSDictionary class]] ? [meta mutableCopy] : [NSMutableDictionary dictionary];
     out[@"id"] = backupID;
-    out[@"path"] = [ChengIOSBackupRoot() stringByAppendingPathComponent:backupID];
+    out[@"path"] = dir;
+    if (![out[@"name"] isKindOfClass:[NSString class]] || [out[@"name"] length] == 0) {
+        out[@"name"] = backupID;
+    }
     return out;
 }
 
@@ -503,15 +659,20 @@ NSDictionary *ChengIOSBackupInfo(NSString *backupID) {
 
 NSArray<NSDictionary *> *ChengIOSListBackups(void) {
     NSFileManager *fm = [NSFileManager defaultManager];
-    NSString *root = ChengIOSBackupRoot();
-    NSArray<NSString *> *names = [fm contentsOfDirectoryAtPath:root error:nil] ?: @[];
-    NSMutableArray<NSDictionary *> *items = [NSMutableArray array];
-    for (NSString *name in names) {
-        NSDictionary *meta = CIReadMeta(name);
-        if (meta) {
-            [items addObject:meta];
+    NSMutableDictionary<NSString *, NSDictionary *> *map = [NSMutableDictionary dictionary];
+    for (NSString *root in CIBackupRootCandidates()) {
+        NSArray<NSString *> *names = [fm contentsOfDirectoryAtPath:root error:nil] ?: @[];
+        for (NSString *name in names) {
+            if (map[name] || !CIValidBackupID(name)) {
+                continue;
+            }
+            NSDictionary *meta = CIReadMeta(name);
+            if (meta) {
+                map[name] = meta;
+            }
         }
     }
+    NSMutableArray<NSDictionary *> *items = [map.allValues mutableCopy];
     [items sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
         NSString *ca = a[@"created"] ?: a[@"id"] ?: @"";
         NSString *cb = b[@"created"] ?: b[@"id"] ?: @"";
@@ -525,10 +686,18 @@ NSString *ChengIOSLatestBackupID(void) {
 }
 
 static BOOL CIWriteMeta(NSString *backupID, NSDictionary *meta) {
-    NSString *dir = [ChengIOSBackupRoot() stringByAppendingPathComponent:backupID];
+    if (!CIValidBackupID(backupID)) {
+        return NO;
+    }
+    NSString *dir = CIBackupDirForID(backupID);
+    if (dir.length == 0) {
+        dir = [ChengIOSBackupRoot() stringByAppendingPathComponent:backupID];
+    }
     [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+    NSMutableDictionary *clean = [meta mutableCopy] ?: [NSMutableDictionary dictionary];
+    [clean removeObjectForKey:@"path"];
     NSString *path = [dir stringByAppendingPathComponent:@"meta.plist"];
-    return [meta writeToFile:path atomically:YES];
+    return [clean writeToFile:path atomically:YES];
 }
 
 NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleIDs, BOOL includeAppData, NSError **error) {
@@ -593,7 +762,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.11",
+        @"version": @"1.2.12",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -632,13 +801,15 @@ BOOL ChengIOSRestoreBackup(NSString *backupID, BOOL restoreProfile, BOOL restore
             }
             return NO;
         }
-        ChengIOSApplyProfile(profile);
+        ChengIOSReplaceRawPrefs(profile);
     }
     if (restoreAppData) {
         NSString *appsDir = [dir stringByAppendingPathComponent:@"apps"];
         NSArray<NSString *> *bundles = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:appsDir error:nil];
         for (NSString *bundleID in bundles) {
-            if (ChengIOSBundleIsProtected(bundleID)) {
+            if (![bundleID isKindOfClass:[NSString class]] ||
+                [bundleID containsString:@"/"] || [bundleID containsString:@".."] ||
+                ChengIOSBundleIsProtected(bundleID)) {
                 continue;
             }
             CITerminateBundle(bundleID);
@@ -646,7 +817,9 @@ BOOL ChengIOSRestoreBackup(NSString *backupID, BOOL restoreProfile, BOOL restore
         [NSThread sleepForTimeInterval:0.4];
         NSFileManager *fm = [NSFileManager defaultManager];
         for (NSString *bundleID in bundles) {
-            if (ChengIOSBundleIsProtected(bundleID)) {
+            if (![bundleID isKindOfClass:[NSString class]] ||
+                [bundleID containsString:@"/"] || [bundleID containsString:@".."] ||
+                ChengIOSBundleIsProtected(bundleID)) {
                 continue;
             }
             NSString *live = CIDataPath(bundleID);
@@ -681,23 +854,23 @@ BOOL ChengIOSRestoreBackup(NSString *backupID, BOOL restoreProfile, BOOL restore
 }
 
 BOOL ChengIOSDeleteBackup(NSString *backupID, NSError **error) {
-    if (backupID.length == 0 || [backupID containsString:@"/"] || [backupID containsString:@".."]) {
-        if (error) {
-            *error = CIError(3, @"Backup ID khong hop le.");
-        }
-        return NO;
-    }
-    NSString *dir = [ChengIOSBackupRoot() stringByAppendingPathComponent:backupID];
-    NSString *root = ChengIOSBackupRoot();
-    if (![dir hasPrefix:root] || [dir isEqualToString:root]) {
-        if (error) {
-            *error = CIError(3, @"Backup ID khong hop le.");
-        }
-        return NO;
-    }
-    if (![[NSFileManager defaultManager] fileExistsAtPath:dir]) {
+    NSString *dir = CIBackupDirForID(backupID);
+    if (dir.length == 0) {
         if (error) {
             *error = CIError(3, @"Khong tim thay backup.");
+        }
+        return NO;
+    }
+    BOOL allowed = NO;
+    for (NSString *root in CIBackupRootCandidates()) {
+        if ([dir hasPrefix:root] && ![dir isEqualToString:root]) {
+            allowed = YES;
+            break;
+        }
+    }
+    if (!allowed) {
+        if (error) {
+            *error = CIError(3, @"Backup ID khong hop le.");
         }
         return NO;
     }
@@ -724,7 +897,7 @@ BOOL ChengIOSRenameBackup(NSString *backupID, NSString *name, NSError **error) {
     return CIWriteMeta(backupID, meta);
 }
 
-static BOOL CIEraseOne(NSString *bundleID) {
+static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
     if (ChengIOSBundleIsProtected(bundleID)) {
         return NO;
     }
@@ -736,8 +909,11 @@ static BOOL CIEraseOne(NSString *bundleID) {
         ok = CIWipeContents(dataPath) || ok;
     }
     NSDictionary *groups = CIGroupPaths(bundleID);
-    for (NSString *path in groups.allValues) {
-        ok = CIWipeContents(path) || ok;
+    for (NSString *group in groups) {
+        if (CIGroupUsedByOtherApps(group, bundleID, together)) {
+            continue;
+        }
+        ok = CIWipeContents(groups[group]) || ok;
     }
     for (NSString *extra in CIExtraWipePaths(bundleID)) {
         if ([[NSFileManager defaultManager] fileExistsAtPath:extra] && CIPathSafeToMutate(extra)) {
@@ -745,6 +921,7 @@ static BOOL CIEraseOne(NSString *bundleID) {
             ok = YES;
         }
     }
+    CIWipeKeychainForProxy(CIProxy(bundleID), bundleID);
     return ok;
 }
 
@@ -767,7 +944,7 @@ NSDictionary *ChengIOSEraseBundles(NSArray<NSString *> *bundleIDs, NSError **err
             [skipped addObject:bundleID];
             continue;
         }
-        if (CIEraseOne(bundleID)) {
+        if (CIEraseOne(bundleID, targets)) {
             [ok addObject:bundleID];
         } else {
             [failed addObject:bundleID];
