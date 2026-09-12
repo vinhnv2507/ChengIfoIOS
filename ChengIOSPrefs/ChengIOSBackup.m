@@ -1088,7 +1088,8 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
             }
         }
     }
-    NSMutableDictionary *groups = [CIGroupPaths(bundleID) mutableCopy] ?: [NSMutableDictionary dictionary];
+    NSMutableDictionary<NSString *, NSString *> *groups = [NSMutableDictionary dictionary];
+    [groups addEntriesFromDictionary:CIGroupPaths(bundleID)];
     if ([bundleID.lowercaseString hasPrefix:@"com.facebook."] || [bundleID.lowercaseString hasPrefix:@"com.meta."]) {
         for (NSString *gid in @[
             @"group.com.facebook.Facebook",
