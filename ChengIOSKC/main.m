@@ -7,8 +7,6 @@
 #import <string.h>
 #include <sys/stat.h>
 
-extern CFStringRef kSecUseAuthenticationUI;
-extern CFStringRef kSecUseAuthenticationUISkip;
 
 typedef CFDataRef (*CISecACCCopyFn)(SecAccessControlRef);
 typedef SecAccessControlRef (*CISecACCCreateFn)(CFAllocatorRef, CFDataRef, CFErrorRef *);
@@ -222,9 +220,7 @@ static NSMutableDictionary *CIKCBaseQuery(id cls, BOOL withData) {
         (__bridge id)kSecReturnData: @(withData),
         (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
     } mutableCopy];
-    if (&kSecUseAuthenticationUI != NULL && &kSecUseAuthenticationUISkip != NULL) {
-        query[(__bridge id)kSecUseAuthenticationUI] = (__bridge id)kSecUseAuthenticationUISkip;
-    }
+    query[(__bridge id)kSecUseAuthenticationUI] = (__bridge id)kSecUseAuthenticationUISkip;
     return query;
 }
 

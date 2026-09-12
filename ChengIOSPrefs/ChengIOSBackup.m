@@ -9,8 +9,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #import <Security/Security.h>
-extern CFStringRef kSecUseAuthenticationUI;
-extern CFStringRef kSecUseAuthenticationUISkip;
 #import <sqlite3.h>
 
 extern char **environ;
@@ -2008,9 +2006,7 @@ static NSArray<NSDictionary *> *CIKeychainCopyItems(id secClass, BOOL withData) 
         (__bridge id)kSecReturnData: @(withData),
         (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
     } mutableCopy];
-    if (&kSecUseAuthenticationUI != NULL && &kSecUseAuthenticationUISkip != NULL) {
-        query[(__bridge id)kSecUseAuthenticationUI] = (__bridge id)kSecUseAuthenticationUISkip;
-    }
+    query[(__bridge id)kSecUseAuthenticationUI] = (__bridge id)kSecUseAuthenticationUISkip;
     CFTypeRef result = NULL;
     OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
     if (status != errSecSuccess || !result) {
@@ -2150,9 +2146,7 @@ static NSArray<NSDictionary *> *CIKeychainCopyItemsFiltered(id secClass, NSDicti
         (__bridge id)kSecReturnData: @(withData),
         (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
     } mutableCopy];
-    if (&kSecUseAuthenticationUI != NULL && &kSecUseAuthenticationUISkip != NULL) {
-        query[(__bridge id)kSecUseAuthenticationUI] = (__bridge id)kSecUseAuthenticationUISkip;
-    }
+    query[(__bridge id)kSecUseAuthenticationUI] = (__bridge id)kSecUseAuthenticationUISkip;
     [query addEntriesFromDictionary:extra ?: @{}];
     CFTypeRef result = NULL;
     OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
