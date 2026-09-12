@@ -32,6 +32,13 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.12
+- Backup/restore/erase on dinh hon: 1 thu muc chinh `/var/mobile/Media/ChengIOS/Backups`, van nhin backup o Documents neu co
+- Restore ho so ghi de toan bo prefs (khong merge so le)
+- Erase sach hon: sandbox + snapshot + Saved State + keychain app (best-effort). Group chia se voi app khac thi giu
+- Deeplink backup/erase theo bundle: `chengios://backup-apps?bundle=com.facebook.Facebook`
+- Chon 1 app khi xoa neu dang chon nhieu app
+
 ## 1.2.11
 
 - Quan ly backup / restore ho so ChengIOS

@@ -208,6 +208,16 @@
 			<key>action</key>
 			<string>copyURL:</string>
 			<key>label</key>
+			<string>Backup 1 app (Facebook)</string>
+			<key>url</key>
+			<string>chengios://backup-apps?bundle=com.facebook.Facebook</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
 			<string>Restore backup moi nhat</string>
 			<key>url</key>
 			<string>chengios://restore-latest</string>
