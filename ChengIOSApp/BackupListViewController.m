@@ -239,7 +239,7 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
             if (msg.length == 0) {
                 [msg appendString:@"Khong xoa duoc app nao."];
             }
-            [msg appendString:@"\nDa xoa sandbox/group/plugin/keychain. Facebook SSO cung bi xoa. iCloud Keychain AutoFill co the van hien username."];
+            [msg appendString:@"\nDa xoa Documents/Library/tmp/SystemData + group/plugin/keychain. Vuot tat Facebook + Messenger, doi xong, dung mo FB ngay. iCloud Keychain AutoFill co the van hien username."];
             done(ok.count ? @"Da xoa data" : @"Xoa data", msg);
         });
     };
@@ -527,7 +527,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     if (section == 0) {
         NSArray *apps = ChengIOSUserSelectedBundleIDs();
         NSString *list = apps.count ? [apps componentsJoinedByString:@", "] : @"chua chon app user nao";
-        return [NSString stringWithFormat:@"App da chon: %@.\nBackup gom sandbox/group/plugin/keychain de restore con login. Xoa FB xoa SSO. Safari xoa history/cookies. Deeplink: chengios://erase-safari , chengios://erase-device , chengios://erase-random-all , chengios://erase-device-random", list];
+        return [NSString stringWithFormat:@"App da chon: %@.\nBackup 4 thu muc Documents/Library/tmp/SystemData + group/plugin/keychain. Restore chown 501. Xoa FB xoa SSO/Messenger. Safari xoa history/cookies. Deeplink: chengios://erase-safari , chengios://erase-device , chengios://erase-random-all , chengios://erase-device-random", list];
     }
     return [NSString stringWithFormat:@"Thu muc: %@", ChengIOSBackupRoot()];
 }
@@ -551,7 +551,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
             ];
             NSArray *details = @[
                 @"Chi identity ChengIOS (nho, nhanh)",
-                @"Sandbox + group + plugin + keychain (login)",
+                @"Documents/Library/tmp/SystemData + group/plugin/keychain",
                 @"Ke ca Safari neu dang tick. Facebook xoa SSO",
                 @"History, cookies, website data",
                 @"Nhu moi cai app. Giu jailbreak/anh/tin nhan",

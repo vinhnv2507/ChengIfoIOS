@@ -32,6 +32,13 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.16
+
+- Backup/restore/xoa data theo ControlIOS: copy 4 thu muc `Documents`, `Library`, `tmp`, `SystemData`; khong xoa metadata container
+- Copy chiu loi tung file (bo socket/fifo); khong skip `tmp`/`Caches` de Shopee con session
+- Restore `chown 501:501`; kill `cfprefsd` de Preferences khong ghi de lai
+- Xoa Facebook: empty tung file trong Library, xoa keychain token theo service biet truoc, xoa kem Messenger
+
 ## 1.2.15
 - Backup app kem keychain + plugin + Caches de restore Facebook/Shopee con dang nhap
 - Xoa Facebook sach hon: family group, plugin, keychain SSO (khong con chi logout)
