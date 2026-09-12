@@ -26,7 +26,11 @@ extern char **environ;
         @"chengios://profile",
         @"chengios://copy",
         @"chengios://settings",
-        @"chengios://random-all?silent=1"
+        @"chengios://random-all?silent=1",
+        @"chengios://erase-safari",
+        @"chengios://erase-device",
+        @"chengios://erase-random-all",
+        @"chengios://erase-device-random"
     ];
 }
 
@@ -51,7 +55,11 @@ extern char **environ;
             @{@"kind": @"nav", @"title": @"Quan ly Backup", @"page": @"backup", @"detail": @"Backup / Restore / Xoa data"},
             @{@"kind": @"button", @"title": @"Backup ho so", @"action": @"backupProfile"},
             @{@"kind": @"button", @"title": @"Backup ho so + data app", @"action": @"backupApps"},
-            @{@"kind": @"button", @"title": @"Xoa sach data app da chon", @"action": @"eraseApps"}
+            @{@"kind": @"button", @"title": @"Xoa sach data app da chon", @"action": @"eraseApps"},
+            @{@"kind": @"button", @"title": @"Xoa sach Safari", @"action": @"eraseSafari"},
+            @{@"kind": @"button", @"title": @"Xoa toan bo app + Safari", @"action": @"eraseDevice"},
+            @{@"kind": @"button", @"title": @"Xoa app da chon + Random Toan Bo", @"action": @"eraseRandomAll"},
+            @{@"kind": @"button", @"title": @"Xoa toan bo + Random Toan Bo", @"action": @"eraseDeviceRandom"}
         ],
         @[
             @{@"kind": @"text", @"title": @"Model", @"keys": @[@"spoofedModel", @"customDeviceModel"], @"placeholder": @"iPhone16,2"},
@@ -197,7 +205,7 @@ extern char **environ;
         return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";
     }
     if (section == 3) {
-        return @"Backup ho so nho. Backup data bo Caches. Xoa sandbox/snapshot/keychain. Facebook xoa ca group family. Safari khong bi xoa.";
+        return @"Backup data gom sandbox + keychain de restore con login. Xoa Facebook xoa SSO/keychain. Co nut xoa Safari va xoa toan bo app user.";
     }
     if (section == 10) {
         return @"deviceinfo.me Region/City/ISP la IP cong cong that (Viettel/Hung Yen). Bam nut Detect de dung GPS gia lap.";
@@ -358,6 +366,14 @@ extern char **environ;
         ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://backup-apps"], self);
     } else if ([action isEqualToString:@"eraseApps"]) {
         ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-apps"], self);
+    } else if ([action isEqualToString:@"eraseSafari"]) {
+        ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-safari"], self);
+    } else if ([action isEqualToString:@"eraseDevice"]) {
+        ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-device"], self);
+    } else if ([action isEqualToString:@"eraseRandomAll"]) {
+        ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-random-all"], self);
+    } else if ([action isEqualToString:@"eraseDeviceRandom"]) {
+        ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-device-random"], self);
     }
 }
 

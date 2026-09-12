@@ -58,7 +58,7 @@
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     (void)tableView;
     if (section == 0) {
-        return 4;
+        return 7;
     }
     return (NSInteger)MAX(self.backups.count, 1);
 }
@@ -71,7 +71,7 @@
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     (void)tableView;
     if (section == 0) {
-        return @"Backup ho so chay ngay trong Settings. Backup/xoa data app mo app ChengIOS (no-sandbox). Safari/he thong khong bi xoa.";
+        return @"Backup ho so chay trong Settings. Backup/xoa data, Safari, factory-like va xoa+random mo app ChengIOS.";
     }
     return ChengIOSBackupRoot();
 }
@@ -89,12 +89,18 @@
             @"Backup ho so hien tai",
             @"Backup ho so + data app (mo app)",
             @"Xoa sach data app da chon (mo app)",
+            @"Xoa Safari (mo app)",
+            @"Xoa toan bo app + Safari (mo app)",
+            @"Xoa app + Random Toan Bo (mo app)",
             @"Mo Quan ly Backup (app)"
         ];
         NSArray *details = @[
             @"Luu identity vao Media/ChengIOS/Backups",
             @"chengios://backup-apps",
             @"chengios://erase-apps",
+            @"chengios://erase-safari",
+            @"chengios://erase-device",
+            @"chengios://erase-random-all",
             @"chengios://backup"
         ];
         cell.textLabel.text = titles[indexPath.row];
@@ -124,6 +130,12 @@
             [self openURLString:@"chengios://backup-apps"];
         } else if (indexPath.row == 2) {
             [self openURLString:@"chengios://erase-apps"];
+        } else if (indexPath.row == 3) {
+            [self openURLString:@"chengios://erase-safari"];
+        } else if (indexPath.row == 4) {
+            [self openURLString:@"chengios://erase-device"];
+        } else if (indexPath.row == 5) {
+            [self openURLString:@"chengios://erase-random-all"];
         } else {
             [self openURLString:@"chengios://backup"];
         }

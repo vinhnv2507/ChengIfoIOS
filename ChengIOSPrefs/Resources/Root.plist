@@ -185,7 +185,7 @@
 			<key>label</key>
 			<string>Backup / Data app</string>
 			<key>footerText</key>
-			<string>Backup ho so ChengIOS (nho). Backup data app luu Documents/Preferences/Cookies, bo Caches. Xoa data: kill app roi xoa sandbox. Khong xoa Safari/keychain iCloud. Nen dung app ChengIOS.</string>
+			<string>Backup data app gom sandbox + group + plugin + keychain de restore con login. Xoa Facebook xoa SSO/keychain. Co xoa Safari va xoa toan bo app user (giu jailbreak). Nen dung app ChengIOS.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -767,7 +767,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>ChengIOS 1.2.14
+			<string>ChengIOS 1.2.15
 by vinhnv2507</string>
 			<key>isStaticText</key>
 			<true/>
