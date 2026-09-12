@@ -114,8 +114,20 @@ static NSString *CIResultText(NSDictionary *meta, NSError *error, NSString *fall
     }
     if (meta[@"keychainItems"]) {
         [text appendFormat:@"\nKeychain: %@ item", meta[@"keychainItems"]];
+        if (meta[@"signedCount"]) {
+            [text appendFormat:@"  signed %@", meta[@"signedCount"]];
+        }
+        if (meta[@"agrpCount"]) {
+            [text appendFormat:@"  agrp %@", meta[@"agrpCount"]];
+        }
+        if ([meta[@"ldid"] isKindOfClass:[NSString class]] && [meta[@"ldid"] length] > 0) {
+            [text appendFormat:@"\nldid: %@", meta[@"ldid"]];
+        }
+        if ([meta[@"signedError"] isKindOfClass:[NSString class]] && [meta[@"signedError"] length] > 0) {
+            [text appendFormat:@"\nKC loi: %@", meta[@"signedError"]];
+        }
         if ([meta[@"includeAppData"] boolValue] && [meta[@"keychainItems"] unsignedIntegerValue] == 0) {
-            [text appendString:@"\nCanh bao: khong dump duoc keychain. Restore se mat login."];
+            [text appendString:@"\nCanh bao: Keychain 0. Cai ldid (Apps Manager ldid / Procursus). Cai 1.2.19, Respring, backup lai khi dang login. Backup cu Keychain=0 khong giu login."];
         }
     }
     if (meta[@"asRoot"]) {
@@ -134,7 +146,7 @@ static NSString *CIResultText(NSDictionary *meta, NSError *error, NSString *fall
             [text appendFormat:@"\nSQL: %@  SecItem: %@", meta[@"sqlCount"], secCount];
         }
         if (![meta[@"asRoot"] boolValue]) {
-            [text appendString:@"\nCanh bao: chua chay root. Cai 1.2.18, Respring, backup lai tu app ChengIOS (daemon CO)."];
+            [text appendString:@"\nCanh bao: chua chay root. Cai 1.2.19, Respring, backup lai tu app ChengIOS (daemon CO). Can ldid."];
         }
     } else if ([meta[@"includeAppData"] boolValue]) {
         [text appendString:@"\nRoot helper: KHONG (ban backup cu). Restore co the mat login."];
@@ -175,7 +187,7 @@ void ChengIOSRunCreateBackup(UIViewController *host, NSString *name, BOOL includ
         return;
     }
     NSString *message = includeAppData
-        ? @"Luu ho so + Documents/Library/tmp/SystemData/StoreKit + group/plugin + keychain SQL (root/daemon). App se bi kill. Can dang nhap san. Facebook data co the mat vai phut."
+        ? @"Luu ho so + Documents/Library/tmp/SystemData/StoreKit + group/plugin + keychain SQL (root/daemon). App se bi kill. Can dang nhap san. Can ldid. Facebook data co the mat vai phut."
         : @"Luu ho so gia lap hien tai (model/iOS/GPS/Wi-Fi...).";
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:includeAppData ? @"Backup ho so + data" : @"Backup ho so"
                                                                    message:message
@@ -548,7 +560,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     if (section == 0) {
         NSArray *apps = ChengIOSUserSelectedBundleIDs();
         NSString *list = apps.count ? [apps componentsJoinedByString:@", "] : @"chua chon app user nao";
-        return [NSString stringWithFormat:@"App da chon: %@.\nBackup/restore chay root (setuid/daemon) + keychain-2.db. Sau backup can Keychain > 0, Root CO, Daemon CO. Xoa FB/TikTok/Shopee xoa SSO + companion. Safari xoa history/cookies. Deeplink: chengios://erase-safari , chengios://erase-device , chengios://erase-random-all , chengios://erase-device-random", list];
+        return [NSString stringWithFormat:@"App da chon: %@.\nBackup/restore chay root (setuid/daemon) + keychain-2.db. Sau backup can Keychain > 0, Root CO, Daemon CO, ldid CO. Xoa FB/TikTok/Shopee xoa SSO + companion. Safari xoa history/cookies. Deeplink: chengios://erase-safari , chengios://erase-device , chengios://erase-random-all , chengios://erase-device-random", list];
     }
     return [NSString stringWithFormat:@"Thu muc: %@", ChengIOSBackupRoot()];
 }
@@ -572,7 +584,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
             ];
             NSArray *details = @[
                 @"Chi identity ChengIOS (nho, nhanh)",
-                @"Root/daemon + Documents/Library/tmp/SystemData/StoreKit + keychain SQL",
+                @"Root/daemon + sandbox + ldid keychain (genp/inet/keys/cert)",
                 @"Ke ca Safari neu dang tick. Facebook xoa SSO",
                 @"History, cookies, website data",
                 @"Nhu moi cai app. Giu jailbreak/anh/tin nhan",

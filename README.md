@@ -32,6 +32,16 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.19
+
+- Keychain dump/restore/wipe theo Apps Manager: binary `chengioskc` (kieu `kcaccess.bin`), **khong** dung `keychain-access-groups: *`
+- Doc DISTINCT agrp tu `keychain-2.db` (`genp`/`inet`/`keys`/`cert`), `ldid -S` agrp that vao **ban copy** `chengioskc`, spawn process moi
+- SecItem dump decrypted `genp` + `inet` + `keys` + `cert` + `identity` (Facebook Limited Login P-256 nam o class key)
+- Restore uu tien SecItemAdd data da giai ma; SQL blob chi khi SecItem = 0 (backup cu 1.2.18)
+- Wipe: SecItemDelete theo tung agrp/class, roi SQL, pass 2 sau `securityd`
+- Can cai `ldid` (Procursus hoac `am.ldid` cua Apps Manager). Sau backup can `Keychain N>0`, `Root CO`, `Daemon CO`, `ldid CO`
+- Backup cu 1.2.18 `Keychain=0` khong giu login Facebook/Shopee/TikTok; backup lai bang 1.2.19 khi dang dang nhap, tu app ChengIOS
+
 ## 1.2.18
 
 - Backup/restore/xoa data luon chay root: in-process neu uid 0, setuid `chengiosroot`, hoac LaunchDaemon inbox (Dopamine nosuid)

@@ -11,7 +11,7 @@ TOOL_NAME = chengiosroot
 chengiosroot_FILES = main.m ../ChengIOSPrefs/ChengIOSBackup.m ../ChengIOSPrefs/ChengIOSProfiles.m
 chengiosroot_FRAMEWORKS = Foundation Security
 chengiosroot_LIBRARIES = sqlite3
-chengiosroot_CFLAGS = -fobjc-arc -Wno-unguarded-availability-new -Wno-deprecated-declarations -I../ChengIOSPrefs
+chengiosroot_CFLAGS = -fobjc-arc -Wno-unguarded-availability-new -Wno-deprecated-declarations -Wno-unused-function -Wno-unused-variable -I../ChengIOSPrefs
 chengiosroot_CODESIGN_FLAGS = -Sentitlements.plist
 chengiosroot_INSTALL_PATH = /usr/local/bin
 
