@@ -550,6 +550,39 @@ static NSArray<NSString *> *CIExtraWipePaths(NSString *bundleID) {
     return paths;
 }
 
+static BOOL CIBundlesAreRelated(NSString *left, NSString *right) {
+    if (left.length == 0 || right.length == 0) {
+        return NO;
+    }
+    NSString *a = left.lowercaseString;
+    NSString *b = right.lowercaseString;
+    if ([a isEqualToString:b]) {
+        return YES;
+    }
+    NSArray<NSArray<NSString *> *> *families = @[
+        @[@"com.facebook.", @"com.meta.", @"com.burbn.", @"com.instagram.", @"net.whatsapp."],
+        @[@"com.shopee.", @"com.beeasy.", @"com.sgs."]
+    ];
+    for (NSArray<NSString *> *family in families) {
+        BOOL ha = NO;
+        BOOL hb = NO;
+        for (NSString *prefix in family) {
+            if ([a hasPrefix:prefix]) {
+                ha = YES;
+            }
+            if ([b hasPrefix:prefix]) {
+                hb = YES;
+            }
+        }
+        if (ha && hb) {
+            return YES;
+        }
+    }
+    NSArray<NSString *> *pa = [a componentsSeparatedByString:@"."];
+    NSArray<NSString *> *pb = [b componentsSeparatedByString:@"."];
+    return pa.count >= 2 && pb.count >= 2 && [pa[0] isEqualToString:pb[0]] && [pa[1] isEqualToString:pb[1]];
+}
+
 static BOOL CIGroupUsedByOtherApps(NSString *group, NSString *bundleID, NSArray<NSString *> *erasing) {
     if (group.length == 0) {
         return NO;
@@ -571,7 +604,7 @@ static BOOL CIGroupUsedByOtherApps(NSString *group, NSString *bundleID, NSArray<
         if (other.length == 0 || [other isEqualToString:bundleID]) {
             continue;
         }
-        if ([erasing containsObject:other]) {
+        if ([erasing containsObject:other] || CIBundlesAreRelated(bundleID, other)) {
             continue;
         }
         NSDictionary *urls = nil;
@@ -583,6 +616,88 @@ static BOOL CIGroupUsedByOtherApps(NSString *group, NSString *bundleID, NSArray<
         }
     }
     return NO;
+}
+
+static BOOL CIKeychainTextMatchesBundle(NSString *text, NSString *bundleID) {
+    if (text.length == 0 || bundleID.length == 0) {
+        return NO;
+    }
+    NSString *blob = text.lowercaseString;
+    NSString *low = bundleID.lowercaseString;
+    if ([blob containsString:low]) {
+        return YES;
+    }
+    if ([low hasPrefix:@"com.facebook."] || [low hasPrefix:@"com.meta."] || [low containsString:@"facebook"]) {
+        NSArray<NSString *> *needles = @[
+            @"facebook", @"fbauth", @"fbsdk", @"fb_user", @"fb-token", @"fbssoservice",
+            @"messenger.com", @"fb.com", @"instagram", @"whatsapp"
+        ];
+        for (NSString *needle in needles) {
+            if ([blob containsString:needle]) {
+                return YES;
+            }
+        }
+    }
+    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."]) {
+        return [blob containsString:@"shopee"] || [blob containsString:@"beeasy"];
+    }
+    NSArray<NSString *> *parts = [low componentsSeparatedByString:@"."];
+    if (parts.count >= 2) {
+        NSString *vendor = [NSString stringWithFormat:@"%@.%@", parts[0], parts[1]];
+        if ([blob containsString:vendor]) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+static void CIKeychainDeleteMatching(id secClass, NSString *bundleID) {
+    NSDictionary *query = @{
+        (__bridge id)kSecClass: secClass,
+        (__bridge id)kSecMatchLimit: (__bridge id)kSecMatchLimitAll,
+        (__bridge id)kSecReturnAttributes: @YES,
+        (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
+    };
+    CFTypeRef result = NULL;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
+    if (status != errSecSuccess || !result) {
+        return;
+    }
+    NSArray *items = CFBridgingRelease(result);
+    if (![items isKindOfClass:[NSArray class]]) {
+        return;
+    }
+    for (NSDictionary *item in items) {
+        if (![item isKindOfClass:[NSDictionary class]]) {
+            continue;
+        }
+        NSString *blob = [NSString stringWithFormat:@"%@ %@ %@ %@ %@",
+                          item[(__bridge id)kSecAttrService] ?: @"",
+                          item[(__bridge id)kSecAttrAccount] ?: @"",
+                          item[(__bridge id)kSecAttrAccessGroup] ?: @"",
+                          item[(__bridge id)kSecAttrLabel] ?: @"",
+                          item[(__bridge id)kSecAttrServer] ?: @""];
+        if (!CIKeychainTextMatchesBundle(blob, bundleID)) {
+            continue;
+        }
+        NSMutableDictionary *del = [@{
+            (__bridge id)kSecClass: secClass,
+            (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
+        } mutableCopy];
+        for (id key in @[
+            (__bridge id)kSecAttrService,
+            (__bridge id)kSecAttrAccount,
+            (__bridge id)kSecAttrAccessGroup,
+            (__bridge id)kSecAttrLabel,
+            (__bridge id)kSecAttrServer
+        ]) {
+            id value = item[key];
+            if (value) {
+                del[key] = value;
+            }
+        }
+        SecItemDelete((__bridge CFDictionaryRef)del);
+    }
 }
 
 static void CIWipeKeychainForProxy(LSApplicationProxy *proxy, NSString *bundleID) {
@@ -607,8 +722,24 @@ static void CIWipeKeychainForProxy(LSApplicationProxy *proxy, NSString *bundleID
         if ([appId isKindOfClass:[NSString class]] && [appId length] > 0) {
             [groups addObject:appId];
         }
+        id appGroups = ents[@"com.apple.security.application-groups"];
+        if ([appGroups isKindOfClass:[NSArray class]]) {
+            for (id group in appGroups) {
+                if ([group isKindOfClass:[NSString class]] && [group length] > 0) {
+                    [groups addObject:group];
+                }
+            }
+        }
     }
     [groups addObject:bundleID];
+    if ([bundleID.lowercaseString hasPrefix:@"com.facebook."]) {
+        [groups addObjectsFromArray:@[
+            @"com.facebook.Facebook",
+            @"group.com.facebook.Facebook",
+            @"group.com.facebook.family",
+            @"group.com.facebook.Messenger"
+        ]];
+    }
     NSArray *classes = @[
         (__bridge id)kSecClassGenericPassword,
         (__bridge id)kSecClassInternetPassword,
@@ -635,6 +766,8 @@ static void CIWipeKeychainForProxy(LSApplicationProxy *proxy, NSString *bundleID
             SecItemDelete((__bridge CFDictionaryRef)query);
         }
     }
+    CIKeychainDeleteMatching((__bridge id)kSecClassGenericPassword, bundleID);
+    CIKeychainDeleteMatching((__bridge id)kSecClassInternetPassword, bundleID);
 }
 
 static NSDictionary *CIReadMeta(NSString *backupID) {
@@ -762,7 +895,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.12",
+        @"version": @"1.2.13",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -897,23 +1030,99 @@ BOOL ChengIOSRenameBackup(NSString *backupID, NSString *name, NSError **error) {
     return CIWriteMeta(backupID, meta);
 }
 
+static void CITerminateRelatedBundles(NSString *bundleID) {
+    CITerminateBundle(bundleID);
+    Class wsClass = objc_getClass("LSApplicationWorkspace");
+    id ws = [wsClass respondsToSelector:@selector(defaultWorkspace)] ? [wsClass defaultWorkspace] : nil;
+    if (![ws respondsToSelector:@selector(allInstalledApplications)]) {
+        return;
+    }
+    NSString *prefix = [bundleID stringByAppendingString:@"."];
+    NSArray *apps = [ws allInstalledApplications];
+    for (id app in apps) {
+        NSString *ident = nil;
+        if ([app respondsToSelector:@selector(applicationIdentifier)]) {
+            ident = [app applicationIdentifier];
+        }
+        if (ident.length == 0 && [app respondsToSelector:@selector(bundleIdentifier)]) {
+            ident = [app bundleIdentifier];
+        }
+        if (ident.length == 0 || [ident isEqualToString:bundleID]) {
+            continue;
+        }
+        if ([ident hasPrefix:prefix]) {
+            CITerminateBundle(ident);
+        }
+    }
+}
+
 static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
     if (ChengIOSBundleIsProtected(bundleID)) {
         return NO;
     }
-    CITerminateBundle(bundleID);
-    [NSThread sleepForTimeInterval:0.25];
+    CITerminateRelatedBundles(bundleID);
+    [NSThread sleepForTimeInterval:0.35];
     BOOL ok = NO;
     NSString *dataPath = CIDataPath(bundleID);
     if (dataPath.length > 0) {
         ok = CIWipeContents(dataPath) || ok;
     }
-    NSDictionary *groups = CIGroupPaths(bundleID);
+    NSString *prefix = [bundleID stringByAppendingString:@"."];
+    Class wsClass = objc_getClass("LSApplicationWorkspace");
+    id ws = [wsClass respondsToSelector:@selector(defaultWorkspace)] ? [wsClass defaultWorkspace] : nil;
+    if ([ws respondsToSelector:@selector(allInstalledApplications)]) {
+        for (id app in [ws allInstalledApplications]) {
+            NSString *ident = nil;
+            if ([app respondsToSelector:@selector(applicationIdentifier)]) {
+                ident = [app applicationIdentifier];
+            }
+            if (ident.length == 0 && [app respondsToSelector:@selector(bundleIdentifier)]) {
+                ident = [app bundleIdentifier];
+            }
+            if (![ident hasPrefix:prefix] || ChengIOSBundleIsProtected(ident)) {
+                continue;
+            }
+            NSString *extraData = CIDataPath(ident);
+            if (extraData.length > 0) {
+                ok = CIWipeContents(extraData) || ok;
+            }
+        }
+    }
+    NSMutableDictionary *groups = [CIGroupPaths(bundleID) mutableCopy] ?: [NSMutableDictionary dictionary];
+    if ([bundleID.lowercaseString hasPrefix:@"com.facebook."] || [bundleID.lowercaseString hasPrefix:@"com.meta."]) {
+        for (NSString *gid in @[
+            @"group.com.facebook.Facebook",
+            @"group.com.facebook.family",
+            @"group.com.facebook.Messenger",
+            @"group.com.facebook.Facebook.widget",
+            @"group.com.facebook.mlite"
+        ]) {
+            if (groups[gid].length > 0) {
+                continue;
+            }
+            NSString *path = CIScanContainer(@[
+                @"/var/mobile/Containers/Shared/AppGroup",
+                @"/private/var/mobile/Containers/Shared/AppGroup"
+            ], gid);
+            if (path.length > 0) {
+                groups[gid] = path;
+            }
+        }
+    }
     for (NSString *group in groups) {
         if (CIGroupUsedByOtherApps(group, bundleID, together)) {
             continue;
         }
         ok = CIWipeContents(groups[group]) || ok;
+        for (NSString *root in @[
+            @"/var/mobile/Library/Preferences",
+            @"/private/var/mobile/Library/Preferences"
+        ]) {
+            NSString *plist = [root stringByAppendingPathComponent:[group stringByAppendingString:@".plist"]];
+            if ([[NSFileManager defaultManager] fileExistsAtPath:plist] && CIPathSafeToMutate(plist)) {
+                [[NSFileManager defaultManager] removeItemAtPath:plist error:nil];
+            }
+        }
     }
     for (NSString *extra in CIExtraWipePaths(bundleID)) {
         if ([[NSFileManager defaultManager] fileExistsAtPath:extra] && CIPathSafeToMutate(extra)) {

@@ -197,7 +197,7 @@ extern char **environ;
         return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";
     }
     if (section == 3) {
-        return @"Backup ho so nho. Backup data bo Caches. Xoa sandbox/snapshot/keychain app (best-effort). Group chia se app khac se giu. Safari khong bi xoa.";
+        return @"Backup ho so nho. Backup data bo Caches. Xoa sandbox/snapshot/keychain. Facebook xoa ca group family. Safari khong bi xoa.";
     }
     if (section == 10) {
         return @"deviceinfo.me Region/City/ISP la IP cong cong that (Viettel/Hung Yen). Bam nut Detect de dung GPS gia lap.";

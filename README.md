@@ -32,6 +32,11 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.13
+- Facebook/Shopee: spoof model that (`hw.machine` / `uname` / ProductType) de Facebook khong con hien iPhone that
+- Van khong spoof iOS version / Darwin / IDFV trong Facebook de tranh crash
+- Erase Facebook xoa app group family + keychain token, ke ca khi dang cai Messenger
+
 ## 1.2.12
 - Backup/restore/erase on dinh hon: 1 thu muc chinh `/var/mobile/Media/ChengIOS/Backups`, van nhin backup o Documents neu co
 - Restore ho so ghi de toan bo prefs (khong merge so le)

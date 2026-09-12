@@ -508,6 +508,17 @@ BOOL OVSLowLevelHooksEnabled(void) {
     return OVSGestaltEnabled();
 }
 
+BOOL OVSMachineHooksEnabled(void) {
+    return OVSShouldSpoofModel();
+}
+
+BOOL OVSNarrowGestaltEnabled(void) {
+    if (!OVSIsFragileApp() || OVSIsSafariFamily() || OVSIsWebKitHelperProcess() || !OVSSpoofingEnabled()) {
+        return NO;
+    }
+    return OVSBoolForKey(@"gestaltEnabled", NO) && OVSSpoofedModel().length > 0;
+}
+
 static pthread_key_t gLowLevelHookKey;
 static pthread_once_t gLowLevelHookOnce = PTHREAD_ONCE_INIT;
 
@@ -963,11 +974,32 @@ static BOOL OVSGestaltKeyIs(NSString *key, NSString *name) {
 }
 
 id OVSGestaltObjectForKey(NSString *key) {
-    if (key.length == 0 || !OVSGestaltEnabled()) {
+    if (key.length == 0) {
+        return nil;
+    }
+    BOOL fullGestalt = OVSGestaltEnabled();
+    BOOL narrowGestalt = !fullGestalt && OVSNarrowGestaltEnabled();
+    if (!fullGestalt && !narrowGestalt) {
         return nil;
     }
     unichar first = [key characterAtIndex:0];
     if (first < 32 || first > 126) {
+        return nil;
+    }
+
+    if (narrowGestalt) {
+        if (OVSGestaltKeyIs(key, @"ProductType") || OVSGestaltKeyIs(key, @"product-type")) {
+            return OVSSpoofedModel();
+        }
+        if (OVSGestaltKeyIs(key, @"HWModelStr") || OVSGestaltKeyIs(key, @"HWModel") || OVSGestaltKeyIs(key, @"hw-model") || OVSGestaltKeyIs(key, @"HardwareModel")) {
+            return OVSSpoofedHwModel();
+        }
+        if (OVSGestaltKeyIs(key, @"DeviceName") || OVSGestaltKeyIs(key, @"marketing-name") || OVSGestaltKeyIs(key, @"MarketingProductName")) {
+            return OVSSpoofedMarketingName();
+        }
+        if (OVSGestaltKeyIs(key, @"UserAssignedDeviceName")) {
+            return OVSSpoofedDeviceName();
+        }
         return nil;
     }
 

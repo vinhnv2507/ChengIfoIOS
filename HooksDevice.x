@@ -233,7 +233,7 @@
             %init(AdSupportHooks);
         }
     }
-    if (OVSLowLevelHooksEnabled()) {
+    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
         %init(LowLevelUname);
     }
 }
