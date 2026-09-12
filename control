@@ -1,6 +1,6 @@
 Package: com.vinhnv2507.chengios
 Name: ChengIOS
-Version: 1.2.17
+Version: 1.2.18
 Architecture: iphoneos-arm
 Description: Spoofs iOS version, app version, and optional device/location/network/Wi-Fi signals per selected app. Includes a home-screen app, chengios:// URL schemes, and deeper MobileGestalt/Darwin spoofing.
 Maintainer: vinhnv2507 <vinhnv2507@users.noreply.github.com>

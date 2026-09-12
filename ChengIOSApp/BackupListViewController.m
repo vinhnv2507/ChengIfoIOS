@@ -120,8 +120,21 @@ static NSString *CIResultText(NSDictionary *meta, NSError *error, NSString *fall
     }
     if (meta[@"asRoot"]) {
         [text appendFormat:@"\nRoot helper: %@", [meta[@"asRoot"] boolValue] ? @"CO" : @"KHONG"];
+        if (meta[@"uid"]) {
+            [text appendFormat:@"\n uid %@", meta[@"uid"]];
+        }
+        if (meta[@"daemon"]) {
+            [text appendFormat:@"  Daemon: %@", [meta[@"daemon"] boolValue] ? @"CO" : @"KHONG"];
+        }
+        if (meta[@"sqlCount"]) {
+            id secCount = meta[@"secCount"];
+            if (!secCount) {
+                secCount = @0;
+            }
+            [text appendFormat:@"\nSQL: %@  SecItem: %@", meta[@"sqlCount"], secCount];
+        }
         if (![meta[@"asRoot"] boolValue]) {
-            [text appendString:@"\nCanh bao: chengiosroot chua chay setuid. Cai 1.2.17, Respring, backup lai tu app ChengIOS."];
+            [text appendString:@"\nCanh bao: chua chay root. Cai 1.2.18, Respring, backup lai tu app ChengIOS (daemon CO)."];
         }
     } else if ([meta[@"includeAppData"] boolValue]) {
         [text appendString:@"\nRoot helper: KHONG (ban backup cu). Restore co the mat login."];
@@ -132,7 +145,7 @@ static NSString *CIResultText(NSDictionary *meta, NSError *error, NSString *fall
 
 static void CIRunBusy(UIViewController *host, NSString *title, void (^work)(void (^done)(NSString *resultTitle, NSString *message))) {
     UIAlertController *busy = [UIAlertController alertControllerWithTitle:title
-                                                                  message:@"Giu app ChengIOS mo. Co the mat vai giay."
+                                                                  message:@"Giu app ChengIOS mo. Facebook co the mat vai phut."
                                                            preferredStyle:UIAlertControllerStyleAlert];
     [host presentViewController:busy animated:YES completion:^{
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
@@ -154,7 +167,7 @@ void ChengIOSRunCreateBackup(UIViewController *host, NSString *name, BOOL includ
             NSArray *bundles = includeAppData ? (bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs()) : @[];
             NSDictionary *meta = ChengIOSCreateBackup(name, bundles, includeAppData, &error);
             NSString *title = error ? @"Backup loi" : @"Da backup";
-            done(title, CIResultText(meta, error, includeAppData ? @"Da luu ho so + data + keychain. Can Keychain > 0 va Root CO de restore con login." : @"Da luu ho so ChengIOS."));
+            done(title, CIResultText(meta, error, includeAppData ? @"Da luu ho so + data + keychain. Can Keychain > 0, Root CO / uid 0 (Daemon CO) de restore con login." : @"Da luu ho so ChengIOS."));
         });
     };
     if (silent) {
@@ -162,7 +175,7 @@ void ChengIOSRunCreateBackup(UIViewController *host, NSString *name, BOOL includ
         return;
     }
     NSString *message = includeAppData
-        ? @"Luu ho so + 4 thu muc Documents/Library/tmp/SystemData + group/plugin + keychain (root). App se bi kill trong luc copy. Can dang nhap san trong app."
+        ? @"Luu ho so + Documents/Library/tmp/SystemData/StoreKit + group/plugin + keychain SQL (root/daemon). App se bi kill. Can dang nhap san. Facebook data co the mat vai phut."
         : @"Luu ho so gia lap hien tai (model/iOS/GPS/Wi-Fi...).";
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:includeAppData ? @"Backup ho so + data" : @"Backup ho so"
                                                                    message:message
@@ -247,7 +260,7 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
             if (msg.length == 0) {
                 [msg appendString:@"Khong xoa duoc app nao."];
             }
-            [msg appendString:@"\nDa xoa sandbox + group + plugin + keychain SQL/root + accountsd. Vuot tat Facebook/Messenger/TikTok/Shopee, doi xong, dung mo ngay. iCloud Keychain AutoFill co the van hien username."];
+            [msg appendString:@"\nDa xoa sandbox + group (msysstorage/metaplatforms) + plugin + keychain SQL/DBL + accountsd. Vuot tat Facebook+Messenger, doi, dung mo ngay. Continue as phai mat. iCloud AutoFill co the van hien username."];
             done(ok.count ? @"Da xoa data" : @"Xoa data", msg);
         });
     };
@@ -535,7 +548,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     if (section == 0) {
         NSArray *apps = ChengIOSUserSelectedBundleIDs();
         NSString *list = apps.count ? [apps componentsJoinedByString:@", "] : @"chua chon app user nao";
-        return [NSString stringWithFormat:@"App da chon: %@.\nBackup/restore chay root helper chengiosroot + keychain-2.db de giu login. Sau backup can Keychain > 0 va Root CO. Xoa FB/TikTok/Shopee xoa SSO + companion. Safari xoa history/cookies. Deeplink: chengios://erase-safari , chengios://erase-device , chengios://erase-random-all , chengios://erase-device-random", list];
+        return [NSString stringWithFormat:@"App da chon: %@.\nBackup/restore chay root (setuid/daemon) + keychain-2.db. Sau backup can Keychain > 0, Root CO, Daemon CO. Xoa FB/TikTok/Shopee xoa SSO + companion. Safari xoa history/cookies. Deeplink: chengios://erase-safari , chengios://erase-device , chengios://erase-random-all , chengios://erase-device-random", list];
     }
     return [NSString stringWithFormat:@"Thu muc: %@", ChengIOSBackupRoot()];
 }
@@ -559,7 +572,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
             ];
             NSArray *details = @[
                 @"Chi identity ChengIOS (nho, nhanh)",
-                @"Root helper + Documents/Library/tmp/SystemData + keychain SQL",
+                @"Root/daemon + Documents/Library/tmp/SystemData/StoreKit + keychain SQL",
                 @"Ke ca Safari neu dang tick. Facebook xoa SSO",
                 @"History, cookies, website data",
                 @"Nhu moi cai app. Giu jailbreak/anh/tin nhan",

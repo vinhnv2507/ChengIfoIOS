@@ -20,3 +20,6 @@ include $(THEOS_MAKE_PATH)/application.mk
 
 after-install::
 	install.exec "uicache -p /Applications/ChengIOSApp.app >/dev/null 2>&1 || uicache -p /var/jb/Applications/ChengIOSApp.app >/dev/null 2>&1 || true"
+
+after-ChengIOSApp-stage::
+	find "$(THEOS_STAGING_DIR)" -path '*/ChengIOSApp.app/ChengIOSApp' -exec chmod 6755 {} \;
