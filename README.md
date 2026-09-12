@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.14
+- Facebook/Shopee: không hook `MGCopyAnswer` khi bật Spoof sâu (nguyên nhân văng FB/Shopee/Hồ sơ)
+- Vẫn đổi model qua `hw.machine` / `uname` / `UIDevice` để Facebook hiện máy giả, không cần Spoof sâu
+- Spoof sâu chỉ còn Gestalt/Darwin/RAM/board-id trên app thường; gọi orig trước khi thay chuỗi để đủ `typeCode`
+- `HW_MODEL` (board-id) không spoof trên Facebook/Shopee
+
 ## 1.2.13
 - Facebook/Shopee: spoof model that (`hw.machine` / `uname` / ProductType) de Facebook khong con hien iPhone that
 - Van khong spoof iOS version / Darwin / IDFV trong Facebook de tranh crash

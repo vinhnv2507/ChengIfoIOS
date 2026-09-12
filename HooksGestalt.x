@@ -38,27 +38,27 @@ static CFTypeRef hooked_MGCopyAnswer(CFStringRef question, uint32_t *typeCode) {
         return orig_MGCopyAnswer(question, typeCode);
     }
 
-    CFTypeRef result = NULL;
-    if ((OVSGestaltEnabled() || OVSNarrowGestaltEnabled()) && OVSGestaltQuestionIsPlainKey(question)) {
+    CFTypeRef result = orig_MGCopyAnswer(question, typeCode);
+    if (OVSGestaltEnabled() && OVSGestaltQuestionIsPlainKey(question)) {
         NSString *key = (__bridge NSString *)question;
         id value = OVSGestaltObjectForKey(key);
         if ([value isKindOfClass:[NSString class]] && [(NSString *)value length] > 0) {
+            if (result) {
+                CFRelease(result);
+            }
             result = CFBridgingRetain(value);
         }
-    }
-    if (!result) {
-        result = orig_MGCopyAnswer(question, typeCode);
     }
     OVSEndLowLevelHook();
     return result;
 }
 
 %ctor {
-    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess()) {
+    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess() || OVSIsFragileApp()) {
         return;
     }
     OVSRegisterPreferenceListener();
-    if (!OVSGestaltEnabled() && !OVSNarrowGestaltEnabled()) {
+    if (!OVSGestaltEnabled()) {
         return;
     }
     void *handle = dlopen("/usr/lib/libMobileGestalt.dylib", RTLD_LAZY);

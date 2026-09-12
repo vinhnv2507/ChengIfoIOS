@@ -72,7 +72,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>Tick Safari rồi vuốt tắt hẳn Safari (kể cả WebContent). Trang web đọc UA trong process WebContent. Facebook/Shopee vẫn chế độ an toàn.</string>
+			<string>Spoof sâu: Gestalt/Darwin/RAM trên app thường. Facebook/Shopee bỏ qua Gestalt (tránh văng) nhưng vẫn đổi model qua hw.machine. Safari chỉ đổi User-Agent; vuốt tắt hẳn Safari sau khi đổi.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -767,7 +767,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>ChengIOS 1.2.13
+			<string>ChengIOS 1.2.14
 by vinhnv2507</string>
 			<key>isStaticText</key>
 			<true/>
