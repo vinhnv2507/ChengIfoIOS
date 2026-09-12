@@ -35,6 +35,7 @@ static void CIRunKillall(NSString *processName);
 static void CITerminateBundle(NSString *bundleID);
 static void CITerminateRelatedBundles(NSString *bundleID);
 static BOOL CIKeychainTextMatchesBundle(NSString *text, NSString *bundleID);
+static BOOL CIPathSafeToMutate(NSString *path);
 static NSArray<NSString *> *CIKnownKeychainServices(NSString *bundleID);
 static void CIWipeKnownKeychainServices(NSString *bundleID);
 static void CISettleForDisk(NSString *bundleID);
@@ -487,6 +488,60 @@ static BOOL CIEmptyDir(NSString *dir) {
         }
     }
     return ok;
+}
+
+static BOOL CIPathSafeToMutate(NSString *path) {
+    if (path.length < 28) {
+        return NO;
+    }
+    NSString *low = path.lowercaseString;
+    if ([low containsString:@"/chengios/backups"]) {
+        return NO;
+    }
+    NSArray<NSString *> *parts = path.pathComponents;
+    if ([low containsString:@"/containers/data/application/"] && parts.count >= 7) {
+        return YES;
+    }
+    if ([low containsString:@"/containers/shared/appgroup/"] && parts.count >= 7) {
+        return YES;
+    }
+    if ([low containsString:@"/library/caches/"] && parts.count >= 6) {
+        return YES;
+    }
+    if ([low containsString:@"/library/splashboard/snapshots/"] && parts.count >= 6) {
+        return YES;
+    }
+    if ([low containsString:@"/library/preferences/"] && [low hasSuffix:@".plist"]) {
+        return YES;
+    }
+    if ([low containsString:@"/library/saved application state/"] && parts.count >= 6) {
+        return YES;
+    }
+    if ([low containsString:@"/containers/data/pluginkitplugin/"] && parts.count >= 7) {
+        return YES;
+    }
+    if ([low hasPrefix:@"/var/mobile/library/safari"] || [low hasPrefix:@"/private/var/mobile/library/safari"]) {
+        return YES;
+    }
+    if ([low hasPrefix:@"/var/mobile/library/cookies"] || [low hasPrefix:@"/private/var/mobile/library/cookies"]) {
+        return YES;
+    }
+    if ([low hasPrefix:@"/var/mobile/library/webkit"] || [low hasPrefix:@"/private/var/mobile/library/webkit"]) {
+        return YES;
+    }
+    if ([low hasPrefix:@"/var/mobile/library/httpstorages"] || [low hasPrefix:@"/private/var/mobile/library/httpstorages"]) {
+        return YES;
+    }
+    if ([low containsString:@"/library/safarisafebrowsing"]) {
+        return YES;
+    }
+    if ([low containsString:@"/library/application support/com.facebook"] ||
+        [low containsString:@"/library/application support/facebook"] ||
+        [low containsString:@"/library/application support/com.shopee"] ||
+        [low containsString:@"/library/application support/com.beeasy"]) {
+        return parts.count >= 6;
+    }
+    return NO;
 }
 
 static BOOL CIEmptyContainer(NSString *path) {
