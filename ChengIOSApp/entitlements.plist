@@ -12,6 +12,10 @@
 	<true/>
 	<key>com.apple.private.security.storage.AppDataContainers</key>
 	<true/>
+	<key>com.apple.private.security.storage.Safari</key>
+	<true/>
+	<key>com.apple.private.security.storage.Cookies</key>
+	<true/>
 	<key>com.apple.private.mobileinstall.allowedSPI</key>
 	<true/>
 	<key>com.apple.springboard.launchapplications</key>
@@ -20,5 +24,11 @@
 	<true/>
 	<key>com.apple.keystore.access-keychain-keys</key>
 	<true/>
+	<key>application-identifier</key>
+	<string>*</string>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>*</string>
+	</array>
 </dict>
 </plist>

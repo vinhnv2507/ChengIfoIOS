@@ -32,6 +32,13 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.15
+- Backup app kem keychain + plugin + Caches de restore Facebook/Shopee con dang nhap
+- Xoa Facebook sach hon: family group, plugin, keychain SSO (khong con chi logout)
+- Xoa duoc Safari (history/cookies/website data)
+- Nut xoa toan bo app user + Safari (khong phai Restore iOS, giu jailbreak)
+- Xoa data roi random info: `chengios://erase-random-all`, `chengios://erase-device-random`
+
 ## 1.2.14
 - Facebook/Shopee: không hook `MGCopyAnswer` khi bật Spoof sâu (nguyên nhân văng FB/Shopee/Hồ sơ)
 - Vẫn đổi model qua `hw.machine` / `uname` / `UIDevice` để Facebook hiện máy giả, không cần Spoof sâu

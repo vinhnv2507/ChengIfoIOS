@@ -112,6 +112,12 @@ static NSString *CIResultText(NSDictionary *meta, NSError *error, NSString *fall
     if ([failed isKindOfClass:[NSArray class]] && failed.count > 0) {
         [text appendFormat:@"\nBo qua: %@", [failed componentsJoinedByString:@", "]];
     }
+    if (meta[@"keychainItems"]) {
+        [text appendFormat:@"\nKeychain: %@ item", meta[@"keychainItems"]];
+        if ([meta[@"includeAppData"] boolValue] && [meta[@"keychainItems"] unsignedIntegerValue] == 0) {
+            [text appendString:@"\nCanh bao: khong dump duoc keychain. Restore co the mat login. Hay backup tu app ChengIOS."];
+        }
+    }
     [text appendFormat:@"\nThu muc: %@", ChengIOSBackupRoot()];
     return text;
 }
@@ -225,7 +231,7 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
                 [msg appendFormat:@"Loi: %@\n", [failed componentsJoinedByString:@", "]];
             }
             if (skipped.count) {
-                [msg appendFormat:@"Bo qua (Safari/he thong): %@\n", [skipped componentsJoinedByString:@", "]];
+                [msg appendFormat:@"Bo qua (he thong): %@\n", [skipped componentsJoinedByString:@", "]];
             }
             if (error && msg.length == 0) {
                 [msg appendString:ChengIOSBackupErrorMessage(error)];
@@ -233,7 +239,7 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
             if (msg.length == 0) {
                 [msg appendString:@"Khong xoa duoc app nao."];
             }
-            [msg appendString:@"\nDa xoa sandbox/snapshot/keychain app. Facebook family group cung bi xoa. iCloud Keychain AutoFill co the van hien username."];
+            [msg appendString:@"\nDa xoa sandbox/group/plugin/keychain. Facebook SSO cung bi xoa. iCloud Keychain AutoFill co the van hien username."];
             done(ok.count ? @"Da xoa data" : @"Xoa data", msg);
         });
     };
@@ -285,6 +291,112 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
     [host presentViewController:alert animated:YES completion:nil];
 }
 
+
+static NSString *CIEraseResultText(NSDictionary *result, NSError *error, NSString *okTitle) {
+    NSMutableString *msg = [NSMutableString string];
+    NSArray *ok = result[@"ok"];
+    NSArray *failed = result[@"failed"];
+    NSArray *skipped = result[@"skipped"];
+    if (ok.count) {
+        [msg appendFormat:@"Da xoa: %@\n", [ok componentsJoinedByString:@", "]];
+    }
+    if (failed.count) {
+        [msg appendFormat:@"Loi: %@\n", [failed componentsJoinedByString:@", "]];
+    }
+    if (skipped.count) {
+        [msg appendFormat:@"Bo qua: %@\n", [skipped componentsJoinedByString:@", "]];
+    }
+    if ([result[@"profileSummary"] length]) {
+        [msg appendFormat:@"\n%@\n", result[@"profileSummary"]];
+    }
+    if (error && msg.length == 0) {
+        [msg appendString:ChengIOSBackupErrorMessage(error)];
+    }
+    if (msg.length == 0) {
+        [msg appendString:okTitle ?: @"Xong."];
+    }
+    return msg;
+}
+
+void ChengIOSRunEraseSafari(UIViewController *host, BOOL silent) {
+    void (^go)(void) = ^{
+        CIRunBusy(host, @"Dang xoa Safari", ^(void (^done)(NSString *, NSString *)) {
+            NSError *error = nil;
+            NSDictionary *result = ChengIOSEraseSafari(&error);
+            done(result[@"ok"] ? @"Da xoa Safari" : @"Xoa Safari", CIEraseResultText(result, error, @"Da xoa history/cookies/website data. Password iCloud Keychain khong bi xoa."));
+        });
+    };
+    if (silent) {
+        go();
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Xoa sach Safari"
+                                                                   message:@"Xoa history, cookies, website data, tab. Giong Safari moi cai. Khong xoa mat khau iCloud Keychain."
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Huy" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Xoa Safari" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+        (void)action;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            go();
+        });
+    }]];
+    [host presentViewController:alert animated:YES completion:nil];
+}
+
+void ChengIOSRunEraseDevice(UIViewController *host, BOOL silent) {
+    void (^go)(void) = ^{
+        CIRunBusy(host, @"Dang xoa data toan bo app", ^(void (^done)(NSString *, NSString *)) {
+            NSError *error = nil;
+            NSDictionary *result = ChengIOSEraseDeviceApps(YES, &error);
+            done(@"Da xoa data may", CIEraseResultText(result, error, @"Da xoa data app user + Safari. Khong phai Restore iOS. Jailbreak / anh / tin nhan / Apple ID van con."));
+        });
+    };
+    if (silent) {
+        go();
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Xoa data toan may"
+                                                                   message:@"Xoa data MOI app user + Safari (nhu moi cai app). KHONG phai factory reset iOS. Giu jailbreak, anh, tin nhan, Apple ID. Khong undo."
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Huy" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Xoa toan bo app" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+        (void)action;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            go();
+        });
+    }]];
+    [host presentViewController:alert animated:YES completion:nil];
+}
+
+void ChengIOSRunEraseThenRandom(UIViewController *host, NSArray<NSString *> *bundleIDs, BOOL allDevice, BOOL randomAll, NSString *region, BOOL silent) {
+    void (^go)(void) = ^{
+        CIRunBusy(host, allDevice ? @"Xoa toan bo + random" : @"Xoa app + random", ^(void (^done)(NSString *, NSString *)) {
+            NSError *error = nil;
+            NSDictionary *result = ChengIOSEraseThenRandom(bundleIDs, allDevice, randomAll, region, &error);
+            done(@"Da xoa + doi info", CIEraseResultText(result, error, @"Force-quit app roi mo lai."));
+        });
+    };
+    if (silent) {
+        go();
+        return;
+    }
+    NSString *title = allDevice ? @"Xoa toan bo + Random" : @"Xoa app da chon + Random";
+    NSString *msg = allDevice
+        ? @"Xoa data MOI app user + Safari, roi random info may. Khong undo."
+        : @"Xoa sandbox/keychain app da chon (ke ca Safari neu dang tick), roi random info. Khong undo.";
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
+                                                                   message:msg
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Huy" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:randomAll ? @"Xoa + Random Toan Bo" : @"Xoa + Random Info May" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+        (void)action;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            go();
+        });
+    }]];
+    [host presentViewController:alert animated:YES completion:nil];
+}
+
 BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     if (!url || !host) {
         return NO;
@@ -295,6 +407,27 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     BOOL wantData = CIFlag(url, @[@"data", @"appdata", @"apps", @"full"]);
     NSString *backupID = CIQuery(url, @"id") ?: CIQuery(url, @"backup") ?: CIQuery(url, @"backup-id");
 
+    NSString *region = CIQuery(url, @"region") ?: CIQuery(url, @"iso");
+    if ([token containsString:@"erase-device-random"] || [token containsString:@"wipe-device-random"] || [token containsString:@"factory-random"] || [token containsString:@"reset-device"]) {
+        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), YES, YES, region, silent);
+        return YES;
+    }
+    if ([token containsString:@"erase-random-all"] || [token containsString:@"wipe-random-all"] || [token containsString:@"reset-all"]) {
+        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), NO, YES, region, silent);
+        return YES;
+    }
+    if ([token containsString:@"erase-random"] || [token containsString:@"wipe-random"] || [token containsString:@"reset-identity"]) {
+        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), NO, NO, region, silent);
+        return YES;
+    }
+    if ([token containsString:@"erase-safari"] || [token containsString:@"wipe-safari"]) {
+        ChengIOSRunEraseSafari(host, silent);
+        return YES;
+    }
+    if ([token containsString:@"erase-device"] || [token containsString:@"wipe-device"] || [token isEqualToString:@"factory"] || [token containsString:@"erase-all-apps"]) {
+        ChengIOSRunEraseDevice(host, silent);
+        return YES;
+    }
     if ([token containsString:@"backup-apps"] || [token containsString:@"backup-data"] || [token containsString:@"backup-all"] || [token containsString:@"backup-now"]) {
         ChengIOSRunCreateBackup(host, name, YES, CIBundlesFromQuery(url), silent);
         return YES;
@@ -379,7 +512,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     (void)tableView;
     if (section == 0) {
-        return 3;
+        return 7;
     }
     return (NSInteger)MAX(self.backups.count, 1);
 }
@@ -394,7 +527,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     if (section == 0) {
         NSArray *apps = ChengIOSUserSelectedBundleIDs();
         NSString *list = apps.count ? [apps componentsJoinedByString:@", "] : @"chua chon app user nao";
-        return [NSString stringWithFormat:@"App da chon (khong tinh Safari): %@.\nBackup data bo Caches/tmp. Xoa sandbox + snapshot + keychain app. Facebook/Shopee se xoa ca group family (Messenger co the bi logout). Deeplink: chengios://backup-profile , chengios://backup-apps?bundle=ID , chengios://restore-latest?data=1 , chengios://erase-apps", list];
+        return [NSString stringWithFormat:@"App da chon: %@.\nBackup gom sandbox/group/plugin/keychain de restore con login. Xoa FB xoa SSO. Safari xoa history/cookies. Deeplink: chengios://erase-safari , chengios://erase-device , chengios://erase-random-all , chengios://erase-device-random", list];
     }
     return [NSString stringWithFormat:@"Thu muc: %@", ChengIOSBackupRoot()];
 }
@@ -407,16 +540,26 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
             cell.detailTextLabel.numberOfLines = 2;
         }
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-        if (indexPath.row == 0) {
-            cell.textLabel.text = @"Backup ho so";
-            cell.detailTextLabel.text = @"Chi identity ChengIOS (nho, nhanh)";
-        } else if (indexPath.row == 1) {
-            cell.textLabel.text = @"Backup ho so + data app";
-            cell.detailTextLabel.text = @"Kem sandbox app da chon";
-        } else {
-            cell.textLabel.text = @"Xoa sach data app da chon";
-            cell.detailTextLabel.text = @"Kill + xoa Documents/Library/group";
-        }
+            NSArray *titles = @[
+                @"Backup ho so",
+                @"Backup ho so + data app",
+                @"Xoa sach data app da chon",
+                @"Xoa sach Safari",
+                @"Xoa toan bo app + Safari",
+                @"Xoa app da chon + Random Toan Bo",
+                @"Xoa toan bo + Random Toan Bo"
+            ];
+            NSArray *details = @[
+                @"Chi identity ChengIOS (nho, nhanh)",
+                @"Sandbox + group + plugin + keychain (login)",
+                @"Ke ca Safari neu dang tick. Facebook xoa SSO",
+                @"History, cookies, website data",
+                @"Nhu moi cai app. Giu jailbreak/anh/tin nhan",
+                @"Wipe app da chon roi random info",
+                @"Wipe moi app user + Safari roi random"
+            ];
+            cell.textLabel.text = titles[indexPath.row];
+            cell.detailTextLabel.text = details[indexPath.row];
         return cell;
     }
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"b"];
@@ -462,8 +605,16 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
             ChengIOSRunCreateBackup(self, nil, NO, nil, NO);
         } else if (indexPath.row == 1) {
             ChengIOSRunCreateBackup(self, nil, YES, nil, NO);
-        } else {
+        } else if (indexPath.row == 2) {
             ChengIOSRunErase(self, nil, NO);
+        } else if (indexPath.row == 3) {
+            ChengIOSRunEraseSafari(self, NO);
+        } else if (indexPath.row == 4) {
+            ChengIOSRunEraseDevice(self, NO);
+        } else if (indexPath.row == 5) {
+            ChengIOSRunEraseThenRandom(self, nil, NO, YES, nil, NO);
+        } else {
+            ChengIOSRunEraseThenRandom(self, nil, YES, YES, nil, NO);
         }
         return;
     }
