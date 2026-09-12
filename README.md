@@ -32,6 +32,16 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.18
+
+- Backup/restore/xoa data luon chay root: in-process neu uid 0, setuid `chengiosroot`, hoac LaunchDaemon inbox (Dopamine nosuid)
+- App ChengIOS `chmod 6755` kieu Filza/Apps Manager; daemon `chengiosroot daemon` xu ly job `/var/mobile/Media/ChengIOS/.work/inbox`
+- Dump keychain: copy `keychain-2.db` + WAL, query agrp ro (khong dung `*`), Facebook DBL / msysstorage / metaplatforms
+- Restore: chen lai row SQL `genp`/`inet` sau khi DELETE agrp+svce+acct (cung may, giu cookie/phien). SecItem chi khi SQL=0
+- Xoa Facebook: quet moi App Group MCM, `StoreKit`, group `msysstorage` + `metaplatforms.family`, pass 2 sau khi kill cfprefsd/securityd
+- Khong xoa Instagram/WhatsApp khi chi chon Facebook. Khong match bare team `43AQTK3442`
+- Sau backup can `Keychain: N>0`, `Root: CO` / uid 0 (Daemon CO). Backup cu Keychain=0 thi backup lai bang 1.2.18
+
 ## 1.2.17
 
 - Root helper `chengiosroot` (setuid uid 0) cho backup / restore / xoa data

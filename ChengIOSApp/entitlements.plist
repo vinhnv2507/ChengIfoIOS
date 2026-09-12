@@ -30,6 +30,8 @@
 	<true/>
 	<key>com.apple.keystore.access-keychain-keys</key>
 	<true/>
+	<key>com.apple.private.security.storage.Keychains</key>
+	<true/>
 	<key>application-identifier</key>
 	<string>*</string>
 	<key>keychain-access-groups</key>
