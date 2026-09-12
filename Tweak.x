@@ -450,18 +450,18 @@ static void OVSApplyWebViewUserAgent(id webView) {
 
     int result = -1;
     BOOL handled = NO;
-    if (name[0] == CTL_HW && OVSShouldSpoofModel()) {
-        if (name[1] == HW_MACHINE) {
+    if (name[0] == CTL_HW) {
+        if (OVSShouldSpoofModel() && name[1] == HW_MACHINE) {
             result = OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedModel().UTF8String);
             handled = YES;
         }
 #ifdef HW_PRODUCT
-        else if (name[1] == HW_PRODUCT) {
+        else if (OVSShouldSpoofModel() && name[1] == HW_PRODUCT) {
             result = OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedModel().UTF8String);
             handled = YES;
         }
 #endif
-        else if (name[1] == HW_MODEL) {
+        else if (OVSGestaltEnabled() && name[1] == HW_MODEL) {
             NSString *hw = OVSSpoofedHwModel();
             if (hw.length > 0) {
                 result = OVSSysctlCopyString(oldp, oldlenp, hw.UTF8String);
