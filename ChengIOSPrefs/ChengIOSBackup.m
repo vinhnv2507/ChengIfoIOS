@@ -1099,16 +1099,6 @@ static void CIChmodWorld(NSString *path, int mode) {
     }
 }
 
-static void CIDaemonHeartbeat(void) {
-    NSString *root = CIWorkRootDir(YES);
-    if (root.length == 0) {
-        return;
-    }
-    NSString *path = [root stringByAppendingPathComponent:@"daemon.alive"];
-    [@"ok" writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
-    CIChmodWorld(path, 0666);
-}
-
 static BOOL CIDaemonIsAlive(void) {
     NSString *root = CIWorkRootDir(NO);
     if (root.length == 0) {
