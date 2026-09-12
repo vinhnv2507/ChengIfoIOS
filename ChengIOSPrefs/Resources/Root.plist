@@ -181,6 +181,24 @@
 		</dict>
 		<dict>
 			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Backup / Data app</string>
+			<key>footerText</key>
+			<string>Backup ho so ChengIOS (nho). Backup data app luu Documents/Preferences/Cookies, bo Caches. Xoa data: kill app roi xoa sandbox. Khong xoa Safari/keychain iCloud. Nen dung app ChengIOS.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>detail</key>
+			<string>ChengIOSBackupController</string>
+			<key>isController</key>
+			<true/>
+			<key>label</key>
+			<string>Quan ly Backup</string>
+		</dict>
+		<dict>
+			<key>cell</key>
 			<string>PSButtonCell</string>
 			<key>action</key>
 			<string>showCurrentInfo</string>

@@ -2,6 +2,7 @@
 #import "AppListViewController.h"
 #import "DeeplinkListViewController.h"
 #import "RegionListViewController.h"
+#import "BackupListViewController.h"
 #import "../ChengIOSPrefs/ChengIOSProfiles.h"
 
 #import <spawn.h>
@@ -45,6 +46,12 @@ extern char **environ;
             @{@"kind": @"button", @"title": @"Sao ch\u00e9p h\u1ed3 s\u01a1", @"action": @"copy"},
             @{@"kind": @"nav", @"title": @"Random theo vùng", @"page": @"region", @"detail": @"VN / US / KR / JP..."},
             @{@"kind": @"nav", @"title": @"Deeplink / Shortcuts", @"page": @"deeplink", @"detail": @"chengios://"}
+        ],
+        @[
+            @{@"kind": @"nav", @"title": @"Quan ly Backup", @"page": @"backup", @"detail": @"Backup / Restore / Xoa data"},
+            @{@"kind": @"button", @"title": @"Backup ho so", @"action": @"backupProfile"},
+            @{@"kind": @"button", @"title": @"Backup ho so + data app", @"action": @"backupApps"},
+            @{@"kind": @"button", @"title": @"Xoa sach data app da chon", @"action": @"eraseApps"}
         ],
         @[
             @{@"kind": @"text", @"title": @"Model", @"keys": @[@"spoofedModel", @"customDeviceModel"], @"placeholder": @"iPhone16,2"},
@@ -174,7 +181,7 @@ extern char **environ;
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     (void)tableView;
     NSArray *titles = @[
-        @"Chung", @"Apps", @"Random", @"Change Info", @"Phi\u00ean b\u1ea3n iOS", @"Phi\u00ean b\u1ea3n App",
+        @"Chung", @"Apps", @"Random", @"Backup / Data", @"Change Info", @"Phi\u00ean b\u1ea3n iOS", @"Phi\u00ean b\u1ea3n App",
         @"\u0110\u1ecbnh danh", @"Locale", @"Nh\u00e0 m\u1ea1ng", @"V\u1ecb tr\u00ed", @"M\u1ea1ng / Wi-Fi",
         @"Gestalt / ID", @"Kh\u00e1c"
     ];
@@ -189,13 +196,16 @@ extern char **environ;
     if (section == 2) {
         return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";
     }
-    if (section == 9) {
+    if (section == 3) {
+        return @"Backup ho so nho. Backup data bo Caches. Xoa data kill app + sandbox, khong xoa keychain iCloud. Safari khong bi xoa.";
+    }
+    if (section == 10) {
         return @"deviceinfo.me Region/City/ISP la IP cong cong that (Viettel/Hung Yen). Bam nut Detect de dung GPS gia lap.";
     }
-    if (section == 11) {
+    if (section == 12) {
         return self.summary;
     }
-    if (section == 12) {
+    if (section == 13) {
         return @"Force-quit app dich sau Random. Respring o goc tren trai, Refresh o goc tren phai.";
     }
     return nil;
@@ -305,6 +315,8 @@ extern char **environ;
             next = [[DeeplinkListViewController alloc] initWithStyle:UITableViewStyleGrouped];
         } else if ([page isEqualToString:@"region"]) {
             next = [[RegionListViewController alloc] initWithStyle:UITableViewStyleGrouped];
+        } else if ([page isEqualToString:@"backup"]) {
+            next = [[BackupListViewController alloc] initWithStyle:UITableViewStyleGrouped];
         } else {
             next = [[AppListViewController alloc] initWithStyle:UITableViewStyleGrouped];
         }
@@ -340,6 +352,12 @@ extern char **environ;
         [self openSettings];
     } else if ([action isEqualToString:@"respring"]) {
         [self respring];
+    } else if ([action isEqualToString:@"backupProfile"]) {
+        ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://backup-profile"], self);
+    } else if ([action isEqualToString:@"backupApps"]) {
+        ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://backup-apps"], self);
+    } else if ([action isEqualToString:@"eraseApps"]) {
+        ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-apps"], self);
     }
 }
 
@@ -496,6 +514,8 @@ extern char **environ;
         [self runRandom:YES silent:silent]; did = YES;
     } else if (modeIdentity || [self token:token hasAny:@[@"random-identity", @"random-info", @"identity", @"info-may", @"infomay", @"machine"]]) {
         [self runRandom:NO silent:silent]; did = YES;
+    } else if (ChengIOSHandleBackupURL(url, self.navigationController.topViewController ?: self)) {
+        did = YES;
     } else if ([self token:token hasAny:@[@"copy"]]) {
         [self copySummary]; did = YES;
     } else if ([self token:token hasAny:@[@"profile", @"current", @"hoso", @"ho-so", @"info"]]) {

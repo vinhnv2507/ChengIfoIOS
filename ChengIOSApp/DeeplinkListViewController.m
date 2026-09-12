@@ -26,6 +26,13 @@
         @{@"title": @"Xem ho so", @"url": @"chengios://profile"},
         @{@"title": @"Sao chep ho so", @"url": @"chengios://copy"},
         @{@"title": @"Mo Settings", @"url": @"chengios://settings"},
+        @{@"title": @"Quan ly Backup", @"url": @"chengios://backup"},
+        @{@"title": @"Backup ho so", @"url": @"chengios://backup-profile"},
+        @{@"title": @"Backup ho so + data app", @"url": @"chengios://backup-apps"},
+        @{@"title": @"Restore backup moi nhat", @"url": @"chengios://restore-latest"},
+        @{@"title": @"Restore + data moi nhat", @"url": @"chengios://restore-latest?data=1"},
+        @{@"title": @"Xoa sach data app da chon", @"url": @"chengios://erase-apps"},
+        @{@"title": @"Xoa data Facebook", @"url": @"chengios://erase?bundle=com.facebook.Facebook"},
         @{@"title": @"Respring", @"url": @"chengios://respring"},
         @{@"title": @"Random silent", @"url": @"chengios://random-all?silent=1"}
     ];

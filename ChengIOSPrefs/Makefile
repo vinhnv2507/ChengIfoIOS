@@ -8,7 +8,7 @@ endif
 
 BUNDLE_NAME = ChengIOSPrefs
 
-ChengIOSPrefs_FILES = APPRootListController.m ChengIOSChangeInfoController.m ChengIOSAppListController.m ChengIOSCurrentInfoController.m ChengIOSDeeplinksController.m ChengIOSRegionController.m SRSwitchTableCell.m ChengIOSProfiles.m
+ChengIOSPrefs_FILES = APPRootListController.m ChengIOSChangeInfoController.m ChengIOSAppListController.m ChengIOSCurrentInfoController.m ChengIOSDeeplinksController.m ChengIOSRegionController.m ChengIOSBackupController.m SRSwitchTableCell.m ChengIOSProfiles.m ChengIOSBackup.m
 ChengIOSPrefs_FRAMEWORKS = UIKit
 ChengIOSPrefs_PRIVATE_FRAMEWORKS = Preferences
 ChengIOSPrefs_INSTALL_PATH = /Library/PreferenceBundles

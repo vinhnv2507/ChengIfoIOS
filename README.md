@@ -32,6 +32,14 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.11
+
+- Quan ly backup / restore ho so ChengIOS
+- Backup kem data app da chon (Documents, Preferences, Cookies; bo Caches/tmp)
+- Xoa sach sandbox app da chon (khong xoa Safari / keychain iCloud)
+- Deeplink: `chengios://backup`, `chengios://backup-profile`, `chengios://backup-apps`, `chengios://restore-latest`, `chengios://restore?id=...&data=1`, `chengios://erase-apps`, `chengios://erase?bundle=com.facebook.Facebook`
+- Backup luu tai `/var/mobile/Media/ChengIOS/Backups`
+
 ## 1.2.10
 
 - Safari GPS: bam Detect tren deviceinfo.me (Region/City/ISP van la IP cong cong that)

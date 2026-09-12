@@ -178,6 +178,76 @@
 			<key>action</key>
 			<string>copyURL:</string>
 			<key>label</key>
+			<string>Quan ly Backup</string>
+			<key>url</key>
+			<string>chengios://backup</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Backup ho so</string>
+			<key>url</key>
+			<string>chengios://backup-profile</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Backup ho so + data app</string>
+			<key>url</key>
+			<string>chengios://backup-apps</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Restore backup moi nhat</string>
+			<key>url</key>
+			<string>chengios://restore-latest</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Restore + data moi nhat</string>
+			<key>url</key>
+			<string>chengios://restore-latest?data=1</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Xoa sach data app da chon</string>
+			<key>url</key>
+			<string>chengios://erase-apps</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Xoa data 1 app</string>
+			<key>url</key>
+			<string>chengios://erase?bundle=com.facebook.Facebook</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
 			<string>Respring</string>
 			<key>url</key>
 			<string>chengios://respring</string>
