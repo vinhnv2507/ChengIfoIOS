@@ -2354,7 +2354,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
             NSString *dataPath = CIDataPath(bundleID);
             NSDictionary *groups = CIGroupPaths(bundleID);
             NSDictionary *plugins = CIPluginPaths(bundleID);
-            NSMutableArray *keychain = [[CIKeychainDumpForBundle(bundleID) mutableCopy] ?: [NSMutableArray array] ];
+            NSMutableArray *keychain = [(CIKeychainDumpForBundle(bundleID) ?: @[]) mutableCopy];
             NSArray *sqlItems = CIKeychainSQLDumpForBundle(bundleID);
             if (sqlItems.count > 0) {
                 [keychain addObjectsFromArray:sqlItems];
