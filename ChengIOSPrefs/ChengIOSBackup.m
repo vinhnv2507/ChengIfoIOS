@@ -403,12 +403,16 @@ static void CIClearItemFlags(NSString *path) {
     if (path.length == 0) {
         return;
     }
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSMutableDictionary *attrs = [NSMutableDictionary dictionary];
+    attrs[NSFileImmutable] = @NO;
+    attrs[NSFileAppendOnly] = @NO;
+    attrs[NSFilePosixPermissions] = @0777;
+    [fm setAttributes:attrs ofItemAtPath:path error:nil];
     const char *raw = path.fileSystemRepresentation;
-    if (!raw) {
-        return;
+    if (raw) {
+        chmod(raw, 0777);
     }
-    lchflags(raw, 0);
-    chmod(raw, 0777);
 }
 
 static void CIChownTree(NSString *path) {
