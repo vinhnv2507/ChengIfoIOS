@@ -233,7 +233,7 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
             if (msg.length == 0) {
                 [msg appendString:@"Khong xoa duoc app nao."];
             }
-            [msg appendString:@"\nDa xoa sandbox/snapshot. Keychain app: best-effort. Khong xoa iCloud keychain. Group dung chung app khac se giu."];
+            [msg appendString:@"\nDa xoa sandbox/snapshot/keychain app. Facebook family group cung bi xoa. iCloud Keychain AutoFill co the van hien username."];
             done(ok.count ? @"Da xoa data" : @"Xoa data", msg);
         });
     };
@@ -394,7 +394,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     if (section == 0) {
         NSArray *apps = ChengIOSUserSelectedBundleIDs();
         NSString *list = apps.count ? [apps componentsJoinedByString:@", "] : @"chua chon app user nao";
-        return [NSString stringWithFormat:@"App da chon (khong tinh Safari): %@.\nBackup data bo Caches/tmp. Xoa sandbox + snapshot + keychain app (best-effort). Group chia se voi app khac se giu. Deeplink: chengios://backup-profile , chengios://backup-apps?bundle=ID , chengios://restore-latest?data=1 , chengios://erase-apps", list];
+        return [NSString stringWithFormat:@"App da chon (khong tinh Safari): %@.\nBackup data bo Caches/tmp. Xoa sandbox + snapshot + keychain app. Facebook/Shopee se xoa ca group family (Messenger co the bi logout). Deeplink: chengios://backup-profile , chengios://backup-apps?bundle=ID , chengios://restore-latest?data=1 , chengios://erase-apps", list];
     }
     return [NSString stringWithFormat:@"Thu muc: %@", ChengIOSBackupRoot()];
 }

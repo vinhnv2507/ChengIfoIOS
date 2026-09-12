@@ -26,7 +26,9 @@ BOOL OVSIsSafariFamily(void);
 BOOL OVSIsFragileApp(void);
 BOOL OVSShouldSpoofOSVersion(void);
 BOOL OVSGestaltEnabled(void);
+BOOL OVSNarrowGestaltEnabled(void);
 BOOL OVSLowLevelHooksEnabled(void);
+BOOL OVSMachineHooksEnabled(void);
 BOOL OVSBeginLowLevelHook(void);
 void OVSEndLowLevelHook(void);
 

@@ -39,7 +39,7 @@ static CFTypeRef hooked_MGCopyAnswer(CFStringRef question, uint32_t *typeCode) {
     }
 
     CFTypeRef result = NULL;
-    if (OVSGestaltEnabled() && OVSGestaltQuestionIsPlainKey(question)) {
+    if ((OVSGestaltEnabled() || OVSNarrowGestaltEnabled()) && OVSGestaltQuestionIsPlainKey(question)) {
         NSString *key = (__bridge NSString *)question;
         id value = OVSGestaltObjectForKey(key);
         if ([value isKindOfClass:[NSString class]] && [(NSString *)value length] > 0) {
@@ -54,11 +54,11 @@ static CFTypeRef hooked_MGCopyAnswer(CFStringRef question, uint32_t *typeCode) {
 }
 
 %ctor {
-    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess() || OVSIsFragileApp()) {
+    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess()) {
         return;
     }
     OVSRegisterPreferenceListener();
-    if (!OVSGestaltEnabled()) {
+    if (!OVSGestaltEnabled() && !OVSNarrowGestaltEnabled()) {
         return;
     }
     void *handle = dlopen("/usr/lib/libMobileGestalt.dylib", RTLD_LAZY);

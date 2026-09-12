@@ -442,6 +442,39 @@ static void OVSApplyWebViewUserAgent(id webView) {
     OVSEndLowLevelHook();
     return result;
 }
+
+%hookf(int, sysctl, int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp, size_t newlen) {
+    if (!name || namelen < 2 || !OVSBeginLowLevelHook()) {
+        return %orig(name, namelen, oldp, oldlenp, newp, newlen);
+    }
+
+    int result = -1;
+    BOOL handled = NO;
+    if (name[0] == CTL_HW && OVSShouldSpoofModel()) {
+        if (name[1] == HW_MACHINE) {
+            result = OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedModel().UTF8String);
+            handled = YES;
+        }
+#ifdef HW_PRODUCT
+        else if (name[1] == HW_PRODUCT) {
+            result = OVSSysctlCopyString(oldp, oldlenp, OVSSpoofedModel().UTF8String);
+            handled = YES;
+        }
+#endif
+        else if (name[1] == HW_MODEL) {
+            NSString *hw = OVSSpoofedHwModel();
+            if (hw.length > 0) {
+                result = OVSSysctlCopyString(oldp, oldlenp, hw.UTF8String);
+                handled = YES;
+            }
+        }
+    }
+    if (!handled) {
+        result = %orig(name, namelen, oldp, oldlenp, newp, newlen);
+    }
+    OVSEndLowLevelHook();
+    return result;
+}
 %end
 
 %ctor {
@@ -459,7 +492,7 @@ static void OVSApplyWebViewUserAgent(id webView) {
     if (OVSSpoofingEnabled() && !OVSIsFragileApp() && NSClassFromString(@"TabDocument")) {
         %init(SafariTabHooks);
     }
-    if (OVSLowLevelHooksEnabled()) {
+    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
         %init(LowLevelSysctl);
     }
 }
