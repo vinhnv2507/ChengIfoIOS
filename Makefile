@@ -14,6 +14,7 @@ $(TWEAK_NAME)_CFLAGS = -fobjc-arc -Wno-unused-variable -Wno-deprecated-declarati
 
 SUBPROJECTS += ChengIOSPrefs
 SUBPROJECTS += ChengIOSApp
+SUBPROJECTS += ChengIOSHelper
 
 include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/tweak.mk

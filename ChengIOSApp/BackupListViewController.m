@@ -115,8 +115,16 @@ static NSString *CIResultText(NSDictionary *meta, NSError *error, NSString *fall
     if (meta[@"keychainItems"]) {
         [text appendFormat:@"\nKeychain: %@ item", meta[@"keychainItems"]];
         if ([meta[@"includeAppData"] boolValue] && [meta[@"keychainItems"] unsignedIntegerValue] == 0) {
-            [text appendString:@"\nCanh bao: khong dump duoc keychain. Restore co the mat login. Hay backup tu app ChengIOS."];
+            [text appendString:@"\nCanh bao: khong dump duoc keychain. Restore se mat login."];
         }
+    }
+    if (meta[@"asRoot"]) {
+        [text appendFormat:@"\nRoot helper: %@", [meta[@"asRoot"] boolValue] ? @"CO" : @"KHONG"];
+        if (![meta[@"asRoot"] boolValue]) {
+            [text appendString:@"\nCanh bao: chengiosroot chua chay setuid. Cai 1.2.17, Respring, backup lai tu app ChengIOS."];
+        }
+    } else if ([meta[@"includeAppData"] boolValue]) {
+        [text appendString:@"\nRoot helper: KHONG (ban backup cu). Restore co the mat login."];
     }
     [text appendFormat:@"\nThu muc: %@", ChengIOSBackupRoot()];
     return text;
@@ -146,7 +154,7 @@ void ChengIOSRunCreateBackup(UIViewController *host, NSString *name, BOOL includ
             NSArray *bundles = includeAppData ? (bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs()) : @[];
             NSDictionary *meta = ChengIOSCreateBackup(name, bundles, includeAppData, &error);
             NSString *title = error ? @"Backup loi" : @"Da backup";
-            done(title, CIResultText(meta, error, includeAppData ? @"Da luu ho so va data app (bo Caches/tmp)." : @"Da luu ho so ChengIOS."));
+            done(title, CIResultText(meta, error, includeAppData ? @"Da luu ho so + data + keychain. Can Keychain > 0 va Root CO de restore con login." : @"Da luu ho so ChengIOS."));
         });
     };
     if (silent) {
@@ -154,7 +162,7 @@ void ChengIOSRunCreateBackup(UIViewController *host, NSString *name, BOOL includ
         return;
     }
     NSString *message = includeAppData
-        ? @"Luu ho so hien tai va data app da chon (Documents, Preferences, Cookies; bo Caches). App se bi kill trong luc copy."
+        ? @"Luu ho so + 4 thu muc Documents/Library/tmp/SystemData + group/plugin + keychain (root). App se bi kill trong luc copy. Can dang nhap san trong app."
         : @"Luu ho so gia lap hien tai (model/iOS/GPS/Wi-Fi...).";
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:includeAppData ? @"Backup ho so + data" : @"Backup ho so"
                                                                    message:message
@@ -185,7 +193,7 @@ void ChengIOSRunRestore(UIViewController *host, NSString *backupID, BOOL restore
             NSError *error = nil;
             BOOL ok = ChengIOSRestoreBackup(backupID, restoreProfile, restoreAppData, &error);
             NSDictionary *meta = ChengIOSBackupInfo(backupID);
-            NSString *msg = error ? ChengIOSBackupErrorMessage(error) : (ok ? @"Da restore. Force-quit app dich roi mo lai." : @"Restore that bai.");
+            NSString *msg = error ? ChengIOSBackupErrorMessage(error) : (ok ? @"Da restore keychain + sandbox. Force-quit Facebook/Shopee/TikTok roi mo lai. Neu bi logout: backup do Keychain=0, hay backup lai bang 1.2.17." : @"Restore that bai.");
             if (!error && [meta[@"name"] length]) {
                 msg = [NSString stringWithFormat:@"%@\n%@", meta[@"name"], msg];
             }
@@ -239,7 +247,7 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
             if (msg.length == 0) {
                 [msg appendString:@"Khong xoa duoc app nao."];
             }
-            [msg appendString:@"\nDa xoa Documents/Library/tmp/SystemData + group/plugin/keychain. Vuot tat Facebook + Messenger, doi xong, dung mo FB ngay. iCloud Keychain AutoFill co the van hien username."];
+            [msg appendString:@"\nDa xoa sandbox + group + plugin + keychain SQL/root + accountsd. Vuot tat Facebook/Messenger/TikTok/Shopee, doi xong, dung mo ngay. iCloud Keychain AutoFill co the van hien username."];
             done(ok.count ? @"Da xoa data" : @"Xoa data", msg);
         });
     };
@@ -527,7 +535,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     if (section == 0) {
         NSArray *apps = ChengIOSUserSelectedBundleIDs();
         NSString *list = apps.count ? [apps componentsJoinedByString:@", "] : @"chua chon app user nao";
-        return [NSString stringWithFormat:@"App da chon: %@.\nBackup 4 thu muc Documents/Library/tmp/SystemData + group/plugin/keychain. Restore chown 501. Xoa FB xoa SSO/Messenger. Safari xoa history/cookies. Deeplink: chengios://erase-safari , chengios://erase-device , chengios://erase-random-all , chengios://erase-device-random", list];
+        return [NSString stringWithFormat:@"App da chon: %@.\nBackup/restore chay root helper chengiosroot + keychain-2.db de giu login. Sau backup can Keychain > 0 va Root CO. Xoa FB/TikTok/Shopee xoa SSO + companion. Safari xoa history/cookies. Deeplink: chengios://erase-safari , chengios://erase-device , chengios://erase-random-all , chengios://erase-device-random", list];
     }
     return [NSString stringWithFormat:@"Thu muc: %@", ChengIOSBackupRoot()];
 }
@@ -551,7 +559,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
             ];
             NSArray *details = @[
                 @"Chi identity ChengIOS (nho, nhanh)",
-                @"Documents/Library/tmp/SystemData + group/plugin/keychain",
+                @"Root helper + Documents/Library/tmp/SystemData + keychain SQL",
                 @"Ke ca Safari neu dang tick. Facebook xoa SSO",
                 @"History, cookies, website data",
                 @"Nhu moi cai app. Giu jailbreak/anh/tin nhan",
@@ -586,6 +594,12 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     NSArray *bundles = item[@"bundles"];
     if ([item[@"includeAppData"] boolValue] && [bundles isKindOfClass:[NSArray class]]) {
         [detail appendFormat:@"  ·  %lu app  ·  %@", (unsigned long)bundles.count, CIBytesString([item[@"bytes"] unsignedLongLongValue])];
+        if (item[@"keychainItems"]) {
+            [detail appendFormat:@"  ·  KC %@", item[@"keychainItems"]];
+        }
+        if (item[@"asRoot"]) {
+            [detail appendFormat:@"  ·  root %@", [item[@"asRoot"] boolValue] ? @"CO" : @"KHONG"];
+        }
     } else {
         [detail appendString:@"  ·  ho so"];
     }

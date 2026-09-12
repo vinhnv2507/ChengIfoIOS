@@ -1,5 +1,11 @@
 #!/bin/sh
 echo "ChengIOS is installed!"
+for helper in /var/jb/usr/local/bin/chengiosroot /usr/local/bin/chengiosroot /var/jb/usr/bin/chengiosroot /usr/bin/chengiosroot; do
+  if [ -f "$helper" ]; then
+    chown root:wheel "$helper" 2>/dev/null || chown 0:0 "$helper" 2>/dev/null || true
+    chmod 6755 "$helper" 2>/dev/null || true
+  fi
+done
 killall -9 Preferences >/dev/null 2>&1 || true
 killall -9 ChengIOSApp >/dev/null 2>&1 || true
 
