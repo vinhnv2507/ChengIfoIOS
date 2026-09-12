@@ -12,6 +12,13 @@ for cand in /var/jb/usr/local/bin/chengiosroot /usr/local/bin/chengiosroot /var/
   fi
 done
 
+for cand in /var/jb/usr/local/bin/chengioskc /usr/local/bin/chengioskc /var/jb/usr/bin/chengioskc /usr/bin/chengioskc; do
+  if [ -f "$cand" ]; then
+    chown root:wheel "$cand" 2>/dev/null || chown 0:0 "$cand" 2>/dev/null || true
+    chmod 6755 "$cand" 2>/dev/null || true
+  fi
+done
+
 for appbin in /Applications/ChengIOSApp.app/ChengIOSApp /var/jb/Applications/ChengIOSApp.app/ChengIOSApp; do
   if [ -f "$appbin" ]; then
     chown root:wheel "$appbin" 2>/dev/null || chown 0:0 "$appbin" 2>/dev/null || true
