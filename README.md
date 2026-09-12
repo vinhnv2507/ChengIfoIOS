@@ -32,6 +32,14 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.17
+
+- Root helper `chengiosroot` (setuid uid 0) cho backup / restore / xoa data
+- Dump + restore + wipe keychain bang SecItem (khi chay root) va SQLite `keychain-2.db` (bang `genp` / `inet`) de giu cookie / phien dang nhap Facebook, Shopee, TikTok
+- Xoa Facebook / TikTok / Shopee sach hon: companion app, app group, Application Support, accountsd
+- Sau backup, can thay `Keychain: N item` > 0 va `Root: CO`. Neu N=0 hoac Root KHONG thi restore se mat login: cai lai 1.2.17, Respring, backup tu app ChengIOS (khong dung Settings)
+- Restore xong force-quit app roi mo lai. iCloud Keychain AutoFill van co the goi y username
+
 ## 1.2.16
 
 - Backup/restore/xoa data theo ControlIOS: copy 4 thu muc `Documents`, `Library`, `tmp`, `SystemData`; khong xoa metadata container

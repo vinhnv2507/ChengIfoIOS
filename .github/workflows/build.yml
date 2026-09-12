@@ -45,6 +45,7 @@ jobs:
             echo "$contents" | grep 'ChengIOS.dylib'
             echo "$contents" | grep 'ChengIOSPrefs.bundle'
             echo "$contents" | grep 'ChengIOSApp.app'
+            echo "$contents" | grep 'chengiosroot'
           done
 
       - name: Build APT repository
@@ -66,7 +67,7 @@ jobs:
             echo 'Label: ChengIOS'
             echo 'Suite: stable'
             echo 'Codename: ios'
-            echo 'Version: 1.2.16'
+            echo 'Version: 1.2.17'
             echo 'Architectures: iphoneos-arm iphoneos-arm64'
             echo 'Components: main'
             echo 'Description: ChengIOS Sileo repository'
