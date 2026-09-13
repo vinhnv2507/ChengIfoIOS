@@ -55,9 +55,7 @@ extern char **environ;
             @{@"kind": @"button", @"title": @"Backup ho so", @"action": @"backupProfile"},
             @{@"kind": @"button", @"title": @"Backup ho so + data app", @"action": @"backupApps"},
             @{@"kind": @"button", @"title": @"Xoa sach data app da chon", @"action": @"eraseApps"},
-            @{@"kind": @"button", @"title": @"Xoa toan bo app + Safari", @"action": @"eraseDevice"},
-            @{@"kind": @"button", @"title": @"Xoa app da chon + Random Toan Bo", @"action": @"eraseRandomAll"},
-            @{@"kind": @"button", @"title": @"Xoa toan bo + Random Toan Bo", @"action": @"eraseDeviceRandom"}
+            @{@"kind": @"button", @"title": @"Xoa app da chon + Random Toan Bo", @"action": @"eraseRandomAll"}
         ],
         @[
             @{@"kind": @"text", @"title": @"Model", @"keys": @[@"spoofedModel", @"customDeviceModel"], @"placeholder": @"iPhone16,2"},
@@ -364,12 +362,8 @@ extern char **environ;
         ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://backup-apps"], self);
     } else if ([action isEqualToString:@"eraseApps"]) {
         ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-apps"], self);
-    } else if ([action isEqualToString:@"eraseDevice"]) {
-        ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-device"], self);
     } else if ([action isEqualToString:@"eraseRandomAll"]) {
         ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-random-all"], self);
-    } else if ([action isEqualToString:@"eraseDeviceRandom"]) {
-        ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-device-random"], self);
     }
 }
 

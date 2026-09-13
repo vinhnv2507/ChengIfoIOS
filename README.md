@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.32
+
+- Bo nut/deeplink **Xoa toan bo app + Safari**
+- Backup/restore/wipe nhanh hon kieu Apps Manager: `copyfile` recursive + clone APFS, bo Caches/tmp/Logs, `rm -rf` sandbox, bot sleep, keychain SQL theo agrp (khong copy ca keychain-2.db)
+- Shopee van nhan may cu sau wipe: IDFV that khong doi (Shopee la app fragile, khong spoof IDFV/iOS). 1.2.32 xoa `com.apple.deviceids` theo Team ID de iOS cap IDFV moi. Can force-quit Shopee, login lai; neu van skip email thi co the DeviceCheck cua Apple (gan phan cung)
+
 ## 1.2.31
 
 - Giu dung change/hook **1.2.14 / 1.2.29**. Khong sua Prefs/Tweak/Hooks, khong setuid ChengIOSApp
