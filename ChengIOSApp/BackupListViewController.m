@@ -104,6 +104,15 @@ static NSString *CIResultText(NSDictionary *meta, NSError *error, NSString *fall
     if (meta[@"bytes"]) {
         [text appendFormat:@"\nData: %@", CIBytesString([meta[@"bytes"] unsignedLongLongValue])];
     }
+    if (meta[@"copyFiles"] || meta[@"copyFailed"]) {
+        [text appendFormat:@"\nFiles: %@  fail %@", meta[@"copyFiles"] ?: @0, meta[@"copyFailed"] ?: @0];
+        if ([meta[@"copyFailed"] unsignedIntegerValue] > 0) {
+            [text appendString:@"\nCanh bao: copy that bai mot so file. Restore co the thieu data."];
+        }
+        if ([meta[@"includeAppData"] boolValue] && [meta[@"bytes"] unsignedLongLongValue] == 0) {
+            [text appendString:@"\nCanh bao: Data 0 byte. Backup sandbox that bai, restore se khong co login."];
+        }
+    }
     NSArray *bundles = meta[@"bundles"];
     if ([bundles isKindOfClass:[NSArray class]] && bundles.count > 0) {
         [text appendFormat:@"\nApp: %@", [bundles componentsJoinedByString:@", "]];
@@ -127,7 +136,7 @@ static NSString *CIResultText(NSDictionary *meta, NSError *error, NSString *fall
             [text appendFormat:@"\nKC loi: %@", meta[@"signedError"]];
         }
         if ([meta[@"includeAppData"] boolValue] && [meta[@"keychainItems"] unsignedIntegerValue] == 0) {
-            [text appendString:@"\nCanh bao: Keychain 0. Cai ldid (Apps Manager ldid / Procursus). Can Keychain N>0 va kcUid 501. Cai 1.2.20, cai ldid, Respring, backup lai khi dang login. Backup cu 1.2.19 (uid 0) khong giu login."];
+            [text appendString:@"\nCanh bao: Keychain 0. Cai ldid (Apps Manager ldid / Procursus). Can Keychain N>0 va kcUid 501. Cai 1.2.23, cai ldid, Respring, backup lai khi dang login. Backup cu 1.2.19 (uid 0) khong giu login."];
         }
     }
     if (meta[@"asRoot"]) {
@@ -224,7 +233,17 @@ void ChengIOSRunRestore(UIViewController *host, NSString *backupID, BOOL restore
             NSError *error = nil;
             BOOL ok = ChengIOSRestoreBackup(backupID, restoreProfile, restoreAppData, &error);
             NSDictionary *meta = ChengIOSBackupInfo(backupID);
-            NSString *msg = error ? ChengIOSBackupErrorMessage(error) : (ok ? @"Da restore keychain + sandbox. Force-quit Facebook/Shopee/TikTok roi mo lai. Neu bi logout: backup cu Keychain=0 hoac kcUid != 501. Backup lai bang 1.2.20 khi dang login." : @"Restore that bai.");
+            NSString *msg = error ? ChengIOSBackupErrorMessage(error) : (ok ? @"Da restore sandbox + keychain. Force-quit Facebook/Shopee/TikTok roi mo lai. Neu FB van logout: backup lai bang 1.2.23 khi dang login, can Data>0, Keychain N>0, kcUid 501." : @"Restore that bai.");
+            NSDictionary *stats = ChengIOSLastRestoreStats();
+            if (stats.count > 0) {
+                msg = [NSString stringWithFormat:@"%@\nFiles %@  fail %@  bytes %@\nKeychain restored %@  kcUid %@",
+                       msg,
+                       stats[@"copiedFiles"] ?: @0,
+                       stats[@"copyFailed"] ?: @0,
+                       stats[@"copiedBytes"] ?: @0,
+                       stats[@"keychainRestored"] ?: @0,
+                       stats[@"kcUid"] ?: @"?"];
+            }
             if (!error && [meta[@"name"] length]) {
                 msg = [NSString stringWithFormat:@"%@\n%@", meta[@"name"], msg];
             }

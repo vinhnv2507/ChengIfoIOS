@@ -256,6 +256,8 @@ static NSArray *CIKCCopy(id cls, NSDictionary *extra, BOOL withData) {
     return [items isKindOfClass:[NSArray class]] ? items : @[];
 }
 
+static BOOL CIKCSkipApple(NSString *agrp);
+
 static NSArray *CIKCDump(NSArray<NSString *> *agrps) {
     NSMutableArray<NSDictionary *> *out = [NSMutableArray array];
     NSMutableSet<NSString *> *seen = [NSMutableSet set];
@@ -283,9 +285,10 @@ static NSArray *CIKCDump(NSArray<NSString *> *agrps) {
         }
         for (NSDictionary *item in CIKCCopy(cls, nil, YES)) {
             NSString *agrp = item[(__bridge id)kSecAttrAccessGroup];
-            if ([agrp isKindOfClass:[NSString class]] && [seenGrp containsObject:agrp]) {
-                CIKCAddUnique(out, seen, CIKCRowFromItem(cls, item));
+            if (CIKCSkipApple(agrp)) {
+                continue;
             }
+            CIKCAddUnique(out, seen, CIKCRowFromItem(cls, item));
         }
     }
     return out;

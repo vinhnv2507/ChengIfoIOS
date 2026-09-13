@@ -10,6 +10,11 @@
 #include <sys/stat.h>
 #import <Security/Security.h>
 #import <sqlite3.h>
+#include <copyfile.h>
+#include <errno.h>
+#ifndef COPYFILE_NOFOLLOW
+#define COPYFILE_NOFOLLOW (COPYFILE_NOFOLLOW_SRC | COPYFILE_NOFOLLOW_DST)
+#endif
 
 extern char **environ;
 
@@ -405,6 +410,20 @@ static NSArray<NSString *> *CIAppDataSubdirs(void) {
 
 static const uid_t kCIMobileUID = 501;
 static const gid_t kCIMobileGID = 501;
+static unsigned long long gCICopyBytes = 0;
+static NSUInteger gCICopyFiles = 0;
+static NSUInteger gCICopyFailed = 0;
+static NSMutableDictionary *gCILastRestoreStats = nil;
+
+static void CICopyStatsReset(void) {
+    gCICopyBytes = 0;
+    gCICopyFiles = 0;
+    gCICopyFailed = 0;
+}
+
+NSDictionary *ChengIOSLastRestoreStats(void) {
+    return [gCILastRestoreStats copy];
+}
 
 static void CIClearItemFlags(NSString *path) {
     if (path.length == 0) {
@@ -422,35 +441,51 @@ static void CIClearItemFlags(NSString *path) {
     }
 }
 
+static void CIProtectItem(NSString *path) {
+    if (path.length == 0) {
+        return;
+    }
+    NSError *err = nil;
+    [[NSFileManager defaultManager] setAttributes:@{
+        NSFileOwnerAccountID: @(kCIMobileUID),
+        NSFileGroupOwnerAccountID: @(kCIMobileGID),
+        NSFileProtectionKey: NSFileProtectionCompleteUntilFirstUserAuthentication
+    } ofItemAtPath:path error:&err];
+    (void)err;
+}
+
 static void CIChownTree(NSString *path) {
     if (path.length == 0) {
         return;
     }
     const char *raw = path.fileSystemRepresentation;
+    struct stat st;
+    memset(&st, 0, sizeof(st));
     if (raw) {
         lchown(raw, kCIMobileUID, kCIMobileGID);
+        if (lstat(raw, &st) == 0) {
+            mode_t mode = st.st_mode;
+            if (S_ISDIR(mode)) {
+                if ([[path lastPathComponent] isEqualToString:@"tmp"]) {
+                    chmod(raw, 0777);
+                } else {
+                    chmod(raw, (mode | 0700) & 0777);
+                }
+            } else if (S_ISREG(mode)) {
+                chmod(raw, mode | 0600);
+            }
+        }
+    }
+    if (!S_ISLNK(st.st_mode)) {
+        CIProtectItem(path);
     }
     NSFileManager *fm = [NSFileManager defaultManager];
     NSDictionary *attrs = [fm attributesOfItemAtPath:path error:nil];
     NSString *type = attrs.fileType;
     if ([type isEqualToString:NSFileTypeDirectory]) {
-        NSInteger mode = [path.lastPathComponent isEqualToString:@"tmp"] ? 0777 : 0755;
-        [fm setAttributes:@{
-            NSFilePosixPermissions: @(mode),
-            NSFileOwnerAccountID: @(kCIMobileUID),
-            NSFileGroupOwnerAccountID: @(kCIMobileGID)
-        } ofItemAtPath:path error:nil];
         for (NSString *name in [fm contentsOfDirectoryAtPath:path error:nil]) {
             CIChownTree([path stringByAppendingPathComponent:name]);
         }
-        return;
-    }
-    if ([type isEqualToString:NSFileTypeRegular]) {
-        [fm setAttributes:@{
-            NSFilePosixPermissions: @0644,
-            NSFileOwnerAccountID: @(kCIMobileUID),
-            NSFileGroupOwnerAccountID: @(kCIMobileGID)
-        } ofItemAtPath:path error:nil];
     }
 }
 
@@ -595,17 +630,76 @@ static BOOL CIEmptyContainer(NSString *path) {
     return ok;
 }
 
+static BOOL CITreeHasFiles(NSString *path) {
+    NSFileManager *fm = [NSFileManager defaultManager];
+    BOOL isDir = NO;
+    if (![fm fileExistsAtPath:path isDirectory:&isDir]) {
+        return NO;
+    }
+    if (!isDir) {
+        return YES;
+    }
+    NSDirectoryEnumerator *en = [fm enumeratorAtPath:path];
+    for (NSString *name in en) {
+        if (CIIsReservedName(name.lastPathComponent)) {
+            continue;
+        }
+        NSDictionary *attrs = [en fileAttributes];
+        if ([attrs.fileType isEqualToString:NSFileTypeRegular]) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+static unsigned long long CICopyOneFile(NSString *from, NSString *to) {
+    const char *src = from.fileSystemRepresentation;
+    const char *dst = to.fileSystemRepresentation;
+    if (!src || !dst) {
+        gCICopyFailed += 1;
+        return 0;
+    }
+    CIClearItemFlags(from);
+    unlink(dst);
+    int flags = COPYFILE_ALL | COPYFILE_NOFOLLOW | COPYFILE_UNLINK;
+    int rc = copyfile(src, dst, NULL, flags);
+    if (rc != 0) {
+        flags = COPYFILE_DATA | COPYFILE_XATTR | COPYFILE_STAT | COPYFILE_NOFOLLOW | COPYFILE_UNLINK;
+        rc = copyfile(src, dst, NULL, flags);
+    }
+    if (rc != 0) {
+        flags = COPYFILE_DATA | COPYFILE_STAT | COPYFILE_NOFOLLOW | COPYFILE_UNLINK;
+        rc = copyfile(src, dst, NULL, flags);
+    }
+    if (rc != 0) {
+        NSError *err = nil;
+        if (![[NSFileManager defaultManager] copyItemAtPath:from toPath:to error:&err]) {
+            gCICopyFailed += 1;
+            return 0;
+        }
+    }
+    gCICopyFiles += 1;
+    struct stat st;
+    memset(&st, 0, sizeof(st));
+    if (lstat(dst, &st) == 0 && S_ISREG(st.st_mode)) {
+        gCICopyBytes += (unsigned long long)st.st_size;
+        return (unsigned long long)st.st_size;
+    }
+    return 0;
+}
+
 static unsigned long long CICopyTree(NSString *from, NSString *to) {
     NSFileManager *fm = [NSFileManager defaultManager];
     if (CIIsReservedName(from.lastPathComponent)) {
         return 0;
     }
-    NSDictionary *attrs = [fm attributesOfItemAtPath:from error:nil];
-    if (!attrs) {
+    struct stat st;
+    memset(&st, 0, sizeof(st));
+    const char *src = from.fileSystemRepresentation;
+    if (!src || lstat(src, &st) != 0) {
         return 0;
     }
-    NSString *type = attrs.fileType;
-    if ([type isEqualToString:NSFileTypeDirectory]) {
+    if (S_ISDIR(st.st_mode)) {
         [fm createDirectoryAtPath:to withIntermediateDirectories:YES attributes:nil error:nil];
         unsigned long long total = 0;
         for (NSString *name in [fm contentsOfDirectoryAtPath:from error:nil]) {
@@ -617,18 +711,12 @@ static unsigned long long CICopyTree(NSString *from, NSString *to) {
         }
         return total;
     }
-    if ([type isEqualToString:NSFileTypeRegular] || [type isEqualToString:NSFileTypeSymbolicLink]) {
-        NSString *parent = [to stringByDeletingLastPathComponent];
-        [fm createDirectoryAtPath:parent withIntermediateDirectories:YES attributes:nil error:nil];
-        [fm removeItemAtPath:to error:nil];
-        if ([fm copyItemAtPath:from toPath:to error:nil]) {
-            if ([type isEqualToString:NSFileTypeRegular]) {
-                return [attrs[NSFileSize] unsignedLongLongValue];
-            }
-        }
+    if (S_ISSOCK(st.st_mode) || S_ISFIFO(st.st_mode) || S_ISCHR(st.st_mode) || S_ISBLK(st.st_mode)) {
         return 0;
     }
-    return 0;
+    NSString *parent = [to stringByDeletingLastPathComponent];
+    [fm createDirectoryAtPath:parent withIntermediateDirectories:YES attributes:nil error:nil];
+    return CICopyOneFile(from, to);
 }
 
 static BOOL CIWipeContents(NSString *path) {
@@ -666,11 +754,14 @@ static BOOL CIRestoreContainer(NSString *saved, NSString *live) {
         return NO;
     }
     NSFileManager *fm = [NSFileManager defaultManager];
-    CIEmptyContainer(live);
     BOOL savedDir = NO;
     if (![fm fileExistsAtPath:saved isDirectory:&savedDir] || !savedDir) {
-        return YES;
+        return NO;
     }
+    if (!CITreeHasFiles(saved)) {
+        return NO;
+    }
+    CIEmptyContainer(live);
     for (NSString *sub in CIAppDataSubdirs()) {
         NSString *src = [saved stringByAppendingPathComponent:sub];
         NSDictionary *attrs = [fm attributesOfItemAtPath:src error:nil];
@@ -689,7 +780,8 @@ static BOOL CIRestoreContainer(NSString *saved, NSString *live) {
         CICopyTree([saved stringByAppendingPathComponent:name], dst);
         CIChownTree(dst);
     }
-    return YES;
+    CIChownTree(live);
+    return gCICopyFailed == 0 || gCICopyFiles > 0;
 }
 
 static void CIRunKillall(NSString *processName) {
@@ -1195,7 +1287,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.22, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.23, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -1218,7 +1310,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     CIChmodWorld(inPath, 0666);
     NSDate *start = [NSDate date];
-    while ([[NSDate date] timeIntervalSinceDate:start] < 300.0) {
+    while ([[NSDate date] timeIntervalSinceDate:start] < 900.0) {
         NSDictionary *out = [NSDictionary dictionaryWithContentsOfFile:outPath];
         if ([out isKindOfClass:[NSDictionary class]]) {
             [fm removeItemAtPath:inPath error:nil];
@@ -3220,6 +3312,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         targets = ChengIOSUserSelectedBundleIDs();
     }
     if (includeAppData) {
+        CICopyStatsReset();
         NSMutableDictionary *kcByBundle = [NSMutableDictionary dictionary];
         for (NSString *bundleID in targets) {
             if (![bundleID isKindOfClass:[NSString class]] || ChengIOSBundleIsProtected(bundleID)) {
@@ -3293,11 +3386,13 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.22",
+        @"version": @"1.2.23",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
         @"bytes": @(bytes),
+        @"copyFiles": @(gCICopyFiles),
+        @"copyFailed": @(gCICopyFailed),
         @"keychainItems": @(keychainCount),
         @"sqlOpened": @(gCIKeychainSQLLastOpen),
         @"sqlPath": gCIKeychainSQLLastPath ?: @"",
@@ -3346,6 +3441,10 @@ BOOL ChengIOSRestoreBackup(NSString *backupID, BOOL restoreProfile, BOOL restore
             @"restoreAppData": @(restoreAppData)
         }, error);
         if (remote) {
+            id stats = remote[@"restoreStats"];
+            if ([stats isKindOfClass:[NSDictionary class]]) {
+                gCILastRestoreStats = [stats mutableCopy];
+            }
             if ([remote[@"ok"] boolValue]) {
                 return YES;
             }
@@ -3355,6 +3454,8 @@ BOOL ChengIOSRestoreBackup(NSString *backupID, BOOL restoreProfile, BOOL restore
             return NO;
         }
     }
+    CICopyStatsReset();
+    gCILastRestoreStats = nil;
     NSDictionary *meta = CIReadMeta(backupID);
     if (!meta) {
         if (error) {
@@ -3374,6 +3475,15 @@ BOOL ChengIOSRestoreBackup(NSString *backupID, BOOL restoreProfile, BOOL restore
         ChengIOSReplaceRawPrefs(profile);
     }
     if (restoreAppData) {
+        CICopyStatsReset();
+        gCILastRestoreStats = [@{
+            @"backupID": backupID ?: @"",
+            @"copiedBytes": @0,
+            @"copiedFiles": @0,
+            @"copyFailed": @0,
+            @"keychainRestored": @0,
+            @"kcUid": @-1
+        } mutableCopy];
         NSString *appsDir = [dir stringByAppendingPathComponent:@"apps"];
         NSArray<NSString *> *bundles = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:appsDir error:nil];
         for (NSString *bundleID in bundles) {
@@ -3476,10 +3586,29 @@ BOOL ChengIOSRestoreBackup(NSString *backupID, BOOL restoreProfile, BOOL restore
                     restored = CIKeychainSignedRestore(bundleID, secRows);
                 }
                 if (restored == 0 && sqlRows.count > 0) {
-                    CIKeychainSQLRestoreRows(sqlRows);
+                    restored = CIKeychainSQLRestoreRows(sqlRows);
                 }
+                if (!gCILastRestoreStats) {
+                    gCILastRestoreStats = [NSMutableDictionary dictionary];
+                }
+                gCILastRestoreStats[@"keychainRestored"] = @([gCILastRestoreStats[@"keychainRestored"] unsignedIntegerValue] + restored);
+                gCILastRestoreStats[@"kcUid"] = @(gCIKCSignedUID);
             }
             CISettleAfterDisk(bundleID);
+        }
+        if (!gCILastRestoreStats) {
+            gCILastRestoreStats = [NSMutableDictionary dictionary];
+        }
+        gCILastRestoreStats[@"copiedBytes"] = @(gCICopyBytes);
+        gCILastRestoreStats[@"copiedFiles"] = @(gCICopyFiles);
+        gCILastRestoreStats[@"copyFailed"] = @(gCICopyFailed);
+        NSString *statsPath = [dir stringByAppendingPathComponent:@"last-restore.plist"];
+        [gCILastRestoreStats writeToFile:statsPath atomically:YES];
+        if (gCICopyFiles == 0 && [meta[@"bytes"] unsignedLongLongValue] > 0) {
+            if (error) {
+                *error = CIError(3, @"Copy sandbox 0 file. Backup co data nhung copyfile that bai.");
+            }
+            return NO;
         }
     }
     return YES;

@@ -32,6 +32,14 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.23
+
+- Facebook: hook `MGCopyAnswer` hep (orig-first). Chi doi ProductType/HWModel/marketing, ke ca hash `h9jDsbgj7xIVeIQ8S4/l6A` va neu ket qua trung model that (`iPhone9,4` -> may gia). Khong spoof iOS/Darwin/IDFV/RAM tren FB/Shopee
+- UA: rewrite `FBDV`/`FBMD`/`FBSV` va thay machine that trong User-Agent
+- Backup/restore: `copyfile(COPYFILE_ALL)` (xattr + data protection), khong chmod 0644, khong empty sandbox neu backup rong. Timeout daemon 900s
+- Keychain dump: giu moi item app nhin thay (khong loc agrp), van bo `com.apple.*`. Restore tra copiedFiles/keychainRestored
+- Can backup lai khi dang login bang 1.2.23; Keychain N>0, kcUid 501, Data > 0. Restore **ho so + data app**. Force-quit FB roi dang nhap lai de Facebook hien iPhone gia
+
 ## 1.2.22
 
 - Facebook van ra iPhone that vi UA `FBDV/iPhone9,4` khong bi doi. 1.2.22 rewrite `FBDV`/`FBMD`/`FBSV` (WKWebView + NSURLRequest), van khong hook MGCopyAnswer

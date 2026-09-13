@@ -33,6 +33,10 @@ static NSDictionary *CIExecuteOp(NSString *op, NSDictionary *input) {
     } else if ([op isEqualToString:@"restore"]) {
         BOOL ok = ChengIOSRestoreBackup(input[@"backupID"], [input[@"restoreProfile"] boolValue], [input[@"restoreAppData"] boolValue], &error);
         result[@"ok"] = @(ok);
+        NSDictionary *stats = ChengIOSLastRestoreStats();
+        if (stats.count > 0) {
+            result[@"restoreStats"] = stats;
+        }
     } else if ([op isEqualToString:@"erase"]) {
         NSDictionary *erase = ChengIOSEraseBundles(input[@"bundles"], &error);
         result[@"ok"] = @YES;
