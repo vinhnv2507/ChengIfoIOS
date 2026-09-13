@@ -1099,10 +1099,24 @@ static NSArray<NSString *> *CIExtraWipePaths(NSString *bundleID) {
             @"saved_accounts.plist"
         ]];
     }
-    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."]) {
+    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."]) {
         [extraNames addObjectsFromArray:@[
             @"group.com.shopee.vn.plist",
-            @"group.com.beeasy.marketplace.vn.plist"
+            @"group.com.shopee.SG.plist",
+            @"group.com.shopee.id.plist",
+            @"group.com.shopee.my.plist",
+            @"group.com.shopee.th.plist",
+            @"group.com.shopee.tw.plist",
+            @"group.com.shopee.ph.plist",
+            @"group.com.shopee.intlseller.plist",
+            @"group.com.beeasy.marketplace.vn.plist",
+            @"group.com.shopeepay.vn.plist",
+            @"com.shopee.vn.plist",
+            @"com.shopee.SG.plist",
+            @"com.beeasy.marketplace.vn.plist",
+            @"com.appsflyer.plist",
+            @"com.adjust.sdk.plist",
+            @"com.google.gmp.measurement.plist"
         ]];
     }
     if ([low containsString:@"tiktok"] || [low hasPrefix:@"com.zhiliaoapp."] ||
@@ -1659,7 +1673,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.34, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.35, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -2054,7 +2068,8 @@ static NSUInteger CIKeychainSQLWipeForBundle(NSString *bundleID) {
     NSArray<NSString *> *agrps = CIKeychainCollectAgrps(bundleID);
     NSString *low = bundleID.lowercaseString;
     NSMutableArray<NSString *> *likes = [NSMutableArray array];
-    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."]) {
+    BOOL shopeeWipe = [low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."];
+    if (shopeeWipe) {
         [likes addObjectsFromArray:@[@"%shopee%", @"%beeasy%", @"%shopeepay%"]];
     }
     if ([low hasPrefix:@"com.facebook."] || [low containsString:@"facebook"]) {
@@ -2089,6 +2104,45 @@ static NSUInteger CIKeychainSQLWipeForBundle(NSString *bundleID) {
                 removed += (NSUInteger)sqlite3_changes(db);
             }
             sqlite3_finalize(stmt);
+        }
+        if (shopeeWipe) {
+            LSApplicationProxy *proxy = CIProxy(bundleID);
+            NSDictionary *ents = [proxy respondsToSelector:@selector(entitlements)] ? proxy.entitlements : nil;
+            NSString *appId = [ents[@"application-identifier"] isKindOfClass:[NSString class]] ? ents[@"application-identifier"] : bundleID;
+            NSString *team = CITeamIDFromAppID(appId) ?: @"";
+            NSArray<NSString *> *track = @[
+                @"%appsflyer%", @"%adjust%", @"%firebase%", @"%google.iid%",
+                @"%tongdun%", @"%trustdecision%", @"%fmdevice%", @"%blackbox%",
+                @"%tdid%", @"%umeng%", @"%talkingdata%", @"%seclink%", @"%device_fingerprint%"
+            ];
+            for (NSString *like in track) {
+                NSString *sql = [NSString stringWithFormat:@"DELETE FROM %@ WHERE (svce LIKE ? OR acct LIKE ? OR IFNULL(labl,'') LIKE ?) AND (agrp LIKE ? OR agrp LIKE ? OR agrp LIKE ? OR agrp LIKE ?)", table];
+                sqlite3_stmt *stmt = NULL;
+                if (sqlite3_prepare_v2(db, sql.UTF8String, -1, &stmt, NULL) != SQLITE_OK) {
+                    sql = [NSString stringWithFormat:@"DELETE FROM %@ WHERE (svce LIKE ? OR acct LIKE ?) AND (agrp LIKE ? OR agrp LIKE ? OR agrp LIKE ? OR agrp LIKE ?)", table];
+                    if (sqlite3_prepare_v2(db, sql.UTF8String, -1, &stmt, NULL) != SQLITE_OK) {
+                        continue;
+                    }
+                    sqlite3_bind_text(stmt, 1, like.UTF8String, -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(stmt, 2, like.UTF8String, -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(stmt, 3, "%shopee%", -1, SQLITE_STATIC);
+                    sqlite3_bind_text(stmt, 4, "%beeasy%", -1, SQLITE_STATIC);
+                    sqlite3_bind_text(stmt, 5, [NSString stringWithFormat:@"%%%@%%", team].UTF8String, -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(stmt, 6, [NSString stringWithFormat:@"%%%@%%", bundleID].UTF8String, -1, SQLITE_TRANSIENT);
+                } else {
+                    sqlite3_bind_text(stmt, 1, like.UTF8String, -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(stmt, 2, like.UTF8String, -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(stmt, 3, like.UTF8String, -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(stmt, 4, "%shopee%", -1, SQLITE_STATIC);
+                    sqlite3_bind_text(stmt, 5, "%beeasy%", -1, SQLITE_STATIC);
+                    sqlite3_bind_text(stmt, 6, [NSString stringWithFormat:@"%%%@%%", team].UTF8String, -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(stmt, 7, [NSString stringWithFormat:@"%%%@%%", bundleID].UTF8String, -1, SQLITE_TRANSIENT);
+                }
+                if (sqlite3_step(stmt) == SQLITE_DONE) {
+                    removed += (NSUInteger)sqlite3_changes(db);
+                }
+                sqlite3_finalize(stmt);
+            }
         }
     }
     sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL);
@@ -3299,8 +3353,8 @@ static NSArray<NSString *> *CISupportPathsForBundle(NSString *bundleID) {
     if ([low hasPrefix:@"com.facebook."] || [low containsString:@"facebook"]) {
         [names addObjectsFromArray:@[@"Facebook", @"com.facebook.Facebook", @"com.facebook.Messenger"]];
     }
-    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."]) {
-        [names addObjectsFromArray:@[@"Shopee", bundleID]];
+    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."]) {
+        [names addObjectsFromArray:@[@"Shopee", @"AppsFlyer", @"Adjust", @"Firebase", @"Tongdun", bundleID]];
     }
     if ([low containsString:@"tiktok"] || [low hasPrefix:@"com.zhiliaoapp."] ||
         [low hasPrefix:@"com.ss.iphone."] || [low containsString:@"aweme"] ||
@@ -3378,7 +3432,29 @@ static NSArray<NSString *> *CIKnownKeychainServices(NSString *bundleID) {
             @"com.google.iid",
             @"IDFA",
             @"idfa",
-            @"advertisingIdentifier"
+            @"advertisingIdentifier",
+            @"com.appsflyer.uid",
+            @"com.appsflyer.AppleAppID",
+            @"appsFlyerId",
+            @"adjust_identifier",
+            @"adj_device_id",
+            @"com.adjust.sdk",
+            @"FIRInstallations",
+            @"com.firebase.FIRInstallations.installation-id",
+            @"com.google.iid.token-cache",
+            @"FMDeviceManager",
+            @"FMDeviceId",
+            @"blackBox",
+            @"blackbox",
+            @"TDID",
+            @"tdid",
+            @"com.tongdun.deviceid",
+            @"TrustDecision",
+            @"seclink",
+            @"device_fingerprint",
+            @"ShopeeDFP",
+            @"shopee_dfp",
+            @"SPDeviceId"
         ];
     }
     if ([low containsString:@"tiktok"] || [low hasPrefix:@"com.zhiliaoapp."] ||
@@ -3415,6 +3491,22 @@ static void CIWipeKnownKeychainServices(NSString *bundleID) {
         }
     }
     NSString *low = bundleID.lowercaseString;
+    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."]) {
+        NSArray<NSString *> *servers = @[
+            @"shopee.vn", @"shopee.com", @"shopee.sg", @"shopee.co.id", @"shopee.co.th",
+            @"mall.shopee.vn", @"seller.shopee.vn"
+        ];
+        for (NSString *server in servers) {
+            for (id cls in classes) {
+                NSDictionary *query = @{
+                    (__bridge id)kSecClass: cls,
+                    (__bridge id)kSecAttrServer: server,
+                    (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
+                };
+                SecItemDelete((__bridge CFDictionaryRef)query);
+            }
+        }
+    }
     if ([low hasPrefix:@"com.facebook."] || [low containsString:@"facebook"]) {
         NSArray<NSString *> *servers = @[
             @"facebook.com", @"m.facebook.com", @"graph.facebook.com", @"www.facebook.com"
@@ -3864,7 +3956,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.34",
+        @"version": @"1.2.35",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -4367,6 +4459,31 @@ static void CIResetVendorIdentifier(NSString *bundleID) {
     CIKeychainSQLClose(db);
 }
 
+static void CIWipeNamedPasteboards(NSString *bundleID) {
+    NSString *low = bundleID.lowercaseString ?: @"";
+    if (!([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."])) {
+        return;
+    }
+    Class pb = NSClassFromString(@"UIPasteboard");
+    if (!pb || ![pb respondsToSelector:@selector(removePasteboardWithName:)]) {
+        return;
+    }
+    NSArray<NSString *> *names = @[
+        @"com.appsflyer.pasteboard",
+        @"com.appsflyer.uid",
+        @"appsflyer",
+        @"adjust",
+        @"shopee",
+        bundleID ?: @""
+    ];
+    for (NSString *name in names) {
+        if (name.length == 0) {
+            continue;
+        }
+        [pb removePasteboardWithName:name];
+    }
+}
+
 static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
     if (ChengIOSBundleIsProtected(bundleID)) {
         return NO;
@@ -4452,6 +4569,7 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
     CIKeychainSQLWipeForBundle(bundleID);
     CIWipeAccountsForBundle(bundleID);
     CIResetVendorIdentifier(bundleID);
+    CIWipeNamedPasteboards(bundleID);
     if (wipeFamily) {
         for (NSString *other in CICompanionBundleIDs(bundleID)) {
             if ([together containsObject:other] || !CIProxy(other)) {

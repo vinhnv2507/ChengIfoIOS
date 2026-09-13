@@ -178,6 +178,39 @@
 %end
 %end
 
+%group DeviceCheckHooks
+%hook DCDevice
+- (BOOL)isSupported {
+    if (OVSSpoofingEnabled() && OVSIsShopeeFamily()) {
+        return NO;
+    }
+    return %orig;
+}
+
+- (void)generateTokenWithCompletionHandler:(id)completion {
+    if (OVSSpoofingEnabled() && OVSIsShopeeFamily()) {
+        void (^handler)(NSData *, NSError *) = completion;
+        if (handler) {
+            handler(nil, [NSError errorWithDomain:@"DCErrorDomain" code:2 userInfo:nil]);
+        }
+        return;
+    }
+    %orig;
+}
+%end
+%end
+
+%group AppAttestHooks
+%hook DCAppAttestService
+- (BOOL)isSupported {
+    if (OVSSpoofingEnabled() && OVSIsShopeeFamily()) {
+        return NO;
+    }
+    return %orig;
+}
+%end
+%end
+
 %hook BrowserController
 - (NSUUID *)UUID {
     if (!OVSDeviceIdentityEnabled()) {
@@ -231,6 +264,16 @@
         }
         if (NSClassFromString(@"ASIdentifierManager")) {
             %init(AdSupportHooks);
+        }
+    } else if (OVSIsShopeeFamily() && OVSSpoofingEnabled()) {
+        if (NSClassFromString(@"ASIdentifierManager")) {
+            %init(AdSupportHooks);
+        }
+        if (NSClassFromString(@"DCDevice")) {
+            %init(DeviceCheckHooks);
+        }
+        if (NSClassFromString(@"DCAppAttestService")) {
+            %init(AppAttestHooks);
         }
     }
     if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
