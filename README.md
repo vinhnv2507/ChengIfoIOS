@@ -32,6 +32,13 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.21
+
+- Facebook/Shopee: quay lai an toan kieu 1.2.14. Khong hook `MGCopyAnswer`, khong spoof iOS/Darwin/IDFV/locale/network (vang du tat Spoof sau o 1.2.20)
+- Van doi model qua `hw.machine` / `uname` / `UIDevice` de Facebook hien may gia
+- ADIA64/app thuong: van hook Gestalt/sysctl luc load (khong bo qua vi prefs chua san)
+- Giu backup/restore uid 501 cua 1.2.20
+
 ## 1.2.20
 
 - Keychain dump/restore chay `chengioskc` **uid 501** (mobile), giong Apps Manager `kcaccess.bin`. Ban 1.2.19 dump bang root nen SecItem = 0, restore mat login

@@ -37,7 +37,7 @@ extern char **environ;
     return @[
         @[
             @{@"kind": @"switch", @"title": @"B\u1eadt ChengIOS", @"key": @"masterEnabled", @"defaultOn": @YES},
-            @{@"kind": @"switch", @"title": @"Spoof s\u00e2u (Gestalt / Darwin)", @"key": @"gestaltEnabled", @"defaultOn": @NO, @"detail": @"Gestalt/Darwin/UA tren app da chon (FB/Shopee/ADIA64/Safari). Force-quit app dich"}
+            @{@"kind": @"switch", @"title": @"Spoof s\u00e2u (Gestalt / Darwin)", @"key": @"gestaltEnabled", @"defaultOn": @NO, @"detail": @"FB/Shopee bo qua Gestalt/iOS; van doi model. ADIA64 dung spoof sau. Force-quit app dich"}
         ],
         @[
             @{@"kind": @"nav", @"title": @"Change Apps", @"detail": @"Tick Safari, Facebook, Shopee, ADIA64"}

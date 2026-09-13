@@ -221,13 +221,15 @@
         return;
     }
     %init;
-    %init(LocaleClassHooks);
-    %init(LocaleDefaultsHooks);
-    if (NSClassFromString(@"CTCarrier") || NSClassFromString(@"CTTelephonyNetworkInfo")) {
-        %init(TelephonyHooks);
-    }
-    if (NSClassFromString(@"ASIdentifierManager")) {
-        %init(AdSupportHooks);
+    if (!OVSIsFragileApp()) {
+        %init(LocaleClassHooks);
+        %init(LocaleDefaultsHooks);
+        if (NSClassFromString(@"CTCarrier") || NSClassFromString(@"CTTelephonyNetworkInfo")) {
+            %init(TelephonyHooks);
+        }
+        if (NSClassFromString(@"ASIdentifierManager")) {
+            %init(AdSupportHooks);
+        }
     }
     %init(LowLevelUname);
 }

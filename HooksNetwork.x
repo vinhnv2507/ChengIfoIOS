@@ -140,7 +140,7 @@ static BOOL OVSParseMACAddress(NSString *string, unsigned char outBytes[6]) {
 %end
 
 %ctor {
-    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess()) {
+    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess() || OVSIsFragileApp()) {
         return;
     }
     %init;
