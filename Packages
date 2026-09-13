@@ -1,0 +1,34 @@
+Package: com.vinhnv2507.chengios
+Version: 1.2.31
+Architecture: iphoneos-arm
+Maintainer: vinhnv2507 <vinhnv2507@users.noreply.github.com>
+Installed-Size: 2832
+Depends: firmware (>= 12.0), mobilesubstrate, preferenceloader, com.opa334.altlist
+Recommends: ldid
+Filename: debs/com.vinhnv2507.chengios_1.2.31_iphoneos-arm.deb
+Size: 406652
+MD5sum: 6006267b993bffdef2c63cceb4e51552
+SHA1: d8d989e8f82d957724b1235d49788a1fba9a6974
+SHA256: 419de81ef22f4f090c23ed47a18088c8b2a57d562698fa910cd7a02d5eee45bd
+Section: Tweaks
+Description: Spoofs iOS version, app version, and optional device/location/network/Wi-Fi signals per selected app. Apps Manager-style backup/restore/wipe via root helper + ldid-signed keychain. Fix helper inbox write + Facebook DBL wipe. Change path is 1.2.14.
+Author: vinhnv2507 <vinhnv2507@users.noreply.github.com>
+Name: ChengIOS
+
+Package: com.vinhnv2507.chengios
+Version: 1.2.31
+Architecture: iphoneos-arm64
+Maintainer: vinhnv2507 <vinhnv2507@users.noreply.github.com>
+Installed-Size: 2848
+Depends: firmware (>= 12.0), mobilesubstrate, preferenceloader, com.opa334.altlist
+Recommends: ldid
+Filename: debs/com.vinhnv2507.chengios_1.2.31_iphoneos-arm64.deb
+Size: 398546
+MD5sum: a25a9c60914ddc76e9a8988a3e570962
+SHA1: 6e31a5ec97080e4b44c22dbf62a21fbf3c900728
+SHA256: 4bca65b0a2ba8c1121b62ee7bdb0ab5dac62a32fb5c753c51c8324ecbd4e57f3
+Section: Tweaks
+Description: Spoofs iOS version, app version, and optional device/location/network/Wi-Fi signals per selected app. Apps Manager-style backup/restore/wipe via root helper + ldid-signed keychain. Fix helper inbox write + Facebook DBL wipe. Change path is 1.2.14.
+Author: vinhnv2507 <vinhnv2507@users.noreply.github.com>
+Name: ChengIOS
+
