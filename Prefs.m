@@ -289,10 +289,14 @@ static BOOL OVSStringLooksFragile(NSString *value) {
            [text hasPrefix:@"com.burbn."] ||
            [text hasPrefix:@"com.instagram."] ||
            [text hasPrefix:@"net.whatsapp."] ||
+           [text hasPrefix:@"com.zhiliaoapp."] ||
+           [text hasPrefix:@"com.ss.iphone"] ||
            [text containsString:@"facebook"] ||
            [text containsString:@"shopee"] ||
            [text containsString:@"instagram"] ||
-           [text containsString:@"whatsapp"];
+           [text containsString:@"whatsapp"] ||
+           [text containsString:@"tiktok"] ||
+           [text containsString:@"musical.ly"];
 }
 
 static NSString *OVSParentProcessName(void) {
@@ -509,7 +513,7 @@ BOOL OVSLowLevelHooksEnabled(void) {
 }
 
 BOOL OVSMachineHooksEnabled(void) {
-    return OVSShouldSpoofModel();
+    return OVSShouldSpoofModel() && !OVSIsFragileApp();
 }
 
 static pthread_key_t gLowLevelHookKey;

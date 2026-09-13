@@ -32,6 +32,13 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.25
+
+- Facebook/Shopee/TikTok crash: hook load giong **1.2.14**. Khong MSHookFunction MGCopyAnswer/sysctl/uname/WKWebView luc load neu tat Spoof sau, va khong bao gio hook cac API do tren app de vang.
+- 1.2.24 van crash vi luon gan WebKit + sysctl/uname, va luon hook MGCopyAnswer ke ca khi Spoof sau tat.
+- Giu backup/restore copyfile + FBDV UA rewrite (NSURLRequest, khong hook WKWebView tren FB)
+- Ban 1.2.14 local van dung de doi chung; 1.2.25 khong phai rollback mat backup
+
 ## 1.2.24
 
 - Facebook/Shopee crash: quay lai an toan kieu **1.2.14 / 1.2.22**. Khong hook `MGCopyAnswer` tren app de vang. Khong Gestalt hep.
