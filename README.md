@@ -32,6 +32,11 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.29
+
+- Dung source **1.2.14** (`504234a`). Chi doi so version thanh 1.2.29 de Sileo cai de 1.2.28
+- Khong ghep wipe 1.2.25, khong helper/kc, khong sua hook
+
 ## 1.2.28
 
 - Quay dung change/hook **1.2.14**: Facebook/Shopee khong hook MGCopyAnswer. `uname` / `sysctl hw.machine` / `UIDevice` van spoof model (khong skip fragile). Khong FBDV rewrite, khong always-init WebKit, khong `_deviceInfoForKey`
