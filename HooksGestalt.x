@@ -54,7 +54,7 @@ static CFTypeRef hooked_MGCopyAnswer(CFStringRef question, uint32_t *typeCode) {
 }
 
 %ctor {
-    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess()) {
+    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess() || OVSIsFragileApp()) {
         return;
     }
     OVSRegisterPreferenceListener();
