@@ -513,7 +513,7 @@ BOOL OVSLowLevelHooksEnabled(void) {
 }
 
 BOOL OVSMachineHooksEnabled(void) {
-    return OVSShouldSpoofModel() && !OVSIsFragileApp();
+    return OVSShouldSpoofModel();
 }
 
 static pthread_key_t gLowLevelHookKey;

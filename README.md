@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.26
+
+- Change Facebook giong **1.2.14**: spoof `uname` / `sysctl hw.machine` / `UIDevice.model`. Khong hook MGCopyAnswer, khong hook WKWebView tren FB/Shopee
+- Xoa data giu logic 1.2.25
+- Backup/restore: dump keychain tung item (attrs roi `kSecReturnData`), `kSecUseAuthenticationUISkip`. Ban cu dump ca class nen 1 item ACL lam mat secret. Dump 2 lan (truoc/sau kill app). Restore bo item khong data, retry khong ACL. Can backup lai bang 1.2.26 khi dang login, `withData N>0`, `kcUid 501`
+
 ## 1.2.25
 
 - Facebook/Shopee/TikTok crash: hook load giong **1.2.14**. Khong MSHookFunction MGCopyAnswer/sysctl/uname/WKWebView luc load neu tat Spoof sau, va khong bao gio hook cac API do tren app de vang.
