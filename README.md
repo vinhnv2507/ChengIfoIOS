@@ -32,6 +32,11 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.35
+
+- Shopee van skip xac minh: IDFA that + DeviceCheck token Apple (song qua wipe). 1.2.35 spoof IDFA, tat DeviceCheck/App Attest (isSupported=NO), xoa keychain AppsFlyer/Adjust/Firebase/Tongdun theo team, pasteboard, extra prefs. Khong WK/iOS spoof (1.2.33 vang)
+- Facebook khong doi. Can Random Toan Bo (identity) + force-quit Shopee. DeviceCheck gia khong tao token Apple moi; chi an token cu
+
 ## 1.2.34
 
 - Fix Shopee crash: bo WebKit / iOS version / locale / carrier / IDFA hooks (app fragile, iOS 15 that + iOS 18 spoof lam vang). Facebook van an toan
