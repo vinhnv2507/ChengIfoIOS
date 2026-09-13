@@ -54,13 +54,10 @@ static CFTypeRef hooked_MGCopyAnswer(CFStringRef question, uint32_t *typeCode) {
 }
 
 %ctor {
-    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess() || OVSIsFragileApp()) {
+    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess()) {
         return;
     }
     OVSRegisterPreferenceListener();
-    if (!OVSGestaltEnabled()) {
-        return;
-    }
     void *handle = dlopen("/usr/lib/libMobileGestalt.dylib", RTLD_LAZY);
     if (!handle) {
         handle = dlopen("/System/Library/PrivateFrameworks/MobileGestalt.framework/MobileGestalt", RTLD_LAZY);

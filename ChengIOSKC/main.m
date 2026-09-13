@@ -6,6 +6,8 @@
 #import <stdlib.h>
 #import <string.h>
 #include <sys/stat.h>
+#include <pwd.h>
+#include <grp.h>
 
 
 typedef CFDataRef (*CISecACCCopyFn)(SecAccessControlRef);
@@ -465,11 +467,21 @@ static int CIKCWrite(NSString *path, NSDictionary *out) {
     return [out[@"ok"] boolValue] ? 0 : 1;
 }
 
+static void CIKCDropMobile(void) {
+    struct passwd *pw = getpwnam("mobile");
+    uid_t uid = pw ? pw->pw_uid : (uid_t)501;
+    gid_t gid = pw ? pw->pw_gid : (gid_t)501;
+    if (pw && pw->pw_name) {
+        initgroups(pw->pw_name, gid);
+    }
+    setgid(gid);
+    setuid(uid);
+}
+
 int main(int argc, char *argv[]) {
     @autoreleasepool {
-        setuid(0);
-        setgid(0);
         CIKCLoadSPI();
+        CIKCDropMobile();
         if (argc < 4) {
             fprintf(stderr, "usage: chengioskc <dump|restore|wipe> <in.plist> <out.plist>\n");
             return 2;

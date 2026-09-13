@@ -221,19 +221,13 @@
         return;
     }
     %init;
-    if (!OVSIsFragileApp()) {
-        %init(LocaleClassHooks);
-        if (OVSLocaleEnabled()) {
-            %init(LocaleDefaultsHooks);
-        }
-        if (NSClassFromString(@"CTCarrier") || NSClassFromString(@"CTTelephonyNetworkInfo")) {
-            %init(TelephonyHooks);
-        }
-        if (NSClassFromString(@"ASIdentifierManager")) {
-            %init(AdSupportHooks);
-        }
+    %init(LocaleClassHooks);
+    %init(LocaleDefaultsHooks);
+    if (NSClassFromString(@"CTCarrier") || NSClassFromString(@"CTTelephonyNetworkInfo")) {
+        %init(TelephonyHooks);
     }
-    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
-        %init(LowLevelUname);
+    if (NSClassFromString(@"ASIdentifierManager")) {
+        %init(AdSupportHooks);
     }
+    %init(LowLevelUname);
 }

@@ -13,7 +13,7 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"Backup / Data";
+    self.title = @"Danh sach backup";
     self.backups = @[];
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleGrouped];
     self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -52,28 +52,25 @@
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
     (void)tableView;
-    return 2;
+    return 1;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     (void)tableView;
-    if (section == 0) {
-        return 7;
-    }
+    (void)section;
     return (NSInteger)MAX(self.backups.count, 1);
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     (void)tableView;
-    return section == 0 ? @"Thao tac" : @"Danh sach backup";
+    (void)section;
+    return @"Danh sach backup";
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     (void)tableView;
-    if (section == 0) {
-        return @"Backup ho so chay trong Settings. Backup/xoa data, Safari, factory-like va xoa+random mo app ChengIOS.";
-    }
-    return ChengIOSBackupRoot();
+    (void)section;
+    return [NSString stringWithFormat:@"%@\nThao tac Backup/Xoa/Random o app ChengIOS. An 1 dong de restore/doi ten/xoa.", ChengIOSBackupRoot()];
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -82,65 +79,37 @@
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"c"];
         cell.detailTextLabel.numberOfLines = 3;
     }
-    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-    cell.selectionStyle = UITableViewCellSelectionStyleDefault;
-    if (indexPath.section == 0) {
-        NSArray *titles = @[
-            @"Backup ho so hien tai",
-            @"Backup ho so + data app (mo app)",
-            @"Xoa sach data app da chon (mo app)",
-            @"Xoa Safari (mo app)",
-            @"Xoa toan bo app + Safari (mo app)",
-            @"Xoa app + Random Toan Bo (mo app)",
-            @"Mo Quan ly Backup (app)"
-        ];
-        NSArray *details = @[
-            @"Luu identity vao Media/ChengIOS/Backups",
-            @"chengios://backup-apps",
-            @"chengios://erase-apps",
-            @"chengios://erase-safari",
-            @"chengios://erase-device",
-            @"chengios://erase-random-all",
-            @"chengios://backup"
-        ];
-        cell.textLabel.text = titles[indexPath.row];
-        cell.detailTextLabel.text = details[indexPath.row];
-        return cell;
-    }
     if (self.backups.count == 0) {
         cell.textLabel.text = @"Chua co backup";
-        cell.detailTextLabel.text = @"Tao backup ho so o tren.";
+        cell.detailTextLabel.text = @"Tao backup tu app ChengIOS khi dang login.";
         cell.accessoryType = UITableViewCellAccessoryNone;
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
         return cell;
     }
     NSDictionary *item = self.backups[indexPath.row];
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     cell.textLabel.text = item[@"name"] ?: item[@"id"];
     NSArray *bundles = item[@"bundles"];
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@  ·  %@", item[@"created"] ?: @"", [item[@"includeAppData"] boolValue] ? [NSString stringWithFormat:@"%lu app", (unsigned long)[bundles count]] : @"ho so"];
+    NSMutableString *detail = [NSMutableString string];
+    [detail appendString:item[@"created"] ?: @""];
+    if ([item[@"includeAppData"] boolValue]) {
+        [detail appendFormat:@"  ·  %lu app", (unsigned long)[bundles count]];
+        if (item[@"keychainItems"]) {
+            [detail appendFormat:@"  ·  KC %@", item[@"keychainItems"]];
+        }
+        if (item[@"kcUid"]) {
+            [detail appendFormat:@"  ·  kcUid %@", item[@"kcUid"]];
+        }
+    } else {
+        [detail appendString:@"  ·  ho so"];
+    }
+    cell.detailTextLabel.text = detail;
     return cell;
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    if (indexPath.section == 0) {
-        if (indexPath.row == 0) {
-            [self backupProfile];
-        } else if (indexPath.row == 1) {
-            [self openURLString:@"chengios://backup-apps"];
-        } else if (indexPath.row == 2) {
-            [self openURLString:@"chengios://erase-apps"];
-        } else if (indexPath.row == 3) {
-            [self openURLString:@"chengios://erase-safari"];
-        } else if (indexPath.row == 4) {
-            [self openURLString:@"chengios://erase-device"];
-        } else if (indexPath.row == 5) {
-            [self openURLString:@"chengios://erase-random-all"];
-        } else {
-            [self openURLString:@"chengios://backup"];
-        }
-        return;
-    }
     if (self.backups.count == 0) {
         return;
     }
@@ -162,6 +131,10 @@
         (void)action;
         [self openURLString:[NSString stringWithFormat:@"chengios://restore?id=%@&data=1", backupID]];
     }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Doi ten" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        (void)action;
+        [self renameBackup:item];
+    }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"Xoa backup nay" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
         (void)action;
         ChengIOSDeleteBackup(backupID, nil);
@@ -176,25 +149,37 @@
     [self presentViewController:sheet animated:YES completion:nil];
 }
 
-- (void)backupProfile {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Backup ho so"
-                                                                   message:@"Luu identity ChengIOS hien tai."
+- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
+    (void)tableView;
+    (void)indexPath;
+    return self.backups.count > 0;
+}
+
+- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
+    (void)tableView;
+    if (editingStyle != UITableViewCellEditingStyleDelete || self.backups.count == 0) {
+        return;
+    }
+    ChengIOSDeleteBackup(self.backups[indexPath.row][@"id"], nil);
+    [self reloadBackups];
+}
+
+- (void)renameBackup:(NSDictionary *)item {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Doi ten backup"
+                                                                   message:item[@"id"]
                                                             preferredStyle:UIAlertControllerStyleAlert];
     [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
-        field.text = ChengIOSSuggestedBackupName();
-        field.placeholder = @"Ten backup";
+        field.text = item[@"name"];
         field.clearButtonMode = UITextFieldViewModeWhileEditing;
     }];
     [alert addAction:[UIAlertAction actionWithTitle:@"Huy" style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Backup" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+    [alert addAction:[UIAlertAction actionWithTitle:@"Luu" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         (void)action;
         NSError *error = nil;
-        NSDictionary *meta = ChengIOSCreateBackup(alert.textFields.firstObject.text, @[], NO, &error);
-        if (meta && !error) {
+        if (ChengIOSRenameBackup(item[@"id"], alert.textFields.firstObject.text, &error)) {
             [self reloadBackups];
-            [self alertTitle:@"Da backup" message:[NSString stringWithFormat:@"%@\nID: %@", meta[@"name"], meta[@"id"]]];
         } else {
-            [self alertTitle:@"Backup loi" message:ChengIOSBackupErrorMessage(error)];
+            [self alertTitle:@"Doi ten loi" message:ChengIOSBackupErrorMessage(error)];
         }
     }]];
     [self presentViewController:alert animated:YES completion:nil];

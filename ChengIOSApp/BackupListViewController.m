@@ -127,13 +127,19 @@ static NSString *CIResultText(NSDictionary *meta, NSError *error, NSString *fall
             [text appendFormat:@"\nKC loi: %@", meta[@"signedError"]];
         }
         if ([meta[@"includeAppData"] boolValue] && [meta[@"keychainItems"] unsignedIntegerValue] == 0) {
-            [text appendString:@"\nCanh bao: Keychain 0. Cai ldid (Apps Manager ldid / Procursus). Cai 1.2.19, Respring, backup lai khi dang login. Backup cu Keychain=0 khong giu login."];
+            [text appendString:@"\nCanh bao: Keychain 0. Cai ldid (Apps Manager ldid / Procursus). Can Keychain N>0 va kcUid 501. Cai 1.2.20, cai ldid, Respring, backup lai khi dang login. Backup cu 1.2.19 (uid 0) khong giu login."];
         }
     }
     if (meta[@"asRoot"]) {
         [text appendFormat:@"\nRoot helper: %@", [meta[@"asRoot"] boolValue] ? @"CO" : @"KHONG"];
         if (meta[@"uid"]) {
             [text appendFormat:@"\n uid %@", meta[@"uid"]];
+        }
+        if (meta[@"kcUid"]) {
+            [text appendFormat:@"  kcUid %@", meta[@"kcUid"]];
+            if ([meta[@"kcUid"] integerValue] != 501 && [meta[@"includeAppData"] boolValue]) {
+                [text appendString:@"\nCanh bao: kcUid != 501, SecItem khong vao keychain mobile. Restore se mat login."];
+            }
         }
         if (meta[@"daemon"]) {
             [text appendFormat:@"  Daemon: %@", [meta[@"daemon"] boolValue] ? @"CO" : @"KHONG"];
@@ -146,7 +152,7 @@ static NSString *CIResultText(NSDictionary *meta, NSError *error, NSString *fall
             [text appendFormat:@"\nSQL: %@  SecItem: %@", meta[@"sqlCount"], secCount];
         }
         if (![meta[@"asRoot"] boolValue]) {
-            [text appendString:@"\nCanh bao: chua chay root. Cai 1.2.19, Respring, backup lai tu app ChengIOS (daemon CO). Can ldid."];
+            [text appendString:@"\nCanh bao: chua chay root. Cai 1.2.20, Respring, backup lai tu app ChengIOS (daemon CO, kcUid 501). Can ldid."];
         }
     } else if ([meta[@"includeAppData"] boolValue]) {
         [text appendString:@"\nRoot helper: KHONG (ban backup cu). Restore co the mat login."];
@@ -218,7 +224,7 @@ void ChengIOSRunRestore(UIViewController *host, NSString *backupID, BOOL restore
             NSError *error = nil;
             BOOL ok = ChengIOSRestoreBackup(backupID, restoreProfile, restoreAppData, &error);
             NSDictionary *meta = ChengIOSBackupInfo(backupID);
-            NSString *msg = error ? ChengIOSBackupErrorMessage(error) : (ok ? @"Da restore keychain + sandbox. Force-quit Facebook/Shopee/TikTok roi mo lai. Neu bi logout: backup do Keychain=0, hay backup lai bang 1.2.17." : @"Restore that bai.");
+            NSString *msg = error ? ChengIOSBackupErrorMessage(error) : (ok ? @"Da restore keychain + sandbox. Force-quit Facebook/Shopee/TikTok roi mo lai. Neu bi logout: backup cu Keychain=0 hoac kcUid != 501. Backup lai bang 1.2.20 khi dang login." : @"Restore that bai.");
             if (!error && [meta[@"name"] length]) {
                 msg = [NSString stringWithFormat:@"%@\n%@", meta[@"name"], msg];
             }
@@ -512,7 +518,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"Backup / Data";
+    self.title = @"Danh sach backup";
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
                                                                                            target:self
                                                                                            action:@selector(reloadBackups)];
@@ -539,62 +545,28 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
     (void)tableView;
-    return 2;
+    return 1;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     (void)tableView;
-    if (section == 0) {
-        return 7;
-    }
+    (void)section;
     return (NSInteger)MAX(self.backups.count, 1);
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     (void)tableView;
-    return section == 0 ? @"Thao tac" : @"Danh sach backup";
+    (void)section;
+    return @"Danh sach backup";
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     (void)tableView;
-    if (section == 0) {
-        NSArray *apps = ChengIOSUserSelectedBundleIDs();
-        NSString *list = apps.count ? [apps componentsJoinedByString:@", "] : @"chua chon app user nao";
-        return [NSString stringWithFormat:@"App da chon: %@.\nBackup/restore chay root (setuid/daemon) + keychain-2.db. Sau backup can Keychain > 0, Root CO, Daemon CO, ldid CO. Xoa FB/TikTok/Shopee xoa SSO + companion. Safari xoa history/cookies. Deeplink: chengios://erase-safari , chengios://erase-device , chengios://erase-random-all , chengios://erase-device-random", list];
-    }
-    return [NSString stringWithFormat:@"Thu muc: %@", ChengIOSBackupRoot()];
+    (void)section;
+    return [NSString stringWithFormat:@"Thu muc: %@\nThao tac Backup/Xoa/Random o man hinh chinh. An 1 dong de restore, doi ten hoac xoa. Sau backup can Keychain N>0, kcUid 501, Root CO, ldid CO.", ChengIOSBackupRoot()];
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    if (indexPath.section == 0) {
-        UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"a"];
-        if (!cell) {
-            cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"a"];
-            cell.detailTextLabel.numberOfLines = 2;
-        }
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-            NSArray *titles = @[
-                @"Backup ho so",
-                @"Backup ho so + data app",
-                @"Xoa sach data app da chon",
-                @"Xoa sach Safari",
-                @"Xoa toan bo app + Safari",
-                @"Xoa app da chon + Random Toan Bo",
-                @"Xoa toan bo + Random Toan Bo"
-            ];
-            NSArray *details = @[
-                @"Chi identity ChengIOS (nho, nhanh)",
-                @"Root/daemon + sandbox + ldid keychain (genp/inet/keys/cert)",
-                @"Ke ca Safari neu dang tick. Facebook xoa SSO",
-                @"History, cookies, website data",
-                @"Nhu moi cai app. Giu jailbreak/anh/tin nhan",
-                @"Wipe app da chon roi random info",
-                @"Wipe moi app user + Safari roi random"
-            ];
-            cell.textLabel.text = titles[indexPath.row];
-            cell.detailTextLabel.text = details[indexPath.row];
-        return cell;
-    }
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"b"];
     if (!cell) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"b"];
@@ -603,7 +575,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     }
     if (self.backups.count == 0) {
         cell.textLabel.text = @"Chua co backup";
-        cell.detailTextLabel.text = @"Bam Backup ho so de tao.";
+        cell.detailTextLabel.text = @"Dung Backup o man hinh chinh khi dang login.";
         cell.accessoryType = UITableViewCellAccessoryNone;
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
         return cell;
@@ -622,6 +594,9 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
         if (item[@"keychainItems"]) {
             [detail appendFormat:@"  ·  KC %@", item[@"keychainItems"]];
         }
+        if (item[@"kcUid"]) {
+            [detail appendFormat:@"  ·  kcUid %@", item[@"kcUid"]];
+        }
         if (item[@"asRoot"]) {
             [detail appendFormat:@"  ·  root %@", [item[@"asRoot"] boolValue] ? @"CO" : @"KHONG"];
         }
@@ -639,24 +614,6 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    if (indexPath.section == 0) {
-        if (indexPath.row == 0) {
-            ChengIOSRunCreateBackup(self, nil, NO, nil, NO);
-        } else if (indexPath.row == 1) {
-            ChengIOSRunCreateBackup(self, nil, YES, nil, NO);
-        } else if (indexPath.row == 2) {
-            ChengIOSRunErase(self, nil, NO);
-        } else if (indexPath.row == 3) {
-            ChengIOSRunEraseSafari(self, NO);
-        } else if (indexPath.row == 4) {
-            ChengIOSRunEraseDevice(self, NO);
-        } else if (indexPath.row == 5) {
-            ChengIOSRunEraseThenRandom(self, nil, NO, YES, nil, NO);
-        } else {
-            ChengIOSRunEraseThenRandom(self, nil, YES, YES, nil, NO);
-        }
-        return;
-    }
     if (self.backups.count == 0) {
         return;
     }
@@ -727,7 +684,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
 
 - (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
     (void)tableView;
-    return indexPath.section == 1 && self.backups.count > 0;
+    return self.backups.count > 0;
 }
 
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {

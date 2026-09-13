@@ -197,7 +197,7 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (NSUUID *)identifierForVendor {
-    if (!OVSDeviceIdentityEnabled() || OVSIsFragileApp()) {
+    if (!OVSDeviceIdentityEnabled()) {
         return %orig;
     }
     return OVSSpoofedVendorUUID();
@@ -483,16 +483,12 @@ static void OVSApplyWebViewUserAgent(id webView) {
     }
     OVSRegisterPreferenceListener();
     %init;
-    if (OVSAppVersionEnabled()) {
-        %init(BundleHooks);
-    }
-    if (OVSSpoofingEnabled() && !OVSIsFragileApp() && NSClassFromString(@"WKWebView")) {
+    %init(BundleHooks);
+    if (NSClassFromString(@"WKWebView")) {
         %init(WebKitHooks);
     }
-    if (OVSSpoofingEnabled() && !OVSIsFragileApp() && NSClassFromString(@"TabDocument")) {
+    if (NSClassFromString(@"TabDocument")) {
         %init(SafariTabHooks);
     }
-    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
-        %init(LowLevelSysctl);
-    }
+    %init(LowLevelSysctl);
 }

@@ -4,7 +4,26 @@
 #import <objc/runtime.h>
 #import <UIKit/UIKit.h>
 
-static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
+static NSArray<NSString *> *CISafariFamilyIDs(void) {
+    return @[
+        @"com.apple.mobilesafari",
+        @"com.apple.SafariViewService",
+        @"com.apple.webapp"
+    ];
+}
+
+static NSString *CISafariFamilyName(NSString *bundleId) {
+    if ([bundleId isEqualToString:@"com.apple.mobilesafari"]) {
+        return @"Safari";
+    }
+    if ([bundleId isEqualToString:@"com.apple.SafariViewService"]) {
+        return @"Safari View Service";
+    }
+    if ([bundleId isEqualToString:@"com.apple.webapp"]) {
+        return @"Web App";
+    }
+    return nil;
+}
 
 @interface LSApplicationProxy : NSObject
 @property (nonatomic, readonly) NSString *applicationIdentifier;
@@ -20,8 +39,7 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
 @end
 
 @implementation ChengIOSAppListController {
-    NSArray<LSApplicationProxy *> *_apps;
-    LSApplicationProxy *_safariApp;
+    NSArray<NSDictionary *> *_apps;
     NSMutableDictionary *_enabled;
     UITableView *_tableView;
 }
@@ -39,9 +57,7 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
     if (bundleId.length == 0) {
         return NO;
     }
-    if ([bundleId isEqualToString:kSafariBundleID] ||
-        [bundleId isEqualToString:@"com.apple.SafariViewService"] ||
-        [bundleId isEqualToString:@"com.apple.webapp"]) {
+    if ([CISafariFamilyIDs() containsObject:bundleId]) {
         return YES;
     }
     if ([bundleId hasPrefix:@"com.apple."]) {
@@ -52,26 +68,40 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
 
 - (void)loadApps {
     NSArray *allApps = [[objc_getClass("LSApplicationWorkspace") defaultWorkspace] allInstalledApplications];
-    NSMutableArray *filtered = [NSMutableArray array];
-    LSApplicationProxy *safari = nil;
+    NSMutableArray *rows = [NSMutableArray array];
+    NSMutableSet *seen = [NSMutableSet set];
     for (LSApplicationProxy *app in allApps) {
         NSString *bundleId = app.applicationIdentifier ?: app.bundleIdentifier;
-        if (![self keepBundle:bundleId]) {
+        if (![self keepBundle:bundleId] || [seen containsObject:bundleId]) {
             continue;
         }
-        if ([bundleId isEqualToString:kSafariBundleID]) {
-            safari = app;
-            continue;
-        }
-        [filtered addObject:app];
+        [seen addObject:bundleId];
+        NSString *name = app.localizedName.length ? app.localizedName : CISafariFamilyName(bundleId);
+        [rows addObject:@{
+            @"bundleId": bundleId ?: @"",
+            @"name": name.length ? name : (bundleId ?: @""),
+            @"proxy": app
+        }];
     }
-    _safariApp = safari;
-    _apps = [filtered sortedArrayUsingComparator:^NSComparisonResult(LSApplicationProxy *a, LSApplicationProxy *b) {
-        NSString *idA = a.applicationIdentifier ?: a.bundleIdentifier ?: @"";
-        NSString *idB = b.applicationIdentifier ?: b.bundleIdentifier ?: @"";
-        NSString *nameA = a.localizedName ?: idA;
-        NSString *nameB = b.localizedName ?: idB;
-        return [nameA localizedCaseInsensitiveCompare:nameB];
+    for (NSString *bundleId in CISafariFamilyIDs()) {
+        if ([seen containsObject:bundleId]) {
+            continue;
+        }
+        [seen addObject:bundleId];
+        NSString *name = CISafariFamilyName(bundleId) ?: bundleId;
+        [rows addObject:@{
+            @"bundleId": bundleId,
+            @"name": name
+        }];
+    }
+    _apps = [rows sortedArrayUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+        NSString *nameA = a[@"name"] ?: a[@"bundleId"] ?: @"";
+        NSString *nameB = b[@"name"] ?: b[@"bundleId"] ?: @"";
+        NSComparisonResult cmp = [nameA localizedCaseInsensitiveCompare:nameB];
+        if (cmp != NSOrderedSame) {
+            return cmp;
+        }
+        return [a[@"bundleId"] compare:b[@"bundleId"]];
     }];
 }
 
@@ -90,41 +120,24 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
     (void)tableView;
-    return 2;
+    return 1;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     (void)tableView;
-    if (section == 0) {
-        return 1;
-    }
+    (void)section;
     return (NSInteger)_apps.count;
-}
-
-- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    (void)tableView;
-    return section == 0 ? @"Safari" : @"Apps";
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     (void)tableView;
-    if (section == 0) {
-        return @"Safari lu\u00f4n \u1edf \u0111\u1ea7u danh s\u00e1ch.";
-    }
-    return @"Ch\u1ecdn Facebook/Shopee \u1edf \u0111\u00e2y. Force-quit app \u0111\u00edch sau Random.";
+    (void)section;
+    return @"Tick Safari / Facebook / Shopee / ADIA64. Force-quit app dich sau Random.";
 }
 
-- (NSString *)bundleIdForIndexPath:(NSIndexPath *)indexPath {
-    if (indexPath.section == 0) {
-        return kSafariBundleID;
-    }
-    LSApplicationProxy *app = _apps[indexPath.row];
-    return app.applicationIdentifier ?: app.bundleIdentifier;
-}
-
-- (LSApplicationProxy *)proxyForIndexPath:(NSIndexPath *)indexPath {
-    if (indexPath.section == 0) {
-        return _safariApp;
+- (NSDictionary *)rowAt:(NSIndexPath *)indexPath {
+    if (indexPath.row < 0 || indexPath.row >= (NSInteger)_apps.count) {
+        return nil;
     }
     return _apps[indexPath.row];
 }
@@ -136,17 +149,14 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellId];
     }
 
-    NSString *bundleId = [self bundleIdForIndexPath:indexPath];
-    LSApplicationProxy *app = [self proxyForIndexPath:indexPath];
-    NSString *name = app.localizedName.length ? app.localizedName : nil;
-    if (name.length == 0 && [bundleId isEqualToString:kSafariBundleID]) {
-        name = @"Safari";
-    }
-    cell.textLabel.text = name.length ? name : bundleId;
+    NSDictionary *row = [self rowAt:indexPath];
+    NSString *bundleId = row[@"bundleId"];
+    cell.textLabel.text = row[@"name"] ?: bundleId;
     cell.detailTextLabel.text = bundleId;
     cell.accessoryType = [_enabled[bundleId] boolValue] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
 
     UIImage *icon = nil;
+    LSApplicationProxy *app = row[@"proxy"];
     if ([app respondsToSelector:@selector(iconDataForVariant:)]) {
         NSData *data = [app iconDataForVariant:0];
         if ([data isKindOfClass:[NSData class]]) {
@@ -159,7 +169,7 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    NSString *bundleId = [self bundleIdForIndexPath:indexPath];
+    NSString *bundleId = [self rowAt:indexPath][@"bundleId"];
     BOOL enabled = [_enabled[bundleId] boolValue];
     _enabled[bundleId] = @(!enabled);
     [self saveEnabled];
