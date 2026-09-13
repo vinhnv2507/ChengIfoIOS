@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.27
+
+- Facebook lai ra iPhone that: 1.2.26 chi gan `uname`/`sysctl` luc load neu prefs da san. 1.2.27 gan luon nhu **1.2.21**, van khong hook MGCopyAnswer/WKWebView tren FB
+- Them `UIDevice _deviceInfoForKey:` (ProductType) va `hw.model` khi dang spoof model
+- Prefs load tre van spoof duoc. Force-quit Facebook sau Respring
+
 ## 1.2.26
 
 - Change Facebook giong **1.2.14**: spoof `uname` / `sysctl hw.machine` / `UIDevice.model`. Khong hook MGCopyAnswer, khong hook WKWebView tren FB/Shopee

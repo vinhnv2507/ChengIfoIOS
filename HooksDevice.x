@@ -220,6 +220,7 @@
     if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess()) {
         return;
     }
+    OVSRegisterPreferenceListener();
     %init;
     if (!OVSIsFragileApp()) {
         %init(LocaleClassHooks);
@@ -233,7 +234,5 @@
             %init(AdSupportHooks);
         }
     }
-    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
-        %init(LowLevelUname);
-    }
+    %init(LowLevelUname);
 }
