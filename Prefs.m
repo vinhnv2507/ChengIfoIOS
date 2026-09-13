@@ -48,6 +48,8 @@ static NSArray<CLLocation *> *gGPXLocations;
 static NSArray<NSNumber *> *gGPXOffsets;
 static NSString *gLoadedGPXPath;
 static NSTimeInterval gLocationEpoch;
+static NSString *gRealMachine;
+static NSString *gRealHwModel;
 
 static NSArray<NSString *> *OVSCandidatePreferencePaths(void) {
     return @[
@@ -512,6 +514,123 @@ BOOL OVSMachineHooksEnabled(void) {
     return OVSShouldSpoofModel();
 }
 
+static NSString *OVSSysctlByNameCopy(const char *name) {
+    if (!name) {
+        return nil;
+    }
+    char buf[256];
+    size_t len = sizeof(buf);
+    memset(buf, 0, sizeof(buf));
+    if (sysctlbyname(name, buf, &len, NULL, 0) == 0 && buf[0]) {
+        return [NSString stringWithUTF8String:buf];
+    }
+    return nil;
+}
+
+static void OVSCacheRealHardware(void) {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        gRealMachine = [OVSSysctlByNameCopy("hw.machine") copy];
+        gRealHwModel = [OVSSysctlByNameCopy("hw.model") copy];
+    });
+}
+
+NSString *OVSRealMachine(void) {
+    OVSCacheRealHardware();
+    return gRealMachine;
+}
+
+static NSString *OVSRealHwModelCached(void) {
+    OVSCacheRealHardware();
+    return gRealHwModel;
+}
+
+BOOL OVSNarrowGestaltEnabled(void) {
+    if (OVSIsSafariFamily() || OVSIsWebKitHelperProcess() || !OVSSpoofingEnabled()) {
+        return NO;
+    }
+    if (!OVSIsFragileApp()) {
+        return NO;
+    }
+    return OVSSpoofedModel().length > 0;
+}
+
+static NSString *OVSMarketingNameForProductType(NSString *model) {
+    if (model.length == 0) {
+        return nil;
+    }
+    static NSDictionary *map;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        map = @{
+            @"iPhone9,1": @"iPhone 7",
+            @"iPhone9,2": @"iPhone 7 Plus",
+            @"iPhone9,3": @"iPhone 7",
+            @"iPhone9,4": @"iPhone 7 Plus",
+            @"iPhone10,1": @"iPhone 8",
+            @"iPhone10,2": @"iPhone 8 Plus",
+            @"iPhone10,3": @"iPhone X",
+            @"iPhone10,4": @"iPhone 8",
+            @"iPhone10,5": @"iPhone 8 Plus",
+            @"iPhone10,6": @"iPhone X",
+            @"iPhone11,2": @"iPhone XS",
+            @"iPhone11,4": @"iPhone XS Max",
+            @"iPhone11,6": @"iPhone XS Max",
+            @"iPhone11,8": @"iPhone XR",
+            @"iPhone12,1": @"iPhone 11",
+            @"iPhone12,3": @"iPhone 11 Pro",
+            @"iPhone12,5": @"iPhone 11 Pro Max",
+            @"iPhone12,8": @"iPhone SE (2nd generation)",
+            @"iPhone13,1": @"iPhone 12 mini",
+            @"iPhone13,2": @"iPhone 12",
+            @"iPhone13,3": @"iPhone 12 Pro",
+            @"iPhone13,4": @"iPhone 12 Pro Max",
+            @"iPhone14,2": @"iPhone 13 Pro",
+            @"iPhone14,3": @"iPhone 13 Pro Max",
+            @"iPhone14,4": @"iPhone 13 mini",
+            @"iPhone14,5": @"iPhone 13",
+            @"iPhone14,6": @"iPhone SE (3rd generation)",
+            @"iPhone14,7": @"iPhone 14",
+            @"iPhone14,8": @"iPhone 14 Plus",
+            @"iPhone15,2": @"iPhone 14 Pro",
+            @"iPhone15,3": @"iPhone 14 Pro Max",
+            @"iPhone15,4": @"iPhone 15",
+            @"iPhone15,5": @"iPhone 15 Plus",
+            @"iPhone16,1": @"iPhone 15 Pro",
+            @"iPhone16,2": @"iPhone 15 Pro Max",
+            @"iPhone17,1": @"iPhone 16 Pro",
+            @"iPhone17,2": @"iPhone 16 Pro Max",
+            @"iPhone17,3": @"iPhone 16",
+            @"iPhone17,4": @"iPhone 16 Plus",
+            @"iPhone17,5": @"iPhone 16e",
+            @"iPhone18,1": @"iPhone 17 Pro",
+            @"iPhone18,2": @"iPhone 17 Pro Max",
+            @"iPhone18,3": @"iPhone 17",
+            @"iPhone18,4": @"iPhone 17 Plus"
+        };
+    });
+    return map[model];
+}
+
+static NSString *OVSRealMarketingName(void) {
+    return OVSMarketingNameForProductType(OVSRealMachine());
+}
+
+static NSString *OVSGestaltResolveKey(NSString *key) {
+    if (key.length == 0) {
+        return key;
+    }
+    static NSDictionary *hashes;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        hashes = @{
+            @"h9jDsbgj7xIVeIQ8S4/l6A": @"ProductType"
+        };
+    });
+    NSString *mapped = hashes[key];
+    return mapped.length ? mapped : key;
+}
+
 static pthread_key_t gLowLevelHookKey;
 static pthread_once_t gLowLevelHookOnce = PTHREAD_ONCE_INIT;
 
@@ -967,11 +1086,33 @@ static BOOL OVSGestaltKeyIs(NSString *key, NSString *name) {
 }
 
 id OVSGestaltObjectForKey(NSString *key) {
-    if (key.length == 0 || !OVSGestaltEnabled()) {
+    if (key.length == 0) {
         return nil;
     }
+    BOOL fullGestalt = OVSGestaltEnabled();
+    BOOL narrowGestalt = !fullGestalt && OVSNarrowGestaltEnabled();
+    if (!fullGestalt && !narrowGestalt) {
+        return nil;
+    }
+    key = OVSGestaltResolveKey(key);
     unichar first = [key characterAtIndex:0];
     if (first < 32 || first > 126) {
+        return nil;
+    }
+
+    if (narrowGestalt) {
+        if (OVSGestaltKeyIs(key, @"ProductType") || OVSGestaltKeyIs(key, @"product-type")) {
+            return OVSSpoofedModel();
+        }
+        if (OVSGestaltKeyIs(key, @"HWModelStr") || OVSGestaltKeyIs(key, @"HWModel") || OVSGestaltKeyIs(key, @"hw-model") || OVSGestaltKeyIs(key, @"HardwareModel")) {
+            return OVSSpoofedHwModel();
+        }
+        if (OVSGestaltKeyIs(key, @"DeviceName") || OVSGestaltKeyIs(key, @"marketing-name") || OVSGestaltKeyIs(key, @"MarketingProductName")) {
+            return OVSSpoofedMarketingName();
+        }
+        if (OVSGestaltKeyIs(key, @"UserAssignedDeviceName")) {
+            return OVSSpoofedDeviceName();
+        }
         return nil;
     }
 
@@ -1011,6 +1152,47 @@ id OVSGestaltObjectForKey(NSString *key) {
     if (OVSGestaltKeyIs(key, @"BluetoothAddress")) {
         NSString *mac = OVSSpoofedBluetoothAddress();
         return mac.length ? mac : nil;
+    }
+    return nil;
+}
+
+id OVSGestaltReplacementForQuestion(NSString *key, id originalValue) {
+    if (key.length == 0 || !OVSSpoofingEnabled() || OVSIsSafariFamily()) {
+        return nil;
+    }
+    id mapped = OVSGestaltObjectForKey(key);
+    if ([mapped isKindOfClass:[NSString class]] && [(NSString *)mapped length] > 0) {
+        return mapped;
+    }
+    if (![originalValue isKindOfClass:[NSString class]] || [(NSString *)originalValue length] == 0) {
+        return nil;
+    }
+    if (!OVSGestaltEnabled() && !OVSNarrowGestaltEnabled()) {
+        return nil;
+    }
+    NSString *text = originalValue;
+    NSString *realMachine = OVSRealMachine();
+    if (realMachine.length > 0 && [text isEqualToString:realMachine]) {
+        NSString *model = OVSSpoofedModel();
+        return model.length ? model : nil;
+    }
+    NSString *realHw = OVSRealHwModelCached();
+    if (realHw.length > 0 && [text isEqualToString:realHw]) {
+        NSString *hw = OVSSpoofedHwModel();
+        return hw.length ? hw : nil;
+    }
+    NSString *realName = OVSRealMarketingName();
+    if (realName.length > 0 && [text isEqualToString:realName]) {
+        NSString *name = OVSSpoofedMarketingName();
+        return name.length ? name : nil;
+    }
+    NSRange comma = [text rangeOfString:@","];
+    if (comma.location != NSNotFound &&
+        ([text hasPrefix:@"iPhone"] || [text hasPrefix:@"iPad"] || [text hasPrefix:@"iPod"])) {
+        NSString *model = OVSSpoofedModel();
+        if (model.length > 0 && ![text isEqualToString:model]) {
+            return model;
+        }
     }
     return nil;
 }
@@ -1366,6 +1548,10 @@ NSString *OVSRewriteUserAgent(NSString *userAgent, BOOL rewriteAppVersion) {
         NSString *fbmd = [model.lowercaseString hasPrefix:@"ipad"] ? @"iPad" : @"iPhone";
         rewritten = OVSReplaceAll(rewritten, @"FBDV/[^;\\s)]+", [NSString stringWithFormat:@"FBDV/%@", model]);
         rewritten = OVSReplaceAll(rewritten, @"FBMD/[^;\\s)]+", [NSString stringWithFormat:@"FBMD/%@", fbmd]);
+        NSString *realMachine = OVSRealMachine();
+        if (realMachine.length > 0 && ![realMachine isEqualToString:model]) {
+            rewritten = [rewritten stringByReplacingOccurrencesOfString:realMachine withString:model];
+        }
     }
     if (dotted.length > 0) {
         rewritten = OVSReplaceAll(rewritten, @"FBSV/[^;\\s)]+", [NSString stringWithFormat:@"FBSV/%@", dotted]);
@@ -1382,6 +1568,7 @@ NSString *OVSRewriteUserAgent(NSString *userAgent, BOOL rewriteAppVersion) {
 
 __attribute__((constructor))
 static void OVSPrefsConstructor(void) {
+    OVSCacheRealHardware();
     if (OVSIsProtectedProcess()) {
         return;
     }

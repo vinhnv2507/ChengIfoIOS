@@ -37,7 +37,7 @@ extern char **environ;
     return @[
         @[
             @{@"kind": @"switch", @"title": @"B\u1eadt ChengIOS", @"key": @"masterEnabled", @"defaultOn": @YES},
-            @{@"kind": @"switch", @"title": @"Spoof s\u00e2u (Gestalt / Darwin)", @"key": @"gestaltEnabled", @"defaultOn": @NO, @"detail": @"FB doi FBDV/model, khong Gestalt. ADIA64 dung spoof sau. Force-quit app dich"}
+            @{@"kind": @"switch", @"title": @"Spoof s\u00e2u (Gestalt / Darwin)", @"key": @"gestaltEnabled", @"defaultOn": @NO, @"detail": @"FB doi ProductType/FBDV (hep, orig-first). ADIA64 dung spoof sau. Force-quit FB roi dang nhap lai"}
         ],
         @[
             @{@"kind": @"nav", @"title": @"Change Apps", @"detail": @"Tick Safari, Facebook, Shopee, ADIA64"}
@@ -197,7 +197,7 @@ extern char **environ;
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     (void)tableView;
     if (section == 0) {
-        return @"Safari: tick Safari, vuot tat han roi mo lai tab. Facebook/Shopee van che do an toan.";
+        return @"Safari: tick Safari, vuot tat han roi mo lai tab. FB/Shopee: doi model hep, khong spoof iOS/IDFV.";
     }
     if (section == 2) {
         return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";

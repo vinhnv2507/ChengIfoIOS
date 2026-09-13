@@ -22,3 +22,4 @@ NSDictionary *ChengIOSEraseDeviceApps(BOOL includeSafari, NSError **error);
 NSDictionary *ChengIOSEraseThenRandom(NSArray<NSString *> *bundleIDs, BOOL allDevice, BOOL randomAll, NSString *region, NSError **error);
 
 NSString *ChengIOSBackupErrorMessage(NSError *error);
+NSDictionary *ChengIOSLastRestoreStats(void);
