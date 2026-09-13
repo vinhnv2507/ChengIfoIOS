@@ -222,7 +222,6 @@ static NSMutableDictionary *CIKCBaseQuery(id cls, BOOL withData) {
         (__bridge id)kSecReturnData: @(withData),
         (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
     } mutableCopy];
-    query[(__bridge id)kSecUseAuthenticationUI] = (__bridge id)kSecUseAuthenticationUISkip;
     return query;
 }
 

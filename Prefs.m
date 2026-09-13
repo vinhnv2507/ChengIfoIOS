@@ -1308,6 +1308,18 @@ double OVSSpoofedWifiSignalStrength(void) {
     return normalized;
 }
 
+static NSString *OVSReplaceAll(NSString *input, NSString *pattern, NSString *replacement) {
+    if (input.length == 0 || pattern.length == 0 || !replacement) {
+        return input;
+    }
+    NSError *error = nil;
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:pattern options:0 error:&error];
+    if (!regex || error) {
+        return input;
+    }
+    return [regex stringByReplacingMatchesInString:input options:0 range:NSMakeRange(0, input.length) withTemplate:replacement];
+}
+
 static NSString *OVSReplaceFirst(NSString *input, NSString *pattern, NSString *replacement) {
     if (input.length == 0 || pattern.length == 0 || !replacement) {
         return input;
@@ -1348,6 +1360,16 @@ NSString *OVSRewriteUserAgent(NSString *userAgent, BOOL rewriteAppVersion) {
     rewritten = OVSReplaceFirst(rewritten, @"iOS/(\\d+(?:\\.\\d+)*)", dotted);
     rewritten = OVSReplaceFirst(rewritten, @"Version/(\\d+(?:\\.\\d+)*)", [NSString stringWithFormat:@"%ld.0", (long)OVSSpoofedOSVersion().majorVersion]);
     rewritten = OVSReplaceFirst(rewritten, @"Mobile/([A-Za-z0-9]+)", OVSSpoofedBuildNumber());
+
+    NSString *model = OVSSpoofedModel();
+    if (model.length > 0) {
+        NSString *fbmd = [model.lowercaseString hasPrefix:@"ipad"] ? @"iPad" : @"iPhone";
+        rewritten = OVSReplaceAll(rewritten, @"FBDV/[^;\\s)]+", [NSString stringWithFormat:@"FBDV/%@", model]);
+        rewritten = OVSReplaceAll(rewritten, @"FBMD/[^;\\s)]+", [NSString stringWithFormat:@"FBMD/%@", fbmd]);
+    }
+    if (dotted.length > 0) {
+        rewritten = OVSReplaceAll(rewritten, @"FBSV/[^;\\s)]+", [NSString stringWithFormat:@"FBSV/%@", dotted]);
+    }
 
     if (rewriteAppVersion) {
         NSString *appVersion = OVSSpoofedAppVersion();
