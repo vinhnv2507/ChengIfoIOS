@@ -142,6 +142,12 @@ id OVSObjectForKey(NSString *key) {
         return nil;
     }
     pthread_mutex_lock(&gMutex);
+    BOOL missing = (gPrefs == nil);
+    pthread_mutex_unlock(&gMutex);
+    if (missing) {
+        OVSReloadPreferences();
+    }
+    pthread_mutex_lock(&gMutex);
     id value = OVSCopyLocked(gPrefs[key]);
     pthread_mutex_unlock(&gMutex);
     return value;
