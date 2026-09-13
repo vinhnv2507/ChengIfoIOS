@@ -10,8 +10,7 @@ APPLICATION_NAME = ChengIOSApp
 
 ChengIOSApp_FILES = main.m AppDelegate.m RootViewController.m AppListViewController.m DeeplinkListViewController.m RegionListViewController.m BackupListViewController.m ../ChengIOSPrefs/ChengIOSProfiles.m ../ChengIOSPrefs/ChengIOSBackup.m
 ChengIOSApp_FRAMEWORKS = UIKit Foundation Security
-ChengIOSApp_LIBRARIES = sqlite3
-ChengIOSApp_CFLAGS = -fobjc-arc -Wno-unguarded-availability-new -Wno-deprecated-declarations -Wno-unused-function -Wno-unused-variable
+ChengIOSApp_CFLAGS = -fobjc-arc -Wno-unguarded-availability-new -Wno-deprecated-declarations
 ChengIOSApp_CODESIGN_FLAGS = -Sentitlements.plist
 ChengIOSApp_INSTALL_PATH = /Applications
 
@@ -20,6 +19,3 @@ include $(THEOS_MAKE_PATH)/application.mk
 
 after-install::
 	install.exec "uicache -p /Applications/ChengIOSApp.app >/dev/null 2>&1 || uicache -p /var/jb/Applications/ChengIOSApp.app >/dev/null 2>&1 || true"
-
-after-ChengIOSApp-stage::
-	find "$(THEOS_STAGING_DIR)" -path '*/ChengIOSApp.app/ChengIOSApp' -exec chmod 6755 {} \;
