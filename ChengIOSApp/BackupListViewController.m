@@ -473,10 +473,6 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     NSString *backupID = CIQuery(url, @"id") ?: CIQuery(url, @"backup") ?: CIQuery(url, @"backup-id");
 
     NSString *region = CIQuery(url, @"region") ?: CIQuery(url, @"iso");
-    if ([token containsString:@"erase-device-random"] || [token containsString:@"wipe-device-random"] || [token containsString:@"factory-random"] || [token containsString:@"reset-device"]) {
-        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), YES, YES, region, silent);
-        return YES;
-    }
     if ([token containsString:@"erase-random-all"] || [token containsString:@"wipe-random-all"] || [token containsString:@"reset-all"]) {
         ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), NO, YES, region, silent);
         return YES;
@@ -487,10 +483,6 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     }
     if ([token containsString:@"erase-safari"] || [token containsString:@"wipe-safari"]) {
         ChengIOSRunEraseSafari(host, silent);
-        return YES;
-    }
-    if ([token containsString:@"erase-device"] || [token containsString:@"wipe-device"] || [token isEqualToString:@"factory"] || [token containsString:@"erase-all-apps"]) {
-        ChengIOSRunEraseDevice(host, silent);
         return YES;
     }
     if ([token containsString:@"backup-apps"] || [token containsString:@"backup-data"] || [token containsString:@"backup-all"] || [token containsString:@"backup-now"]) {
