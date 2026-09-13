@@ -34,6 +34,9 @@
         @{@"title": @"Restore + data moi nhat", @"url": @"chengios://restore-latest?data=1"},
         @{@"title": @"Xoa sach data app da chon", @"url": @"chengios://erase-apps"},
         @{@"title": @"Xoa data Facebook", @"url": @"chengios://erase?bundle=com.facebook.Facebook"},
+        @{@"title": @"Xoa toan bo app + Safari", @"url": @"chengios://erase-device"},
+        @{@"title": @"Xoa app da chon + Random Toan Bo", @"url": @"chengios://erase-random-all"},
+        @{@"title": @"Xoa toan bo + Random Toan Bo", @"url": @"chengios://erase-device-random"},
         @{@"title": @"Respring", @"url": @"chengios://respring"},
         @{@"title": @"Random silent", @"url": @"chengios://random-all?silent=1"}
     ];
