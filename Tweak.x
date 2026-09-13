@@ -484,7 +484,7 @@ static void OVSApplyWebViewUserAgent(id webView) {
     OVSRegisterPreferenceListener();
     %init;
     %init(BundleHooks);
-    if (!OVSIsFragileApp() && NSClassFromString(@"WKWebView")) {
+    if (NSClassFromString(@"WKWebView")) {
         %init(WebKitHooks);
     }
     if (!OVSIsFragileApp() && NSClassFromString(@"TabDocument")) {

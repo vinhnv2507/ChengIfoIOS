@@ -1195,7 +1195,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.21, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.22, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -2390,15 +2390,27 @@ static BOOL CIKeychainWriteEntitlements(NSString *path, NSArray<NSString *> *agr
     if (groups.count == 0) {
         [groups addObject:@"com.vinhnv2507.chengioskc"];
     }
+    NSString *ident = appId;
+    if (ident.length == 0) {
+        for (NSString *agrp in groups) {
+            if ([agrp hasPrefix:@"group."] || [agrp hasPrefix:@"com.apple."] || [agrp isEqualToString:@"apple"] || [agrp isEqualToString:@"lockdown-identities"]) {
+                continue;
+            }
+            if ([agrp containsString:@"."]) {
+                ident = agrp;
+                break;
+            }
+        }
+    }
+    if (ident.length == 0) {
+        ident = @"com.vinhnv2507.chengioskc";
+    }
     NSMutableDictionary *ent = [@{
-        @"platform-application": @YES,
+        @"application-identifier": ident,
+        @"keychain-access-groups": groups,
         @"com.apple.private.security.no-container": @YES,
         @"com.apple.private.security.container-required": @NO,
-        @"com.apple.private.skip-library-validation": @YES,
-        @"com.apple.keystore.access-keychain-keys": @YES,
-        @"com.apple.private.security.storage.Keychains": @YES,
-        @"application-identifier": (appId.length > 0 ? appId : @"com.vinhnv2507.chengioskc"),
-        @"keychain-access-groups": groups
+        @"com.apple.private.skip-library-validation": @YES
     } mutableCopy];
     if (appGroups.count > 0) {
         ent[@"com.apple.security.application-groups"] = appGroups;
@@ -2442,6 +2454,17 @@ static NSString *CIKeychainPrepareSignedBinary(NSArray<NSString *> *agrps, NSStr
     LSApplicationProxy *proxy = CIProxy(bundleID);
     NSDictionary *ents = [proxy respondsToSelector:@selector(entitlements)] ? proxy.entitlements : nil;
     NSString *appId = [ents[@"application-identifier"] isKindOfClass:[NSString class]] ? ents[@"application-identifier"] : nil;
+    if (appId.length == 0) {
+        for (NSString *agrp in agrps) {
+            if (![agrp isKindOfClass:[NSString class]] || [agrp hasPrefix:@"group."] || [agrp hasPrefix:@"com.apple."]) {
+                continue;
+            }
+            if (bundleID.length > 0 && [agrp hasSuffix:bundleID]) {
+                appId = agrp;
+                break;
+            }
+        }
+    }
     NSMutableArray<NSString *> *appGroups = [NSMutableArray array];
     id groups = ents[@"com.apple.security.application-groups"];
     if ([groups isKindOfClass:[NSArray class]]) {
@@ -3270,7 +3293,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.21",
+        @"version": @"1.2.22",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,

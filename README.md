@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.22
+
+- Facebook van ra iPhone that vi UA `FBDV/iPhone9,4` khong bi doi. 1.2.22 rewrite `FBDV`/`FBMD`/`FBSV` (WKWebView + NSURLRequest), van khong hook MGCopyAnswer
+- Keychain dump/restore: ldid copy `chengioskc` giong app (application-identifier + agrp), **bo platform-application**. Ban 1.2.20/1.2.21 dump nham partition Apple nen restore mat login
+- Backup lai khi dang login; can Keychain N>0 va kcUid 501
+
 ## 1.2.21
 
 - Facebook/Shopee: quay lai an toan kieu 1.2.14. Khong hook `MGCopyAnswer`, khong spoof iOS/Darwin/IDFV/locale/network (vang du tat Spoof sau o 1.2.20)
