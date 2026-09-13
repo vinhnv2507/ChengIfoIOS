@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.24
+
+- Facebook/Shopee crash: quay lai an toan kieu **1.2.14 / 1.2.22**. Khong hook `MGCopyAnswer` tren app de vang. Khong Gestalt hep.
+- Giu backup/restore `copyfile` cua 1.2.23 va rewrite `FBDV` tren UA (khong can Gestalt)
+- FB van co the hien iPhone that o Hoat dong dang nhap; uu tien khong vang app
+
 ## 1.2.23
 
 - Facebook: hook `MGCopyAnswer` hep (orig-first). Chi doi ProductType/HWModel/marketing, ke ca hash `h9jDsbgj7xIVeIQ8S4/l6A` va neu ket qua trung model that (`iPhone9,4` -> may gia). Khong spoof iOS/Darwin/IDFV/RAM tren FB/Shopee
