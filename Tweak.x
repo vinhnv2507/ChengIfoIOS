@@ -483,12 +483,16 @@ static void OVSApplyWebViewUserAgent(id webView) {
     }
     OVSRegisterPreferenceListener();
     %init;
-    %init(BundleHooks);
-    if (NSClassFromString(@"WKWebView")) {
+    if (OVSAppVersionEnabled()) {
+        %init(BundleHooks);
+    }
+    if (OVSSpoofingEnabled() && !OVSIsFragileApp() && NSClassFromString(@"WKWebView")) {
         %init(WebKitHooks);
     }
-    if (!OVSIsFragileApp() && NSClassFromString(@"TabDocument")) {
+    if (OVSSpoofingEnabled() && !OVSIsFragileApp() && NSClassFromString(@"TabDocument")) {
         %init(SafariTabHooks);
     }
-    %init(LowLevelSysctl);
+    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
+        %init(LowLevelSysctl);
+    }
 }

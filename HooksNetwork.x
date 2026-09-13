@@ -143,6 +143,9 @@ static BOOL OVSParseMACAddress(NSString *string, unsigned char outBytes[6]) {
     if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess() || OVSIsFragileApp()) {
         return;
     }
+    if (!OVSNetworkEnabled()) {
+        return;
+    }
     %init;
     if (NSClassFromString(@"NEHotspotNetwork")) {
         %init(HotspotHooks);

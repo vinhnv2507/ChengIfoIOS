@@ -223,7 +223,9 @@
     %init;
     if (!OVSIsFragileApp()) {
         %init(LocaleClassHooks);
-        %init(LocaleDefaultsHooks);
+        if (OVSLocaleEnabled()) {
+            %init(LocaleDefaultsHooks);
+        }
         if (NSClassFromString(@"CTCarrier") || NSClassFromString(@"CTTelephonyNetworkInfo")) {
             %init(TelephonyHooks);
         }
@@ -231,5 +233,7 @@
             %init(AdSupportHooks);
         }
     }
-    %init(LowLevelUname);
+    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
+        %init(LowLevelUname);
+    }
 }
