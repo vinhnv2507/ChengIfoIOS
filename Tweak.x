@@ -204,35 +204,6 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 %end
 
-%group DeviceInfoKeyHooks
-%hook UIDevice
-- (id)_deviceInfoForKey:(NSString *)key {
-    if (!OVSShouldSpoofModel() || key.length == 0) {
-        return %orig;
-    }
-    NSString *low = key.lowercaseString;
-    if ([low isEqualToString:@"producttype"] ||
-        [low isEqualToString:@"product-type"] ||
-        [low isEqualToString:@"hw.machine"] ||
-        [low isEqualToString:@"hwmachine"] ||
-        [low isEqualToString:@"platform"]) {
-        return OVSSpoofedModel();
-    }
-    if ([low isEqualToString:@"hwmodelstr"] ||
-        [low isEqualToString:@"hwmodel"] ||
-        [low isEqualToString:@"hw.model"]) {
-        NSString *hw = OVSSpoofedHwModel();
-        return hw.length > 0 ? hw : %orig;
-    }
-    if ([low isEqualToString:@"marketing-name"] || [low isEqualToString:@"marketingname"]) {
-        NSString *name = OVSSpoofedMarketingName();
-        return name.length > 0 ? name : %orig;
-    }
-    return %orig;
-}
-%end
-%end
-
 %group BundleHooks
 %hook NSBundle
 - (NSDictionary *)infoDictionary {
@@ -445,7 +416,7 @@ static void OVSApplyWebViewUserAgent(id webView) {
     } else if (OVSGestaltEnabled() && strcmp(name, "kern.version") == 0) {
         result = OVSSysctlCopyString(oldp, oldlenp, OVSDarwinVersionString().UTF8String);
         handled = YES;
-    } else if ((OVSShouldSpoofModel() || OVSGestaltEnabled()) && strcmp(name, "hw.model") == 0) {
+    } else if (OVSGestaltEnabled() && strcmp(name, "hw.model") == 0) {
         NSString *hw = OVSSpoofedHwModel();
         if (hw.length > 0) {
             result = OVSSysctlCopyString(oldp, oldlenp, hw.UTF8String);
@@ -490,7 +461,7 @@ static void OVSApplyWebViewUserAgent(id webView) {
             handled = YES;
         }
 #endif
-        else if ((OVSShouldSpoofModel() || OVSGestaltEnabled()) && name[1] == HW_MODEL) {
+        else if (OVSGestaltEnabled() && name[1] == HW_MODEL) {
             NSString *hw = OVSSpoofedHwModel();
             if (hw.length > 0) {
                 result = OVSSysctlCopyString(oldp, oldlenp, hw.UTF8String);
@@ -521,8 +492,7 @@ static void OVSApplyWebViewUserAgent(id webView) {
     if (OVSSpoofingEnabled() && !OVSIsFragileApp() && NSClassFromString(@"TabDocument")) {
         %init(SafariTabHooks);
     }
-    %init(LowLevelSysctl);
-    if (class_getInstanceMethod([UIDevice class], NSSelectorFromString(@"_deviceInfoForKey:"))) {
-        %init(DeviceInfoKeyHooks);
+    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
+        %init(LowLevelSysctl);
     }
 }
