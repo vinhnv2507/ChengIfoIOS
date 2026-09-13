@@ -68,7 +68,7 @@ jobs:
             echo 'Label: ChengIOS'
             echo 'Suite: stable'
             echo 'Codename: ios'
-            echo 'Version: 1.2.27'
+            echo 'Version: 1.2.28'
             echo 'Architectures: iphoneos-arm iphoneos-arm64'
             echo 'Components: main'
             echo 'Description: ChengIOS Sileo repository'

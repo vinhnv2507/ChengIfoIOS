@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.28
+
+- Quay dung change/hook **1.2.14**: Facebook/Shopee khong hook MGCopyAnswer. `uname` / `sysctl hw.machine` / `UIDevice` van spoof model (khong skip fragile). Khong FBDV rewrite, khong always-init WebKit, khong `_deviceInfoForKey`
+- Xoa data lay dung **1.2.25**: `chengiosroot` + `chengioskc` + SQL keychain + empty container + Facebook family groups
+- Khong lay hook/backup rewrite 1.2.15-1.2.27. Backup/restore van engine 1.2.25 (chua rewrite dump 1.2.26)
+
 ## 1.2.27
 
 - Facebook lai ra iPhone that: 1.2.26 chi gan `uname`/`sysctl` luc load neu prefs da san. 1.2.27 gan luon nhu **1.2.21**, van khong hook MGCopyAnswer/WKWebView tren FB

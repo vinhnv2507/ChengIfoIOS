@@ -37,10 +37,10 @@ extern char **environ;
     return @[
         @[
             @{@"kind": @"switch", @"title": @"B\u1eadt ChengIOS", @"key": @"masterEnabled", @"defaultOn": @YES},
-            @{@"kind": @"switch", @"title": @"Spoof s\u00e2u (Gestalt / Darwin)", @"key": @"gestaltEnabled", @"defaultOn": @NO, @"detail": @"FB doi FBDV/model, khong Gestalt. ADIA64 dung spoof sau. Force-quit app dich"}
+            @{@"kind": @"switch", @"title": @"Spoof s\u00e2u (Gestalt / Darwin)", @"key": @"gestaltEnabled", @"defaultOn": @NO, @"detail": @"FB/Shopee b\u1ecf qua Gestalt; app th\u01b0\u1eddng m\u1edbi d\u00f9ng Darwin. Force-quit app \u0111\u00edch"}
         ],
         @[
-            @{@"kind": @"nav", @"title": @"Change Apps", @"detail": @"Tick Safari, Facebook, Shopee, ADIA64"}
+            @{@"kind": @"nav", @"title": @"Change Apps", @"detail": @"C\u00f3 Safari \u1edf \u0111\u1ea7u danh s\u00e1ch"}
         ],
         @[
             @{@"kind": @"button", @"title": @"Random Info M\u00e1y", @"action": @"identity"},
@@ -51,7 +51,7 @@ extern char **environ;
             @{@"kind": @"nav", @"title": @"Deeplink / Shortcuts", @"page": @"deeplink", @"detail": @"chengios://"}
         ],
         @[
-            @{@"kind": @"nav", @"title": @"Quan ly Backup", @"page": @"backup", @"detail": @"Danh sach backup"},
+            @{@"kind": @"nav", @"title": @"Quan ly Backup", @"page": @"backup", @"detail": @"Backup / Restore / Xoa data"},
             @{@"kind": @"button", @"title": @"Backup ho so", @"action": @"backupProfile"},
             @{@"kind": @"button", @"title": @"Backup ho so + data app", @"action": @"backupApps"},
             @{@"kind": @"button", @"title": @"Xoa sach data app da chon", @"action": @"eraseApps"},
@@ -203,7 +203,7 @@ extern char **environ;
         return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";
     }
     if (section == 3) {
-        return @"Backup data gom sandbox + keychain de restore con login. Xoa Facebook xoa SSO/keychain. Co nut xoa Safari va xoa toan bo app user.";
+        return @"Xoa data: sandbox + group + SQL keychain. Co nut xoa Safari va xoa toan bo app user.";
     }
     if (section == 10) {
         return @"deviceinfo.me Region/City/ISP la IP cong cong that (Viettel/Hung Yen). Bam nut Detect de dung GPS gia lap.";

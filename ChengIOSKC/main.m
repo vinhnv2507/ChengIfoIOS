@@ -208,24 +208,10 @@ static void CIKCAddUnique(NSMutableArray<NSDictionary *> *out, NSMutableSet<NSSt
     }
     NSString *sig = CIKCRowSig(row);
     if ([seen containsObject:sig]) {
-        for (NSUInteger i = 0; i < out.count; i++) {
-            if ([CIKCRowSig(out[i]) isEqualToString:sig]) {
-                BOOL newData = [row[@"data"] isKindOfClass:[NSString class]] && [row[@"data"] length] > 0;
-                BOOL oldData = [out[i][@"data"] isKindOfClass:[NSString class]] && [out[i][@"data"] length] > 0;
-                if (newData && !oldData) {
-                    out[i] = row;
-                }
-                return;
-            }
-        }
         return;
     }
     [seen addObject:sig];
     [out addObject:row];
-}
-
-static void CIKCApplyAuthUI(NSMutableDictionary *query) {
-    query[(__bridge id)kSecUseAuthenticationUI] = (__bridge id)kSecUseAuthenticationUISkip;
 }
 
 static NSMutableDictionary *CIKCBaseQuery(id cls, BOOL withData) {
@@ -236,7 +222,6 @@ static NSMutableDictionary *CIKCBaseQuery(id cls, BOOL withData) {
         (__bridge id)kSecReturnData: @(withData),
         (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
     } mutableCopy];
-    CIKCApplyAuthUI(query);
     return query;
 }
 
@@ -273,58 +258,6 @@ static NSArray *CIKCCopy(id cls, NSDictionary *extra, BOOL withData) {
 
 static BOOL CIKCSkipApple(NSString *agrp);
 
-static NSDictionary *CIKCFillData(id cls, NSDictionary *item) {
-    if (![item isKindOfClass:[NSDictionary class]]) {
-        return item;
-    }
-    NSMutableDictionary *query = [@{
-        (__bridge id)kSecClass: cls,
-        (__bridge id)kSecMatchLimit: (__bridge id)kSecMatchLimitOne,
-        (__bridge id)kSecReturnAttributes: @YES,
-        (__bridge id)kSecReturnData: @YES,
-        (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
-    } mutableCopy];
-    CIKCApplyAuthUI(query);
-    NSArray *keys = @[
-        (__bridge id)kSecAttrAccessGroup,
-        (__bridge id)kSecAttrAccount,
-        (__bridge id)kSecAttrService,
-        (__bridge id)kSecAttrLabel,
-        (__bridge id)kSecAttrServer,
-        (__bridge id)kSecAttrProtocol,
-        (__bridge id)kSecAttrPath,
-        (__bridge id)kSecAttrApplicationTag
-    ];
-    for (id key in keys) {
-        id value = item[key];
-        if (value) {
-            query[key] = value;
-        }
-    }
-    id sync = item[(__bridge id)kSecAttrSynchronizable];
-    if ([sync isKindOfClass:[NSNumber class]]) {
-        query[(__bridge id)kSecAttrSynchronizable] = sync;
-    }
-    CFTypeRef result = NULL;
-    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
-    if (status != errSecSuccess || !result) {
-        if (result) {
-            CFRelease(result);
-        }
-        [query removeObjectForKey:(__bridge id)kSecAttrSynchronizable];
-        result = NULL;
-        status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
-    }
-    if (status != errSecSuccess || !result) {
-        if (result) {
-            CFRelease(result);
-        }
-        return item;
-    }
-    NSDictionary *full = CFBridgingRelease(result);
-    return [full isKindOfClass:[NSDictionary class]] ? full : item;
-}
-
 static NSArray *CIKCDump(NSArray<NSString *> *agrps) {
     NSMutableArray<NSDictionary *> *out = [NSMutableArray array];
     NSMutableSet<NSString *> *seen = [NSMutableSet set];
@@ -338,29 +271,24 @@ static NSArray *CIKCDump(NSArray<NSString *> *agrps) {
         [groups addObject:agrp];
     }
     for (id cls in CIKCClasses()) {
-        NSMutableArray<NSDictionary *> *attrs = [NSMutableArray array];
-        void (^collect)(NSDictionary *) = ^(NSDictionary *extra) {
-            for (NSDictionary *item in CIKCCopy(cls, extra, NO)) {
-                if ([item isKindOfClass:[NSDictionary class]]) {
-                    [attrs addObject:item];
-                }
-            }
-        };
         if (groups.count == 0) {
-            collect(nil);
-        } else {
-            for (NSString *agrp in groups) {
-                collect(@{(__bridge id)kSecAttrAccessGroup: agrp});
+            for (NSDictionary *item in CIKCCopy(cls, nil, YES)) {
+                CIKCAddUnique(out, seen, CIKCRowFromItem(cls, item));
             }
-            collect(nil);
+            continue;
         }
-        for (NSDictionary *item in attrs) {
+        for (NSString *agrp in groups) {
+            NSDictionary *extra = @{(__bridge id)kSecAttrAccessGroup: agrp};
+            for (NSDictionary *item in CIKCCopy(cls, extra, YES)) {
+                CIKCAddUnique(out, seen, CIKCRowFromItem(cls, item));
+            }
+        }
+        for (NSDictionary *item in CIKCCopy(cls, nil, YES)) {
             NSString *agrp = item[(__bridge id)kSecAttrAccessGroup];
             if (CIKCSkipApple(agrp)) {
                 continue;
             }
-            NSDictionary *full = CIKCFillData(cls, item);
-            CIKCAddUnique(out, seen, CIKCRowFromItem(cls, full ?: item));
+            CIKCAddUnique(out, seen, CIKCRowFromItem(cls, item));
         }
     }
     return out;
@@ -489,23 +417,8 @@ static NSMutableDictionary *CIKCAddDict(NSDictionary *row) {
     return add;
 }
 
-static NSUInteger gCIKCSkipped = 0;
-static NSUInteger gCIKCFailed = 0;
-
-static OSStatus CIKCTryAdd(NSMutableDictionary *add, NSMutableDictionary *del) {
-    SecItemDelete((__bridge CFDictionaryRef)del);
-    OSStatus status = SecItemAdd((__bridge CFDictionaryRef)add, NULL);
-    if (status == errSecDuplicateItem) {
-        SecItemDelete((__bridge CFDictionaryRef)del);
-        status = SecItemAdd((__bridge CFDictionaryRef)add, NULL);
-    }
-    return status;
-}
-
 static NSUInteger CIKCRestore(NSArray *rows) {
     NSUInteger added = 0;
-    gCIKCSkipped = 0;
-    gCIKCFailed = 0;
     if (![rows isKindOfClass:[NSArray class]]) {
         return 0;
     }
@@ -515,17 +428,6 @@ static NSUInteger CIKCRestore(NSArray *rows) {
         }
         NSString *agrp = row[@"accessGroup"];
         if (CIKCSkipApple(agrp)) {
-            continue;
-        }
-        NSString *data64 = row[@"data"];
-        BOOL hasData = [data64 isKindOfClass:[NSString class]] && data64.length > 0;
-        if (!hasData) {
-            gCIKCSkipped += 1;
-            continue;
-        }
-        NSString *token = [row[@"tokenID"] isKindOfClass:[NSString class]] ? row[@"tokenID"] : @"";
-        if ([token.lowercaseString containsString:@"setoken"] || [token.lowercaseString containsString:@"secureenclave"]) {
-            gCIKCSkipped += 1;
             continue;
         }
         NSMutableDictionary *add = CIKCAddDict(row);
@@ -541,21 +443,14 @@ static NSUInteger CIKCRestore(NSArray *rows) {
         [del removeObjectForKey:(__bridge id)kSecAttrKeySizeInBits];
         [del removeObjectForKey:(__bridge id)kSecAttrIsPermanent];
         del[(__bridge id)kSecAttrSynchronizable] = (__bridge id)kSecAttrSynchronizableAny;
-        OSStatus status = CIKCTryAdd(add, del);
-        if (status != errSecSuccess && add[(__bridge id)kSecAttrAccessControl]) {
-            [add removeObjectForKey:(__bridge id)kSecAttrAccessControl];
-            add[(__bridge id)kSecAttrAccessible] = (__bridge id)kSecAttrAccessibleAfterFirstUnlock;
-            status = CIKCTryAdd(add, del);
-        }
-        if (status != errSecSuccess) {
-            add[(__bridge id)kSecAttrAccessible] = (__bridge id)kSecAttrAccessibleAfterFirstUnlock;
-            [add removeObjectForKey:(__bridge id)kSecAttrAccessControl];
-            status = CIKCTryAdd(add, del);
+        SecItemDelete((__bridge CFDictionaryRef)del);
+        OSStatus status = SecItemAdd((__bridge CFDictionaryRef)add, NULL);
+        if (status == errSecDuplicateItem) {
+            SecItemDelete((__bridge CFDictionaryRef)del);
+            status = SecItemAdd((__bridge CFDictionaryRef)add, NULL);
         }
         if (status == errSecSuccess) {
             added += 1;
-        } else {
-            gCIKCFailed += 1;
         }
     }
     return added;
@@ -605,22 +500,13 @@ int main(int argc, char *argv[]) {
         out[@"agrpCount"] = @(agrps.count);
         if ([op isEqualToString:@"dump"]) {
             NSArray *items = CIKCDump(agrps);
-            NSUInteger withData = 0;
-            for (NSDictionary *row in items) {
-                if ([row isKindOfClass:[NSDictionary class]] && [row[@"data"] isKindOfClass:[NSString class]] && [row[@"data"] length] > 0) {
-                    withData += 1;
-                }
-            }
             out[@"items"] = items ?: @[];
             out[@"count"] = @(items.count);
-            out[@"withData"] = @(withData);
             out[@"ok"] = @YES;
         } else if ([op isEqualToString:@"restore"]) {
             NSArray *items = [job[@"items"] isKindOfClass:[NSArray class]] ? job[@"items"] : @[];
             NSUInteger n = CIKCRestore(items);
             out[@"count"] = @(n);
-            out[@"skipped"] = @(gCIKCSkipped);
-            out[@"failed"] = @(gCIKCFailed);
             out[@"ok"] = @YES;
         } else if ([op isEqualToString:@"wipe"]) {
             NSUInteger n = CIKCWipe(agrps);

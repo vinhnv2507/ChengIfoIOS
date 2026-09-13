@@ -1287,7 +1287,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.25, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.28, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -2201,41 +2201,28 @@ static BOOL CIKeychainItemMatchesBundle(NSDictionary *item, NSString *bundleID) 
     return CIKeychainTextMatchesBundle(blob, bundleID);
 }
 
-static NSString *CIKeychainRowSig(NSDictionary *row) {
-    return [NSString stringWithFormat:@"%@|%@|%@|%@|%@|%@|%@",
-            row[@"class"] ?: @"",
-            row[@"service"] ?: @"",
-            row[@"account"] ?: @"",
-            row[@"accessGroup"] ?: @"",
-            row[@"label"] ?: @"",
-            row[@"server"] ?: @"",
-            row[@"applicationTag"] ?: @""];
-}
-
-static BOOL CIKeychainRowHasData(NSDictionary *row) {
-    return [row[@"data"] isKindOfClass:[NSString class]] && [row[@"data"] length] > 0;
-}
-
-static NSUInteger CIKeychainCountWithData(NSArray *rows) {
-    NSUInteger n = 0;
-    for (NSDictionary *row in rows) {
-        if ([row isKindOfClass:[NSDictionary class]] && CIKeychainRowHasData(row)) {
-            n += 1;
-        }
-    }
-    return n;
-}
-
 static void CIKeychainAddUniqueRow(NSMutableArray<NSDictionary *> *out, NSDictionary *row) {
     if (![row isKindOfClass:[NSDictionary class]]) {
         return;
     }
-    NSString *sig = CIKeychainRowSig(row);
-    for (NSUInteger i = 0; i < out.count; i++) {
-        if ([CIKeychainRowSig(out[i]) isEqualToString:sig]) {
-            if (CIKeychainRowHasData(row) && !CIKeychainRowHasData(out[i])) {
-                out[i] = row;
-            }
+    NSString *sig = [NSString stringWithFormat:@"%@|%@|%@|%@|%@|%@|%@",
+                     row[@"class"] ?: @"",
+                     row[@"service"] ?: @"",
+                     row[@"account"] ?: @"",
+                     row[@"accessGroup"] ?: @"",
+                     row[@"label"] ?: @"",
+                     row[@"server"] ?: @"",
+                     row[@"applicationTag"] ?: @""];
+    for (NSDictionary *old in out) {
+        NSString *osig = [NSString stringWithFormat:@"%@|%@|%@|%@|%@|%@|%@",
+                          old[@"class"] ?: @"",
+                          old[@"service"] ?: @"",
+                          old[@"account"] ?: @"",
+                          old[@"accessGroup"] ?: @"",
+                          old[@"label"] ?: @"",
+                          old[@"server"] ?: @"",
+                          old[@"applicationTag"] ?: @""];
+        if ([osig isEqualToString:sig]) {
             return;
         }
     }
@@ -2278,9 +2265,6 @@ static NSString *gCIKCSignedError = nil;
 static NSUInteger gCIKCAgrpCount = 0;
 static NSUInteger gCIKCSignedCount = 0;
 static NSUInteger gCIKCSignedCountTotal = 0;
-static NSUInteger gCIKCWithData = 0;
-static NSUInteger gCIKCFailed = 0;
-static NSUInteger gCIKCSkipped = 0;
 static NSInteger gCIKCSignedUID = -1;
 static BOOL gCIKCSignedOK = NO;
 
@@ -2651,15 +2635,6 @@ static NSDictionary *CIKeychainRunSigned(NSString *op, NSString *bundleID, NSArr
     gCIKCSignedOK = [out[@"ok"] boolValue];
     gCIKCSignedCount = [out[@"count"] unsignedIntegerValue];
     gCIKCSignedCountTotal += gCIKCSignedCount;
-    if ([out[@"withData"] isKindOfClass:[NSNumber class]]) {
-        gCIKCWithData = [out[@"withData"] unsignedIntegerValue];
-    }
-    if ([out[@"failed"] isKindOfClass:[NSNumber class]]) {
-        gCIKCFailed = [out[@"failed"] unsignedIntegerValue];
-    }
-    if ([out[@"skipped"] isKindOfClass:[NSNumber class]]) {
-        gCIKCSkipped = [out[@"skipped"] unsignedIntegerValue];
-    }
     id kcUid = out[@"uid"];
     if ([kcUid isKindOfClass:[NSNumber class]]) {
         gCIKCSignedUID = [kcUid integerValue];
@@ -2714,7 +2689,7 @@ static NSArray<NSDictionary *> *CIKeychainDumpForBundle(NSString *bundleID) {
     for (NSDictionary *row in signedItems) {
         CIKeychainAddUniqueRow(out, row);
     }
-    if (gCIKCSignedOK) {
+    if (out.count > 0) {
         return out;
     }
     NSArray *classes = @[
@@ -3314,9 +3289,6 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
     gCIKCSignedError = nil;
     gCIKCSignedCount = 0;
     gCIKCSignedCountTotal = 0;
-    gCIKCWithData = 0;
-    gCIKCFailed = 0;
-    gCIKCSkipped = 0;
     gCIKCSignedUID = -1;
     gCIKCAgrpCount = 0;
     gCIKCSignedOK = NO;
@@ -3333,7 +3305,6 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
     NSMutableArray<NSString *> *failedBundles = [NSMutableArray array];
     unsigned long long bytes = 0;
     NSUInteger keychainCount = 0;
-    NSUInteger keychainWithData = 0;
     NSUInteger sqlCountTotal = 0;
     NSUInteger secCountTotal = 0;
     NSArray<NSString *> *targets = bundleIDs;
@@ -3343,17 +3314,19 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
     if (includeAppData) {
         CICopyStatsReset();
         NSMutableDictionary *kcByBundle = [NSMutableDictionary dictionary];
-        NSMutableDictionary *sqlByBundle = [NSMutableDictionary dictionary];
         for (NSString *bundleID in targets) {
             if (![bundleID isKindOfClass:[NSString class]] || ChengIOSBundleIsProtected(bundleID)) {
                 [failedBundles addObject:bundleID ?: @""];
                 continue;
             }
             NSMutableArray *keychain = [(CIKeychainDumpForBundle(bundleID) ?: @[]) mutableCopy];
-            NSArray *sqlItems = CIKeychainSQLDumpForBundle(bundleID) ?: @[];
+            NSArray *sqlItems = CIKeychainSQLDumpForBundle(bundleID);
             sqlCountTotal += sqlItems.count;
+            secCountTotal += keychain.count;
+            if (sqlItems.count > 0) {
+                [keychain addObjectsFromArray:sqlItems];
+            }
             kcByBundle[bundleID] = keychain ?: @[];
-            sqlByBundle[bundleID] = sqlItems;
         }
         for (NSString *bundleID in targets) {
             if (![bundleID isKindOfClass:[NSString class]] || ChengIOSBundleIsProtected(bundleID)) {
@@ -3364,16 +3337,6 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         [NSThread sleepForTimeInterval:1.2];
         CIRunKillall(@"cfprefsd");
         [NSThread sleepForTimeInterval:0.25];
-        for (NSString *bundleID in targets) {
-            if (![bundleID isKindOfClass:[NSString class]] || ChengIOSBundleIsProtected(bundleID)) {
-                continue;
-            }
-            NSMutableArray *merged = [(kcByBundle[bundleID] ?: @[]) mutableCopy];
-            for (NSDictionary *row in (CIKeychainDumpForBundle(bundleID) ?: @[])) {
-                CIKeychainAddUniqueRow(merged, row);
-            }
-            kcByBundle[bundleID] = merged;
-        }
         for (NSString *bundleID in targets) {
             if (![bundleID isKindOfClass:[NSString class]] || ChengIOSBundleIsProtected(bundleID)) {
                 continue;
@@ -3404,12 +3367,6 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
                 NSString *kcPath = [appDir stringByAppendingPathComponent:@"keychain.plist"];
                 [keychain writeToFile:kcPath atomically:YES];
                 keychainCount += keychain.count;
-                keychainWithData += CIKeychainCountWithData(keychain);
-            }
-            NSArray *sqlSaved = sqlByBundle[bundleID];
-            if ([sqlSaved isKindOfClass:[NSArray class]] && sqlSaved.count > 0) {
-                NSString *sqlPath = [appDir stringByAppendingPathComponent:@"keychain-sql.plist"];
-                [sqlSaved writeToFile:sqlPath atomically:YES];
             }
             if (ChengIOSBundleIsSafari(bundleID)) {
                 CIKillSafariProcesses();
@@ -3429,7 +3386,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.26",
+        @"version": @"1.2.28",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -3437,11 +3394,10 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"copyFiles": @(gCICopyFiles),
         @"copyFailed": @(gCICopyFailed),
         @"keychainItems": @(keychainCount),
-        @"keychainWithData": @(keychainWithData),
         @"sqlOpened": @(gCIKeychainSQLLastOpen),
         @"sqlPath": gCIKeychainSQLLastPath ?: @"",
         @"sqlCount": @(sqlCountTotal),
-        @"secCount": @(keychainCount),
+        @"secCount": @(secCountTotal),
         @"signedCount": @(gCIKCSignedCountTotal),
         @"signedOK": @(gCIKCSignedOK),
         @"agrpCount": @(gCIKCAgrpCount),
@@ -3624,13 +3580,7 @@ BOOL ChengIOSRestoreBackup(NSString *backupID, BOOL restoreProfile, BOOL restore
                 CIKeychainSQLWipeForBundle(bundleID);
                 CIRunKillall(@"securityd");
                 CIRunKillall(@"secd");
-                [NSThread sleepForTimeInterval:1.0];
-                NSArray *sqlFile = [NSArray arrayWithContentsOfFile:[appDir stringByAppendingPathComponent:@"keychain-sql.plist"]];
-                if ([sqlFile isKindOfClass:[NSArray class]]) {
-                    [sqlRows addObjectsFromArray:sqlFile];
-                }
-                gCIKCFailed = 0;
-                gCIKCSkipped = 0;
+                [NSThread sleepForTimeInterval:0.25];
                 NSUInteger restored = 0;
                 if (secRows.count > 0) {
                     restored = CIKeychainSignedRestore(bundleID, secRows);
@@ -3642,13 +3592,9 @@ BOOL ChengIOSRestoreBackup(NSString *backupID, BOOL restoreProfile, BOOL restore
                     gCILastRestoreStats = [NSMutableDictionary dictionary];
                 }
                 gCILastRestoreStats[@"keychainRestored"] = @([gCILastRestoreStats[@"keychainRestored"] unsignedIntegerValue] + restored);
-                gCILastRestoreStats[@"keychainFailed"] = @([gCILastRestoreStats[@"keychainFailed"] unsignedIntegerValue] + gCIKCFailed);
-                gCILastRestoreStats[@"keychainSkipped"] = @([gCILastRestoreStats[@"keychainSkipped"] unsignedIntegerValue] + gCIKCSkipped);
                 gCILastRestoreStats[@"kcUid"] = @(gCIKCSignedUID);
             }
-            CIRunKillall(@"cfprefsd");
-            [NSThread sleepForTimeInterval:0.25];
-            CITerminateRelatedBundles(bundleID);
+            CISettleAfterDisk(bundleID);
         }
         if (!gCILastRestoreStats) {
             gCILastRestoreStats = [NSMutableDictionary dictionary];
