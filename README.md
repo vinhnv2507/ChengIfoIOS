@@ -32,6 +32,11 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.34
+
+- Fix Shopee crash: bo WebKit / iOS version / locale / carrier / IDFA hooks (app fragile, iOS 15 that + iOS 18 spoof lam vang). Facebook van an toan
+- Van spoof IDFV cho Shopee khi bat identity. Gestalt van tat
+
 ## 1.2.33
 
 - Tra nut/deeplink **Xoa toan bo app + Safari** va **Xoa toan bo + Random Toan Bo** (`chengios://erase-device`, `chengios://erase-device-random`)

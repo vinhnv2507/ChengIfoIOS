@@ -495,13 +495,13 @@ static void OVSApplyWebViewUserAgent(id webView) {
     if (OVSAppVersionEnabled()) {
         %init(BundleHooks);
     }
-    if (OVSSpoofingEnabled() && (!OVSIsFragileApp() || OVSIsShopeeFamily()) && NSClassFromString(@"WKWebView")) {
+    if (OVSSpoofingEnabled() && !OVSIsFragileApp() && NSClassFromString(@"WKWebView")) {
         %init(WebKitHooks);
     }
     if (OVSSpoofingEnabled() && !OVSIsFragileApp() && NSClassFromString(@"TabDocument")) {
         %init(SafariTabHooks);
     }
-    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled() || OVSShouldSpoofOSVersion()) {
+    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
         %init(LowLevelSysctl);
     }
 }

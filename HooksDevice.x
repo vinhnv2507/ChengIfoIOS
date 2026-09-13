@@ -221,7 +221,7 @@
         return;
     }
     %init;
-    if (!OVSIsFragileApp() || OVSIsShopeeFamily()) {
+    if (!OVSIsFragileApp()) {
         %init(LocaleClassHooks);
         if (OVSLocaleEnabled()) {
             %init(LocaleDefaultsHooks);

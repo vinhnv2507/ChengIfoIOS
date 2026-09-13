@@ -622,13 +622,7 @@ BOOL OVSSpoofingEnabled(void) {
 }
 
 BOOL OVSShouldSpoofOSVersion(void) {
-    if (!OVSSpoofingEnabled() || OVSIsSafariFamily()) {
-        return NO;
-    }
-    if (OVSIsShopeeFamily()) {
-        return YES;
-    }
-    return !OVSIsFragileApp();
+    return OVSSpoofingEnabled() && !OVSIsFragileApp() && !OVSIsSafariFamily();
 }
 
 BOOL OVSUseCustomOSVersion(void) {
@@ -1048,10 +1042,7 @@ id OVSGestaltObjectForKey(NSString *key) {
 }
 
 BOOL OVSLocaleEnabled(void) {
-    if (!OVSSpoofingEnabled() || OVSIsSafariFamily() || !OVSBoolForKey(@"localeEnabled", NO)) {
-        return NO;
-    }
-    return !OVSIsFragileApp() || OVSIsShopeeFamily();
+    return !OVSIsFragileApp() && !OVSIsSafariFamily() && OVSSpoofingEnabled() && OVSBoolForKey(@"localeEnabled", NO);
 }
 
 NSString *OVSSpoofedLocaleIdentifier(void) {
@@ -1069,10 +1060,7 @@ NSString *OVSSpoofedTimeZoneName(void) {
 }
 
 BOOL OVSCarrierEnabled(void) {
-    if (!OVSSpoofingEnabled() || OVSIsSafariFamily() || !OVSBoolForKey(@"carrierEnabled", NO)) {
-        return NO;
-    }
-    return !OVSIsFragileApp() || OVSIsShopeeFamily();
+    return !OVSIsFragileApp() && !OVSIsSafariFamily() && OVSSpoofingEnabled() && OVSBoolForKey(@"carrierEnabled", NO);
 }
 
 NSString *OVSSpoofedCarrierName(void) {
