@@ -24,6 +24,7 @@ BOOL OVSSpoofingEnabled(void);
 BOOL OVSIsWebKitHelperProcess(void);
 BOOL OVSIsSafariFamily(void);
 BOOL OVSIsFragileApp(void);
+BOOL OVSIsShopeeFamily(void);
 BOOL OVSShouldSpoofOSVersion(void);
 BOOL OVSGestaltEnabled(void);
 BOOL OVSLowLevelHooksEnabled(void);
