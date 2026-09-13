@@ -32,6 +32,13 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.31
+
+- Giu dung change/hook **1.2.14 / 1.2.29**. Khong sua Prefs/Tweak/Hooks, khong setuid ChengIOSApp
+- Fix backup `Khong ghi duoc input cho root helper`: inbox thu `/var/tmp/ChengIOS` truoc Media (TCC). `writeToFile` fallback. Spawn fail (`ok!=YES` hoac `uid!=0`) moi fallback daemon, khong coi fail la root
+- Xoa Facebook DBL: helper phai chay root (keychain `chengioskc` + Accounts3). Them wipe file DBL/`saved_accounts`. Khong wipe mobile neu helper loi
+- Can **ldid**. Backup khi dang login, force-quit app dich, `keychainWithData > 0`
+
 ## 1.2.30
 
 - Giu dung change/hook **1.2.14 / 1.2.29**. Khong sua Prefs/Tweak/Hooks

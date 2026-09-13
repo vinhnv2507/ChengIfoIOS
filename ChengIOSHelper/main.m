@@ -57,23 +57,37 @@ static NSDictionary *CIExecuteOp(NSString *op, NSDictionary *input) {
     return result;
 }
 
-static NSArray<NSString *> *CIInboxDirs(void) {
+static NSArray<NSString *> *CIWorkRoots(void) {
     return @[
-        @"/var/mobile/Media/ChengIOS/.work/inbox",
-        @"/private/var/mobile/Media/ChengIOS/.work/inbox"
-    ];
-}
-
-static void CIWriteHeartbeat(void) {
-    NSArray<NSString *> *roots = @[
+        @"/var/tmp/ChengIOS",
+        @"/private/var/tmp/ChengIOS",
+        @"/tmp/ChengIOS",
+        @"/var/mobile/tmp/ChengIOS",
+        @"/var/mobile/Documents/ChengIOS/.work",
+        @"/var/mobile/Library/Caches/ChengIOS/.work",
         @"/var/mobile/Media/ChengIOS/.work",
         @"/private/var/mobile/Media/ChengIOS/.work"
     ];
+}
+
+static NSArray<NSString *> *CIInboxDirs(void) {
+    NSMutableArray<NSString *> *out = [NSMutableArray array];
+    for (NSString *root in CIWorkRoots()) {
+        [out addObject:[root stringByAppendingPathComponent:@"inbox"]];
+    }
+    return out;
+}
+
+static void CIWriteHeartbeat(void) {
     NSFileManager *fm = [NSFileManager defaultManager];
-    for (NSString *root in roots) {
-        [fm createDirectoryAtPath:[root stringByAppendingPathComponent:@"inbox"] withIntermediateDirectories:YES attributes:nil error:nil];
+    for (NSString *root in CIWorkRoots()) {
+        NSString *inbox = [root stringByAppendingPathComponent:@"inbox"];
+        NSString *kc = [root stringByAppendingPathComponent:@"kcaccess"];
+        [fm createDirectoryAtPath:inbox withIntermediateDirectories:YES attributes:nil error:nil];
+        [fm createDirectoryAtPath:kc withIntermediateDirectories:YES attributes:nil error:nil];
         CIChmodPath(root, 0777);
-        CIChmodPath([root stringByAppendingPathComponent:@"inbox"], 0777);
+        CIChmodPath(inbox, 0777);
+        CIChmodPath(kc, 0777);
         NSString *alive = [root stringByAppendingPathComponent:@"daemon.alive"];
         [@"ok" writeToFile:alive atomically:YES encoding:NSUTF8StringEncoding error:nil];
         CIChmodPath(alive, 0666);
@@ -89,7 +103,7 @@ static void CIProcessInbox(void) {
         }
         NSArray<NSString *> *names = [fm contentsOfDirectoryAtPath:inbox error:nil] ?: @[];
         for (NSString *name in names) {
-            if (![name hasSuffix:@"-in.plist"]) {
+            if (![name hasSuffix:@"-in.plist"] || [name containsString:@"-spawn-"]) {
                 continue;
             }
             NSString *stamp = [name substringToIndex:name.length - 9];
@@ -158,6 +172,7 @@ int main(int argc, char *argv[]) {
         if (geteuid() != 0) {
             result[@"error"] = @"chengiosroot uid != 0";
             [result writeToFile:outPath atomically:YES];
+            CIChmodPath(outPath, 0666);
             return 1;
         }
         NSDictionary *done = CIExecuteOp(op, input);
@@ -168,6 +183,7 @@ int main(int argc, char *argv[]) {
         if (![result writeToFile:outPath atomically:YES]) {
             return 3;
         }
+        CIChmodPath(outPath, 0666);
         return [result[@"ok"] boolValue] ? 0 : 1;
     }
 }
