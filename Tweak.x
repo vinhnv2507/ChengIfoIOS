@@ -197,7 +197,10 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (NSUUID *)identifierForVendor {
-    if (!OVSDeviceIdentityEnabled() || OVSIsFragileApp()) {
+    if (!OVSDeviceIdentityEnabled()) {
+        return %orig;
+    }
+    if (OVSIsFragileApp() && !OVSIsShopeeFamily()) {
         return %orig;
     }
     return OVSSpoofedVendorUUID();
@@ -291,6 +294,12 @@ static void OVSApplyWebViewUserAgent(id webView) {
         return;
     }
     NSString *ua = OVSSpoofedSafariUserAgent();
+    if ([webView respondsToSelector:@selector(customUserAgent)]) {
+        NSString *current = [webView customUserAgent];
+        if (current.length > 0) {
+            ua = OVSRewriteUserAgent(current, OVSAppVersionEnabled());
+        }
+    }
     if (ua.length == 0) {
         return;
     }
@@ -486,13 +495,13 @@ static void OVSApplyWebViewUserAgent(id webView) {
     if (OVSAppVersionEnabled()) {
         %init(BundleHooks);
     }
-    if (OVSSpoofingEnabled() && !OVSIsFragileApp() && NSClassFromString(@"WKWebView")) {
+    if (OVSSpoofingEnabled() && (!OVSIsFragileApp() || OVSIsShopeeFamily()) && NSClassFromString(@"WKWebView")) {
         %init(WebKitHooks);
     }
     if (OVSSpoofingEnabled() && !OVSIsFragileApp() && NSClassFromString(@"TabDocument")) {
         %init(SafariTabHooks);
     }
-    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
+    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled() || OVSShouldSpoofOSVersion()) {
         %init(LowLevelSysctl);
     }
 }

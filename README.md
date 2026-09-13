@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.33
+
+- Tra nut/deeplink **Xoa toan bo app + Safari** va **Xoa toan bo + Random Toan Bo** (`chengios://erase-device`, `chengios://erase-device-random`)
+- Wipe nhanh hon: cache AppGroup/PluginKit, bo ldid/`chengioskc` khi xoa, bo walk residue + sleep/securityd moi app. Backup/restore van can ldid
+- Shopee (khong Facebook): spoof IDFV, iOS version, IDFA, locale/carrier, WKWebView User-Agent. Gestalt van tat (tranh vang). Captcha truoc loi vi native UA iPhone18,1 / WebView iPhone 7 Plus iOS 15
+
 ## 1.2.32
 
 - Bo nut/deeplink **Xoa toan bo app + Safari**
