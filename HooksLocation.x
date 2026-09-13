@@ -325,7 +325,7 @@ static void OVSUntrackManager(CLLocationManager *manager) {
 %end
 
 %ctor {
-    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess() || OVSIsFragileApp()) {
+    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess()) {
         return;
     }
     if (NSClassFromString(@"CLLocationManager")) {

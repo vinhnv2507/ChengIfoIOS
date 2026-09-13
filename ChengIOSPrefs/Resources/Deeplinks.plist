@@ -258,16 +258,6 @@
 			<key>action</key>
 			<string>copyURL:</string>
 			<key>label</key>
-			<string>Xoa sach Safari</string>
-			<key>url</key>
-			<string>chengios://erase-safari</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>action</key>
-			<string>copyURL:</string>
-			<key>label</key>
 			<string>Xoa toan bo app + Safari</string>
 			<key>url</key>
 			<string>chengios://erase-device</string>

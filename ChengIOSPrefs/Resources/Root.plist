@@ -72,7 +72,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>Spoof sâu: Gestalt/Darwin/RAM trên app thường. Facebook/Shopee bỏ qua Gestalt (tránh văng) nhưng vẫn đổi model qua hw.machine. Safari chỉ đổi User-Agent; vuốt tắt hẳn Safari sau khi đổi.</string>
+			<string>Spoof sau: Gestalt/Darwin/RAM/UA tren app da chon (Facebook, Shopee, ADIA64, Safari). WebContent helper khong inject. Safari khong spoof Wi-Fi/IP. Force-quit app dich sau khi doi.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -185,7 +185,7 @@
 			<key>label</key>
 			<string>Backup / Data app</string>
 			<key>footerText</key>
-			<string>Backup data app gom sandbox + group + plugin + keychain de restore con login. Xoa Facebook xoa SSO/keychain. Co xoa Safari va xoa toan bo app user (giu jailbreak). Nen dung app ChengIOS.</string>
+			<string>Quan ly backup chi hien danh sach. Backup/restore/xoa data o app ChengIOS. Can ldid. Sau backup: Keychain N>0 va kcUid 501. Backup cu 1.2.19 khong giu login.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -767,7 +767,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>ChengIOS 1.2.19
+			<string>ChengIOS 1.2.20
 by vinhnv2507</string>
 			<key>isStaticText</key>
 			<true/>

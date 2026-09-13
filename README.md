@@ -32,6 +32,15 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.20
+
+- Keychain dump/restore chay `chengioskc` **uid 501** (mobile), giong Apps Manager `kcaccess.bin`. Ban 1.2.19 dump bang root nen SecItem = 0, restore mat login
+- Dump keychain **truoc khi kill app**, copy toan bo child trong container (khong chi Documents/Library/tmp)
+- Spoof iOS/model/Gestalt/UA cho app da chon, ke ca Facebook/Shopee/ADIA64/Safari. Khong inject WebContent. Safari van khong spoof Wi-Fi/IP
+- Change Apps: mot danh sach (Safari/SafariViewService/Web App nam trong list, khong pin tren dau)
+- Quan ly Backup chi con danh sach restore/rename/delete. Backup/Xoa/Random o man hinh chinh
+- Backup cu 1.2.19 khong giu login. Cai ldid, Respring, backup lai khi dang nhap, can `Keychain N>0` va `kcUid 501`
+
 ## 1.2.19
 
 - Keychain dump/restore/wipe theo Apps Manager: binary `chengioskc` (kieu `kcaccess.bin`), **khong** dung `keychain-access-groups: *`

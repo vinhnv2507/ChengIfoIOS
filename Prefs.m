@@ -498,7 +498,7 @@ BOOL OVSIsFragileApp(void) {
 }
 
 BOOL OVSGestaltEnabled(void) {
-    if (!OVSSpoofingEnabled() || OVSIsWebKitHelperProcess() || OVSIsFragileApp() || OVSIsSafariFamily()) {
+    if (!OVSSpoofingEnabled() || OVSIsWebKitHelperProcess()) {
         return NO;
     }
     return OVSBoolForKey(@"gestaltEnabled", NO);
@@ -596,7 +596,7 @@ BOOL OVSSpoofingEnabled(void) {
 }
 
 BOOL OVSShouldSpoofOSVersion(void) {
-    return OVSSpoofingEnabled() && !OVSIsFragileApp() && !OVSIsSafariFamily();
+    return OVSSpoofingEnabled();
 }
 
 BOOL OVSUseCustomOSVersion(void) {
@@ -698,7 +698,7 @@ NSString *OVSSpoofedBuildNumber(void) {
 }
 
 BOOL OVSAppVersionEnabled(void) {
-    if (OVSIsFragileApp() || OVSIsSafariFamily() || !OVSSpoofingEnabled() || !OVSBoolForKey(@"appVersionEnabled", NO)) {
+    if (OVSIsSafariFamily() || !OVSSpoofingEnabled() || !OVSBoolForKey(@"appVersionEnabled", NO)) {
         return NO;
     }
     NSString *version = OVSSpoofedAppVersion();
@@ -713,7 +713,7 @@ NSString *OVSSpoofedAppVersion(void) {
 }
 
 BOOL OVSDeviceIdentityEnabled(void) {
-    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && OVSBoolForKey(@"deviceIdentityEnabled", NO);
+    return OVSSpoofingEnabled() && OVSBoolForKey(@"deviceIdentityEnabled", NO);
 }
 
 NSString *OVSSpoofedDeviceName(void) {
@@ -737,15 +737,15 @@ NSString *OVSSpoofedModel(void) {
 }
 
 BOOL OVSShouldSpoofDeviceName(void) {
-    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && OVSSpoofedDeviceName().length > 0;
+    return OVSSpoofingEnabled() && OVSSpoofedDeviceName().length > 0;
 }
 
 BOOL OVSShouldSpoofHostName(void) {
-    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && OVSSpoofedHostName().length > 0;
+    return OVSSpoofingEnabled() && OVSSpoofedHostName().length > 0;
 }
 
 BOOL OVSShouldSpoofModel(void) {
-    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && OVSSpoofedModel().length > 0;
+    return OVSSpoofingEnabled() && OVSSpoofedModel().length > 0;
 }
 
 static NSDictionary *OVSHardwareInfoForModel(NSString *model) {
@@ -1016,7 +1016,7 @@ id OVSGestaltObjectForKey(NSString *key) {
 }
 
 BOOL OVSLocaleEnabled(void) {
-    return !OVSIsFragileApp() && !OVSIsSafariFamily() && OVSSpoofingEnabled() && OVSBoolForKey(@"localeEnabled", NO);
+    return OVSSpoofingEnabled() && OVSBoolForKey(@"localeEnabled", NO);
 }
 
 NSString *OVSSpoofedLocaleIdentifier(void) {
@@ -1034,7 +1034,7 @@ NSString *OVSSpoofedTimeZoneName(void) {
 }
 
 BOOL OVSCarrierEnabled(void) {
-    return !OVSIsFragileApp() && !OVSIsSafariFamily() && OVSSpoofingEnabled() && OVSBoolForKey(@"carrierEnabled", NO);
+    return OVSSpoofingEnabled() && OVSBoolForKey(@"carrierEnabled", NO);
 }
 
 NSString *OVSSpoofedCarrierName(void) {
@@ -1155,7 +1155,7 @@ static void OVSEnsureGPXLoaded(void) {
 }
 
 BOOL OVSLocationEnabled(void) {
-    if (OVSIsFragileApp() || !OVSSpoofingEnabled() || !OVSBoolForKey(@"locationEnabled", NO)) {
+    if (!OVSSpoofingEnabled() || !OVSBoolForKey(@"locationEnabled", NO)) {
         return NO;
     }
     NSString *gpxPath = OVSStringForKey(@"gpxPath", nil);
@@ -1229,7 +1229,7 @@ CLLocation *OVSSpoofedLocation(void) {
 }
 
 BOOL OVSNetworkEnabled(void) {
-    if (OVSIsFragileApp() || OVSIsSafariFamily() || !OVSSpoofingEnabled() || !OVSBoolForKey(@"networkEnabled", NO)) {
+    if (OVSIsSafariFamily() || !OVSSpoofingEnabled() || !OVSBoolForKey(@"networkEnabled", NO)) {
         return NO;
     }
     return OVSSpoofedIPv4().length > 0 ||
