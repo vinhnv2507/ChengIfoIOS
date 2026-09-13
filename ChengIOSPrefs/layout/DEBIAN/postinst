@@ -26,11 +26,21 @@ for appbin in /Applications/ChengIOSApp.app/ChengIOSApp /var/jb/Applications/Che
   fi
 done
 
-mkdir -p /var/mobile/Media/ChengIOS/.work/inbox 2>/dev/null || true
-mkdir -p /private/var/mobile/Media/ChengIOS/.work/inbox 2>/dev/null || true
-chown -R mobile:mobile /var/mobile/Media/ChengIOS 2>/dev/null || true
-chmod 0777 /var/mobile/Media/ChengIOS/.work 2>/dev/null || true
-chmod 0777 /var/mobile/Media/ChengIOS/.work/inbox 2>/dev/null || true
+for d in \
+  /var/tmp/ChengIOS \
+  /private/var/tmp/ChengIOS \
+  /tmp/ChengIOS \
+  /var/mobile/tmp/ChengIOS \
+  /var/mobile/Documents/ChengIOS/.work \
+  /var/mobile/Library/Caches/ChengIOS/.work \
+  /var/mobile/Media/ChengIOS/.work \
+  /private/var/mobile/Media/ChengIOS/.work
+do
+  mkdir -p "$d/inbox" "$d/kcaccess" 2>/dev/null || true
+  chmod 0777 "$d" "$d/inbox" "$d/kcaccess" 2>/dev/null || true
+done
+chown -R mobile:mobile /var/mobile/Documents/ChengIOS /var/mobile/Library/Caches/ChengIOS /var/mobile/Media/ChengIOS /var/mobile/tmp/ChengIOS 2>/dev/null || true
+chmod 0777 /var/mobile/Media/ChengIOS/.work /var/mobile/Media/ChengIOS/.work/inbox 2>/dev/null || true
 
 PLIST=""
 if [ -d /var/jb/Library/LaunchDaemons ]; then
@@ -62,9 +72,9 @@ if [ -n "$HELPER" ] && [ -n "$PLIST" ]; then
 	<key>UserName</key>
 	<string>root</string>
 	<key>StandardOutPath</key>
-	<string>/var/mobile/Media/ChengIOS/.work/daemon.log</string>
+	<string>/var/tmp/ChengIOS/daemon.log</string>
 	<key>StandardErrorPath</key>
-	<string>/var/mobile/Media/ChengIOS/.work/daemon.err</string>
+	<string>/var/tmp/ChengIOS/daemon.err</string>
 </dict>
 </plist>
 EOF

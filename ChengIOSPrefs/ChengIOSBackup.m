@@ -5,6 +5,7 @@
 #import <spawn.h>
 #import <sys/wait.h>
 #import <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -915,7 +916,13 @@ static NSArray<NSString *> *CIExtraWipePaths(NSString *bundleID) {
             @"group.com.facebook.Messenger.plist",
             @"group.com.facebook.msysstorage.plist",
             @"group.com.facebook.platform.plist",
-            @"group.com.metaplatforms.family.plist"
+            @"group.com.metaplatforms.family.plist",
+            @"com.facebook.Facebook.plist",
+            @"com.facebook.auth.plist",
+            @"com.facebook.DBL.plist",
+            @"fb_dbl.plist",
+            @"DBLAccounts.plist",
+            @"saved_accounts.plist"
         ]];
     }
     if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."]) {
@@ -1154,30 +1161,17 @@ static BOOL CIInDaemonProcess(void) {
     return getenv("CHENG_DAEMON") != NULL;
 }
 
-static NSString *CIWorkRootDir(BOOL create) {
-    return CIFirstExistingDir(@[
+static NSArray<NSString *> *CIWorkRootCandidates(void) {
+    return @[
+        @"/var/tmp/ChengIOS",
+        @"/private/var/tmp/ChengIOS",
+        @"/tmp/ChengIOS",
+        @"/var/mobile/tmp/ChengIOS",
+        @"/var/mobile/Documents/ChengIOS/.work",
+        @"/var/mobile/Library/Caches/ChengIOS/.work",
         @"/var/mobile/Media/ChengIOS/.work",
         @"/private/var/mobile/Media/ChengIOS/.work"
-    ], create);
-}
-
-static NSString *CIInboxDir(BOOL create) {
-    NSString *root = CIWorkRootDir(create);
-    if (root.length == 0) {
-        return nil;
-    }
-    NSString *inbox = [root stringByAppendingPathComponent:@"inbox"];
-    NSFileManager *fm = [NSFileManager defaultManager];
-    [fm createDirectoryAtPath:inbox withIntermediateDirectories:YES attributes:nil error:nil];
-    const char *raw = inbox.fileSystemRepresentation;
-    if (raw) {
-        chmod(raw, 0777);
-    }
-    const char *rootRaw = root.fileSystemRepresentation;
-    if (rootRaw) {
-        chmod(rootRaw, 0777);
-    }
-    return inbox;
+    ];
 }
 
 static void CIChmodWorld(NSString *path, int mode) {
@@ -1191,8 +1185,161 @@ static void CIChmodWorld(NSString *path, int mode) {
     }
 }
 
-static BOOL CIDaemonIsAlive(void) {
-    NSString *root = CIWorkRootDir(NO);
+static BOOL CIEnsureWorldDir(NSString *path) {
+    if (path.length == 0) {
+        return NO;
+    }
+    NSFileManager *fm = [NSFileManager defaultManager];
+    [fm createDirectoryAtPath:path withIntermediateDirectories:YES attributes:nil error:nil];
+    BOOL dir = NO;
+    if (![fm fileExistsAtPath:path isDirectory:&dir] || !dir) {
+        return NO;
+    }
+    CIChmodWorld(path, 0777);
+    NSString *cur = path;
+    for (int i = 0; i < 4; i++) {
+        NSString *base = cur.lastPathComponent;
+        if ([base isEqualToString:@"ChengIOS"] || [base isEqualToString:@".work"] ||
+            [base isEqualToString:@"inbox"] || [base isEqualToString:@"kcaccess"]) {
+            CIChmodWorld(cur, 0777);
+        }
+        NSString *parent = [cur stringByDeletingLastPathComponent];
+        if (parent.length == 0 || [parent isEqualToString:cur] || [parent isEqualToString:@"/"]) {
+            break;
+        }
+        cur = parent;
+    }
+    return YES;
+}
+
+static BOOL CIWritePlist(NSDictionary *dict, NSString *path) {
+    if (![dict isKindOfClass:[NSDictionary class]] || path.length == 0) {
+        return NO;
+    }
+    NSString *parent = [path stringByDeletingLastPathComponent];
+    CIEnsureWorldDir(parent);
+    if ([dict writeToFile:path atomically:YES]) {
+        CIChmodWorld(path, 0666);
+        return YES;
+    }
+    [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    if ([dict writeToFile:path atomically:NO]) {
+        CIChmodWorld(path, 0666);
+        return YES;
+    }
+    NSError *err = nil;
+    NSData *data = [NSPropertyListSerialization dataWithPropertyList:dict
+                                                              format:NSPropertyListXMLFormat_v1_0
+                                                             options:0
+                                                               error:&err];
+    if ([data isKindOfClass:[NSData class]] && data.length > 0 && [data writeToFile:path atomically:NO]) {
+        CIChmodWorld(path, 0666);
+        return YES;
+    }
+    if ([data isKindOfClass:[NSData class]] && data.length > 0) {
+        FILE *fp = fopen(path.fileSystemRepresentation, "wb");
+        if (fp) {
+            size_t n = fwrite(data.bytes, 1, data.length, fp);
+            fclose(fp);
+            if (n == data.length) {
+                CIChmodWorld(path, 0666);
+                return YES;
+            }
+        }
+    }
+    return NO;
+}
+
+static BOOL CIProbeWriteDir(NSString *dir) {
+    if (!CIEnsureWorldDir(dir)) {
+        return NO;
+    }
+    NSString *inbox = [dir stringByAppendingPathComponent:@"inbox"];
+    if (!CIEnsureWorldDir(inbox)) {
+        return NO;
+    }
+    NSString *probe = [inbox stringByAppendingPathComponent:[NSString stringWithFormat:@".probe-%d-%u", getpid(), arc4random()]];
+    BOOL ok = CIWritePlist(@{@"ok": @YES, @"uid": @(geteuid())}, probe);
+    [[NSFileManager defaultManager] removeItemAtPath:probe error:nil];
+    return ok;
+}
+
+static NSString *gCIWorkRootCached = nil;
+
+static NSArray<NSString *> *CIAllWritableWorkRoots(BOOL create) {
+    NSMutableArray<NSString *> *out = [NSMutableArray array];
+    NSMutableSet<NSString *> *seen = [NSMutableSet set];
+    NSFileManager *fm = [NSFileManager defaultManager];
+    for (NSString *cand in CIWorkRootCandidates()) {
+        if (cand.length == 0 || [seen containsObject:cand]) {
+            continue;
+        }
+        [seen addObject:cand];
+        if (create) {
+            if (CIProbeWriteDir(cand)) {
+                [out addObject:cand];
+            }
+            continue;
+        }
+        BOOL dir = NO;
+        if ([fm fileExistsAtPath:cand isDirectory:&dir] && dir) {
+            [out addObject:cand];
+        }
+    }
+    return out;
+}
+
+static NSString *CIWorkRootDir(BOOL create) {
+    if (create && gCIWorkRootCached.length > 0 && CIProbeWriteDir(gCIWorkRootCached)) {
+        return gCIWorkRootCached;
+    }
+    NSArray<NSString *> *roots = CIAllWritableWorkRoots(create);
+    if (roots.count > 0) {
+        if (create) {
+            gCIWorkRootCached = roots.firstObject;
+        }
+        return roots.firstObject;
+    }
+    NSString *fallback = CIWorkRootCandidates().firstObject;
+    if (create) {
+        CIEnsureWorldDir(fallback);
+        CIEnsureWorldDir([fallback stringByAppendingPathComponent:@"inbox"]);
+        gCIWorkRootCached = fallback;
+    }
+    return fallback;
+}
+
+static NSString *CIInboxDir(BOOL create) {
+    NSString *root = CIWorkRootDir(create);
+    if (root.length == 0) {
+        return nil;
+    }
+    NSString *inbox = [root stringByAppendingPathComponent:@"inbox"];
+    CIEnsureWorldDir(inbox);
+    return inbox;
+}
+
+static NSArray<NSString *> *CIAllInboxDirs(BOOL create) {
+    NSMutableArray<NSString *> *out = [NSMutableArray array];
+    for (NSString *root in CIAllWritableWorkRoots(create)) {
+        NSString *inbox = [root stringByAppendingPathComponent:@"inbox"];
+        if (create) {
+            CIEnsureWorldDir(inbox);
+        }
+        if (inbox.length > 0) {
+            [out addObject:inbox];
+        }
+    }
+    if (out.count == 0) {
+        NSString *inbox = CIInboxDir(create);
+        if (inbox.length > 0) {
+            [out addObject:inbox];
+        }
+    }
+    return out;
+}
+
+static BOOL CIAliveAtRoot(NSString *root) {
     if (root.length == 0) {
         return NO;
     }
@@ -1202,7 +1349,16 @@ static BOOL CIDaemonIsAlive(void) {
     if (![mod isKindOfClass:[NSDate class]]) {
         return NO;
     }
-    return [[NSDate date] timeIntervalSinceDate:mod] < 8.0;
+    return [[NSDate date] timeIntervalSinceDate:mod] < 12.0;
+}
+
+static BOOL CIDaemonIsAlive(void) {
+    for (NSString *root in CIWorkRootCandidates()) {
+        if (CIAliveAtRoot(root)) {
+            return YES;
+        }
+    }
+    return NO;
 }
 
 static NSString *CIRootHelperPath(void) {
@@ -1220,31 +1376,67 @@ static NSString *CIRootHelperPath(void) {
     return nil;
 }
 
+static BOOL CIRemoteIsRootOK(NSDictionary *remote) {
+    if (![remote isKindOfClass:[NSDictionary class]]) {
+        return NO;
+    }
+    if (![remote[@"ok"] boolValue]) {
+        return NO;
+    }
+    id uidObj = remote[@"uid"];
+    if (![uidObj isKindOfClass:[NSNumber class]]) {
+        return NO;
+    }
+    return [uidObj integerValue] == 0;
+}
+
+static NSDictionary *CIFailRemote(NSString *message) {
+    return @{
+        @"ok": @NO,
+        @"uid": @(geteuid()),
+        @"error": message ?: @"error"
+    };
+}
+
 static NSDictionary *CISpawnHelperOp(NSDictionary *input, NSError **error) {
     NSString *helper = CIRootHelperPath();
     if (helper.length == 0) {
-        return nil;
+        return CIFailRemote(@"no helper");
     }
     NSString *op = input[@"op"];
     if (op.length == 0) {
-        return nil;
+        return CIFailRemote(@"no op");
     }
     NSFileManager *fm = [NSFileManager defaultManager];
-    NSString *work = CIInboxDir(YES);
-    if (work.length == 0) {
-        work = [ChengIOSBackupRoot() stringByAppendingPathComponent:@".work"];
-        [fm createDirectoryAtPath:work withIntermediateDirectories:YES attributes:nil error:nil];
-    }
     NSString *stamp = [NSString stringWithFormat:@"%ld-%u", (long)[[NSDate date] timeIntervalSince1970], arc4random()];
-    NSString *inPath = [work stringByAppendingPathComponent:[stamp stringByAppendingString:@"-spawn-in.plist"]];
-    NSString *outPath = [work stringByAppendingPathComponent:[stamp stringByAppendingString:@"-spawn-out.plist"]];
-    if (![input writeToFile:inPath atomically:YES]) {
+    NSString *inPath = nil;
+    NSString *outPath = nil;
+    NSArray<NSString *> *inboxes = CIAllInboxDirs(YES);
+    if (inboxes.count == 0) {
+        inboxes = @[ CIInboxDir(YES) ?: @"/var/tmp/ChengIOS/inbox" ];
+    }
+    for (NSString *inbox in inboxes) {
+        if (inbox.length == 0) {
+            continue;
+        }
+        CIEnsureWorldDir(inbox);
+        NSString *tryIn = [inbox stringByAppendingPathComponent:[stamp stringByAppendingString:@"-spawn-in.plist"]];
+        NSString *tryOut = [inbox stringByAppendingPathComponent:[stamp stringByAppendingString:@"-spawn-out.plist"]];
+        [fm removeItemAtPath:tryIn error:nil];
+        [fm removeItemAtPath:tryOut error:nil];
+        if (CIWritePlist(input, tryIn)) {
+            inPath = tryIn;
+            outPath = tryOut;
+            break;
+        }
+        [fm removeItemAtPath:tryIn error:nil];
+    }
+    if (inPath.length == 0 || outPath.length == 0) {
         if (error) {
             *error = CIError(2, @"Khong ghi duoc input cho root helper.");
         }
-        return @{@"ok": @NO, @"error": @"input"};
+        return CIFailRemote(@"input");
     }
-    CIChmodWorld(inPath, 0666);
     pid_t pid = 0;
     const char *args[] = {
         helper.UTF8String,
@@ -1268,7 +1460,10 @@ static NSDictionary *CISpawnHelperOp(NSDictionary *input, NSError **error) {
     free(envp);
     if (spawned != 0) {
         [fm removeItemAtPath:inPath error:nil];
-        return nil;
+        if (error) {
+            *error = CIError(2, [NSString stringWithFormat:@"posix_spawn chengiosroot fail (%d).", spawned]);
+        }
+        return CIFailRemote(@"spawn");
     }
     int status = 0;
     waitpid(pid, &status, 0);
@@ -1276,7 +1471,10 @@ static NSDictionary *CISpawnHelperOp(NSDictionary *input, NSError **error) {
     [fm removeItemAtPath:inPath error:nil];
     [fm removeItemAtPath:outPath error:nil];
     if (![out isKindOfClass:[NSDictionary class]]) {
-        return nil;
+        if (error) {
+            *error = CIError(2, @"chengiosroot khong tra ket qua.");
+        }
+        return CIFailRemote(@"no output");
     }
     return out;
 }
@@ -1287,28 +1485,40 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.30, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.31, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
-    NSString *inbox = CIInboxDir(YES);
-    if (inbox.length == 0) {
-        if (error) {
-            *error = CIError(2, @"Khong tao duoc inbox cho root daemon.");
-        }
-        return @{@"ok": @NO, @"error": @"inbox"};
-    }
     NSFileManager *fm = [NSFileManager defaultManager];
     NSString *stamp = [NSString stringWithFormat:@"%ld-%u", (long)[[NSDate date] timeIntervalSince1970], arc4random()];
-    NSString *inPath = [inbox stringByAppendingPathComponent:[stamp stringByAppendingString:@"-in.plist"]];
-    NSString *outPath = [inbox stringByAppendingPathComponent:[stamp stringByAppendingString:@"-out.plist"]];
-    if (![input writeToFile:inPath atomically:YES]) {
+    NSString *inPath = nil;
+    NSString *outPath = nil;
+    NSArray<NSString *> *inboxes = CIAllInboxDirs(YES);
+    if (inboxes.count == 0) {
+        inboxes = @[ CIInboxDir(YES) ?: @"/var/tmp/ChengIOS/inbox" ];
+    }
+    for (NSString *inbox in inboxes) {
+        if (inbox.length == 0) {
+            continue;
+        }
+        CIEnsureWorldDir(inbox);
+        NSString *tryIn = [inbox stringByAppendingPathComponent:[stamp stringByAppendingString:@"-in.plist"]];
+        NSString *tryOut = [inbox stringByAppendingPathComponent:[stamp stringByAppendingString:@"-out.plist"]];
+        [fm removeItemAtPath:tryIn error:nil];
+        [fm removeItemAtPath:tryOut error:nil];
+        if (CIWritePlist(input, tryIn)) {
+            inPath = tryIn;
+            outPath = tryOut;
+            break;
+        }
+        [fm removeItemAtPath:tryIn error:nil];
+    }
+    if (inPath.length == 0 || outPath.length == 0) {
         if (error) {
             *error = CIError(2, @"Khong ghi duoc job cho root daemon.");
         }
-        return @{@"ok": @NO, @"error": @"input"};
+        return @{@"ok": @NO, @"uid": @(geteuid()), @"error": @"input", @"daemon": @YES};
     }
-    CIChmodWorld(inPath, 0666);
     NSDate *start = [NSDate date];
     while ([[NSDate date] timeIntervalSinceDate:start] < 900.0) {
         NSDictionary *out = [NSDictionary dictionaryWithContentsOfFile:outPath];
@@ -1326,21 +1536,45 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     if (error) {
         *error = CIError(2, @"Root daemon timeout. Facebook data lon: thu lai, giu app ChengIOS mo.");
     }
-    return @{@"ok": @NO, @"error": @"daemon timeout", @"daemon": @YES};
+    return @{@"ok": @NO, @"uid": @(geteuid()), @"error": @"daemon timeout", @"daemon": @YES};
 }
 
 static NSDictionary *CIRunRootOp(NSDictionary *input, NSError **error) {
     if (CIIsRootProcess() || CIInHelperProcess()) {
         return nil;
     }
-    NSDictionary *spawned = CISpawnHelperOp(input, error);
-    if ([spawned isKindOfClass:[NSDictionary class]]) {
-        NSInteger uid = [spawned[@"uid"] integerValue];
-        if (uid == 0) {
-            return spawned;
+    NSError *spawnErr = nil;
+    NSDictionary *spawned = CISpawnHelperOp(input, &spawnErr);
+    if (CIRemoteIsRootOK(spawned)) {
+        if (error && spawnErr) {
+            *error = spawnErr;
+        }
+        return spawned;
+    }
+    NSError *daemonErr = nil;
+    NSDictionary *daemon = CIRunDaemonOp(input, &daemonErr);
+    if (CIRemoteIsRootOK(daemon)) {
+        if (error && daemonErr) {
+            *error = daemonErr;
+        }
+        return daemon;
+    }
+    if (error) {
+        if (daemonErr) {
+            *error = daemonErr;
+        } else if (spawnErr) {
+            *error = spawnErr;
+        } else {
+            *error = CIError(2, @"chengiosroot khong chay duoc.");
         }
     }
-    return CIRunDaemonOp(input, error);
+    if ([daemon isKindOfClass:[NSDictionary class]]) {
+        return daemon;
+    }
+    if ([spawned isKindOfClass:[NSDictionary class]]) {
+        return spawned;
+    }
+    return CIFailRemote(@"helper");
 }
 
 static NSString *gCIKeychainSQLLastPath = nil;
@@ -2634,7 +2868,7 @@ static NSDictionary *CIKeychainRunSigned(NSString *op, NSString *bundleID, NSArr
     }
     [[NSFileManager defaultManager] removeItemAtPath:inPath error:nil];
     [[NSFileManager defaultManager] removeItemAtPath:outPath error:nil];
-    if (![job writeToFile:inPath atomically:YES]) {
+    if (!CIWritePlist(job, inPath)) {
         gCIKCSignedError = @"ghi job kc fail";
         return nil;
     }
@@ -3429,7 +3663,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.30",
+        @"version": @"1.2.31",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -3744,6 +3978,108 @@ static void CITerminateRelatedBundles(NSString *bundleID) {
     }
 }
 
+static BOOL CINameLooksLikeLoginResidue(NSString *name, NSString *bundleID) {
+    NSString *low = name.lowercaseString ?: @"";
+    if (low.length == 0 || bundleID.length == 0) {
+        return NO;
+    }
+    NSArray<NSString *> *needles = nil;
+    NSString *blow = bundleID.lowercaseString;
+    if (CIBundleIsFacebookFamily(bundleID) && !CIBundleIsInstagramFamily(bundleID) && !CIBundleIsWhatsAppFamily(bundleID)) {
+        needles = @[
+            @"fb_dbl", @"dblaccounts", @"dbl_account", @"device_based_login",
+            @"devicebasedlogin", @"saved_account", @"savedaccount", @"last_user",
+            @"lastlogged", @"last_logged", @"accountstore", @"fbaccountstore",
+            @"fbsaved", @"continueas", @"continue_as", @"login_account",
+            @"logged_in_user", @"current_user", @"tokeninformation",
+            @"fbaccesstoken", @"fbsdkaccesstoken", @"authenticationtoken",
+            @"accountswitcher", @"account_switcher"
+        ];
+    } else if ([blow containsString:@"shopee"] || [blow hasPrefix:@"com.beeasy."] || [blow hasPrefix:@"com.shopee."]) {
+        needles = @[
+            @"shopee_session", @"access_token", @"logged_in", @"account_info",
+            @"user_session", @"auth_token", @"saved_account"
+        ];
+    } else if ([blow containsString:@"tiktok"] || [blow hasPrefix:@"com.zhiliaoapp."] ||
+               [blow hasPrefix:@"com.ss.iphone."] || [blow containsString:@"aweme"] ||
+               [blow containsString:@"musically"]) {
+        needles = @[
+            @"tt_token", @"ttaccount", @"passport", @"session", @"login_info",
+            @"user_session", @"auth_token", @"saved_account"
+        ];
+    }
+    if (needles.count == 0) {
+        return NO;
+    }
+    for (NSString *needle in needles) {
+        if ([low containsString:needle]) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+static void CIWipeLoginResidueInTree(NSString *root, NSString *bundleID) {
+    if (root.length == 0 || bundleID.length == 0 || !CIPathSafeToMutate(root)) {
+        return;
+    }
+    NSFileManager *fm = [NSFileManager defaultManager];
+    BOOL dir = NO;
+    if (![fm fileExistsAtPath:root isDirectory:&dir]) {
+        return;
+    }
+    if (!dir) {
+        if (CINameLooksLikeLoginResidue(root.lastPathComponent, bundleID)) {
+            CIRemoveDeep(root);
+        }
+        return;
+    }
+    NSMutableArray<NSString *> *kill = [NSMutableArray array];
+    NSDirectoryEnumerator *en = [fm enumeratorAtPath:root];
+    for (NSString *rel in en) {
+        NSString *base = rel.lastPathComponent;
+        if (CIIsReservedName(base)) {
+            continue;
+        }
+        if (CINameLooksLikeLoginResidue(base, bundleID) || CINameLooksLikeLoginResidue(rel, bundleID)) {
+            [kill addObject:[root stringByAppendingPathComponent:rel]];
+        }
+    }
+    for (NSString *path in kill) {
+        if (CIPathSafeToMutate(path)) {
+            CIRemoveDeep(path);
+        }
+    }
+}
+
+static void CIWipeLoginResidueForBundle(NSString *bundleID, NSString *dataPath, NSDictionary<NSString *, NSString *> *groups, NSDictionary<NSString *, NSString *> *plugins) {
+    if (bundleID.length == 0) {
+        return;
+    }
+    CIWipeLoginResidueInTree(dataPath, bundleID);
+    for (NSString *group in groups) {
+        CIWipeLoginResidueInTree(groups[group], bundleID);
+    }
+    for (NSString *pluginID in plugins) {
+        CIWipeLoginResidueInTree(plugins[pluginID], bundleID);
+    }
+    for (NSString *extra in CISupportPathsForBundle(bundleID)) {
+        CIWipeLoginResidueInTree(extra, bundleID);
+    }
+    for (NSString *extra in CIExtraWipePaths(bundleID)) {
+        CIWipeLoginResidueInTree(extra, bundleID);
+    }
+    if (CIBundleIsFacebookFamily(bundleID) && !CIBundleIsInstagramFamily(bundleID) && !CIBundleIsWhatsAppFamily(bundleID)) {
+        for (NSString *other in CICompanionBundleIDs(bundleID)) {
+            CIWipeLoginResidueInTree(CIDataPath(other), other);
+            NSDictionary *og = CIAllGroupPaths(other);
+            for (NSString *group in og) {
+                CIWipeLoginResidueInTree(og[group], other);
+            }
+        }
+    }
+}
+
 static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
     if (ChengIOSBundleIsProtected(bundleID)) {
         return NO;
@@ -3825,6 +4161,7 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
     for (NSString *pluginID in plugins) {
         ok = CIEmptyContainer(plugins[pluginID]) || ok;
     }
+    CIWipeLoginResidueForBundle(bundleID, dataPath, groups, plugins);
     if (ChengIOSBundleIsSafari(bundleID)) {
         CIKillSafariProcesses();
         for (NSString *path in CISafariLibraryPaths()) {
@@ -3884,6 +4221,7 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
         CIEmptyContainer(plugins[pluginID]);
         CIReemptyPrefs(plugins[pluginID]);
     }
+    CIWipeLoginResidueForBundle(bundleID, dataPath, groups, plugins);
     CIWipeKeychainForProxy(CIProxy(bundleID), bundleID);
     CIKeychainSQLWipeForBundle(bundleID);
     if (wipeFamily) {
@@ -3913,6 +4251,15 @@ NSDictionary *ChengIOSEraseBundles(NSArray<NSString *> *bundleIDs, NSError **err
             if ([result isKindOfClass:[NSDictionary class]]) {
                 return result;
             }
+            if (error && !*error) {
+                *error = CIError(4, remote[@"error"] ?: @"Erase root helper loi.");
+            }
+            return @{
+                @"ok": @[],
+                @"failed": bundleIDs ?: @[],
+                @"skipped": @[],
+                @"error": remote[@"error"] ?: @"helper"
+            };
         }
     }
     NSMutableArray *ok = [NSMutableArray array];
@@ -4000,6 +4347,15 @@ NSDictionary *ChengIOSEraseSafari(NSError **error) {
             if ([result isKindOfClass:[NSDictionary class]]) {
                 return result;
             }
+            if (error && !*error) {
+                *error = CIError(4, remote[@"error"] ?: @"Erase safari helper loi.");
+            }
+            return @{
+                @"ok": @[],
+                @"failed": @[@"com.apple.mobilesafari"],
+                @"skipped": @[],
+                @"error": remote[@"error"] ?: @"helper"
+            };
         }
     }
     (void)error;
