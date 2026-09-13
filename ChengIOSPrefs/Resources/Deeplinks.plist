@@ -258,6 +258,36 @@
 			<key>action</key>
 			<string>copyURL:</string>
 			<key>label</key>
+			<string>Xoa toan bo app + Safari</string>
+			<key>url</key>
+			<string>chengios://erase-device</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Xoa app da chon + Random Toan Bo</string>
+			<key>url</key>
+			<string>chengios://erase-random-all</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Xoa toan bo + Random Toan Bo</string>
+			<key>url</key>
+			<string>chengios://erase-device-random</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
 			<string>Respring</string>
 			<key>url</key>
 			<string>chengios://respring</string>

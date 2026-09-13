@@ -4,6 +4,12 @@
 <dict>
 	<key>platform-application</key>
 	<true/>
+	<key>com.apple.private.MobileContainerManager.allowed</key>
+	<true/>
+	<key>com.apple.private.security.container-manager</key>
+	<true/>
+	<key>com.apple.private.security.storage-exempt.heritable</key>
+	<true/>
 	<key>com.apple.private.security.no-container</key>
 	<true/>
 	<key>com.apple.private.security.container-required</key>
@@ -12,23 +18,25 @@
 	<true/>
 	<key>com.apple.private.security.storage.AppDataContainers</key>
 	<true/>
+	<key>com.apple.private.security.storage.Safari</key>
+	<true/>
+	<key>com.apple.private.security.storage.Cookies</key>
+	<true/>
 	<key>com.apple.private.mobileinstall.allowedSPI</key>
 	<true/>
 	<key>com.apple.springboard.launchapplications</key>
 	<true/>
 	<key>com.apple.frontboard.launchapplications</key>
 	<true/>
-	<key>com.apple.private.MobileContainerManager.allowed</key>
-	<true/>
-	<key>com.apple.private.security.container-manager</key>
-	<true/>
-	<key>com.apple.private.security.storage.Safari</key>
-	<true/>
-	<key>com.apple.private.security.storage.Cookies</key>
+	<key>com.apple.keystore.access-keychain-keys</key>
 	<true/>
 	<key>com.apple.private.security.storage.Keychains</key>
 	<true/>
-	<key>com.apple.keystore.access-keychain-keys</key>
-	<true/>
+	<key>application-identifier</key>
+	<string>*</string>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>*</string>
+	</array>
 </dict>
 </plist>

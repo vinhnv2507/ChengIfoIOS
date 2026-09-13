@@ -10,7 +10,8 @@ APPLICATION_NAME = ChengIOSApp
 
 ChengIOSApp_FILES = main.m AppDelegate.m RootViewController.m AppListViewController.m DeeplinkListViewController.m RegionListViewController.m BackupListViewController.m ../ChengIOSPrefs/ChengIOSProfiles.m ../ChengIOSPrefs/ChengIOSBackup.m
 ChengIOSApp_FRAMEWORKS = UIKit Foundation Security
-ChengIOSApp_CFLAGS = -fobjc-arc -Wno-unguarded-availability-new -Wno-deprecated-declarations
+ChengIOSApp_LIBRARIES = sqlite3
+ChengIOSApp_CFLAGS = -fobjc-arc -Wno-unguarded-availability-new -Wno-deprecated-declarations -Wno-unused-function -Wno-unused-variable
 ChengIOSApp_CODESIGN_FLAGS = -Sentitlements.plist
 ChengIOSApp_INSTALL_PATH = /Applications
 

@@ -1,4 +1,13 @@
 #!/bin/sh
+launchctl bootout system/com.vinhnv2507.chengiosroot >/dev/null 2>&1 || true
+for plist in /var/jb/Library/LaunchDaemons/com.vinhnv2507.chengiosroot.plist /Library/LaunchDaemons/com.vinhnv2507.chengiosroot.plist; do
+  if [ -f "$plist" ]; then
+    launchctl unload "$plist" >/dev/null 2>&1 || true
+    rm -f "$plist" >/dev/null 2>&1 || true
+  fi
+done
+killall -9 chengiosroot >/dev/null 2>&1 || true
+killall -9 chengioskc >/dev/null 2>&1 || true
 killall -9 ChengIOSApp >/dev/null 2>&1 || true
 
 UICACHE=""

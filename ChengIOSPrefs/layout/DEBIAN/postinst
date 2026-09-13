@@ -1,5 +1,81 @@
 #!/bin/sh
 echo "ChengIOS is installed!"
+
+HELPER=""
+for cand in /var/jb/usr/local/bin/chengiosroot /usr/local/bin/chengiosroot /var/jb/usr/bin/chengiosroot /usr/bin/chengiosroot; do
+  if [ -f "$cand" ]; then
+    chown root:wheel "$cand" 2>/dev/null || chown 0:0 "$cand" 2>/dev/null || true
+    chmod 6755 "$cand" 2>/dev/null || true
+    if [ -z "$HELPER" ]; then
+      HELPER="$cand"
+    fi
+  fi
+done
+
+for cand in /var/jb/usr/local/bin/chengioskc /usr/local/bin/chengioskc /var/jb/usr/bin/chengioskc /usr/bin/chengioskc; do
+  if [ -f "$cand" ]; then
+    chown root:wheel "$cand" 2>/dev/null || chown 0:0 "$cand" 2>/dev/null || true
+    chmod 6755 "$cand" 2>/dev/null || true
+  fi
+done
+
+for appbin in /Applications/ChengIOSApp.app/ChengIOSApp /var/jb/Applications/ChengIOSApp.app/ChengIOSApp; do
+  if [ -f "$appbin" ]; then
+    chown mobile:mobile "$appbin" 2>/dev/null || chown 501:501 "$appbin" 2>/dev/null || true
+    chmod 0755 "$appbin" 2>/dev/null || true
+  fi
+done
+
+mkdir -p /var/mobile/Media/ChengIOS/.work/inbox 2>/dev/null || true
+mkdir -p /private/var/mobile/Media/ChengIOS/.work/inbox 2>/dev/null || true
+chown -R mobile:mobile /var/mobile/Media/ChengIOS 2>/dev/null || true
+chmod 0777 /var/mobile/Media/ChengIOS/.work 2>/dev/null || true
+chmod 0777 /var/mobile/Media/ChengIOS/.work/inbox 2>/dev/null || true
+
+PLIST=""
+if [ -d /var/jb/Library/LaunchDaemons ]; then
+  PLIST=/var/jb/Library/LaunchDaemons/com.vinhnv2507.chengiosroot.plist
+elif [ -d /Library/LaunchDaemons ]; then
+  PLIST=/Library/LaunchDaemons/com.vinhnv2507.chengiosroot.plist
+else
+  mkdir -p /Library/LaunchDaemons 2>/dev/null || true
+  PLIST=/Library/LaunchDaemons/com.vinhnv2507.chengiosroot.plist
+fi
+
+if [ -n "$HELPER" ] && [ -n "$PLIST" ]; then
+  cat > "$PLIST" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.vinhnv2507.chengiosroot</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>$HELPER</string>
+		<string>daemon</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>UserName</key>
+	<string>root</string>
+	<key>StandardOutPath</key>
+	<string>/var/mobile/Media/ChengIOS/.work/daemon.log</string>
+	<key>StandardErrorPath</key>
+	<string>/var/mobile/Media/ChengIOS/.work/daemon.err</string>
+</dict>
+</plist>
+EOF
+  chmod 0644 "$PLIST" 2>/dev/null || true
+  launchctl bootout system/com.vinhnv2507.chengiosroot >/dev/null 2>&1 || true
+  launchctl unload "$PLIST" >/dev/null 2>&1 || true
+  launchctl bootstrap system "$PLIST" >/dev/null 2>&1 || launchctl load -w "$PLIST" >/dev/null 2>&1 || true
+  launchctl enable system/com.vinhnv2507.chengiosroot >/dev/null 2>&1 || true
+  launchctl kickstart -k system/com.vinhnv2507.chengiosroot >/dev/null 2>&1 || true
+fi
+
 killall -9 Preferences >/dev/null 2>&1 || true
 killall -9 ChengIOSApp >/dev/null 2>&1 || true
 

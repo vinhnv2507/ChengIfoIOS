@@ -32,6 +32,13 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.30
+
+- Giu dung change/hook **1.2.14 / 1.2.29**. Khong sua Prefs/Tweak/Hooks
+- Backup/restore/wipe kieu Apps Manager: copy Documents/Library/tmp/SystemData, app group, keychain qua `chengioskc` ky ldid theo agrp app dich
+- `chengiosroot` daemon lam viec root. **Khong** setuid ChengIOSApp (1.2.28 setuid app lam prefs root, ADIA64 ra iPhone that)
+- Can **ldid**. Backup khi dang login, force-quit app dich, `keychainWithData > 0`
+
 ## 1.2.29
 
 - Dung source **1.2.14** (`504234a`). Chi doi so version thanh 1.2.29 de Sileo cai de 1.2.28
