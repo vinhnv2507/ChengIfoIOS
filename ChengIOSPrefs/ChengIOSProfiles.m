@@ -76,16 +76,114 @@ static void CIFinalizePrefsFiles(void) {
     }
 }
 
+static BOOL CIPrefFlagOn(id value) {
+    if ([value isKindOfClass:[NSNumber class]] || [value isKindOfClass:[NSString class]]) {
+        return [value boolValue];
+    }
+    if ([value isKindOfClass:[NSDictionary class]]) {
+        return [value[@"enabled"] boolValue] || [value[@"tweakEnabled"] boolValue] || [value[@"on"] boolValue];
+    }
+    return NO;
+}
+
+static void CIUnionEnabled(NSMutableDictionary *enabled, id incoming) {
+    if (![incoming isKindOfClass:[NSDictionary class]] || !enabled) {
+        return;
+    }
+    [(NSDictionary *)incoming enumerateKeysAndObjectsUsingBlock:^(id key, id value, BOOL *stop) {
+        (void)stop;
+        if (![key isKindOfClass:[NSString class]] || [key length] == 0) {
+            return;
+        }
+        if (CIPrefFlagOn(value)) {
+            enabled[key] = @YES;
+        } else if (enabled[key] == nil) {
+            enabled[key] = @NO;
+        }
+    }];
+}
+
+static void CIUnionSpoofed(NSMutableArray *spoofed, NSMutableSet *seen, id incoming) {
+    if (![incoming isKindOfClass:[NSArray class]]) {
+        return;
+    }
+    for (id item in (NSArray *)incoming) {
+        if (![item isKindOfClass:[NSString class]] || [item length] == 0 || [seen containsObject:item]) {
+            continue;
+        }
+        [spoofed addObject:item];
+        [seen addObject:item];
+    }
+}
+
+static void CILoadCFPrefsForUser(NSMutableDictionary *prefs, CFStringRef user) {
+    if (!prefs || !user) {
+        return;
+    }
+    CFStringRef appID = CFSTR("com.vinhnv2507.chengiosprefs");
+    CFArrayRef keys = CFPreferencesCopyKeyList(appID, user, kCFPreferencesAnyHost);
+    if (!keys) {
+        return;
+    }
+    CFDictionaryRef dict = CFPreferencesCopyMultiple(keys, appID, user, kCFPreferencesAnyHost);
+    CFRelease(keys);
+    if (!dict) {
+        return;
+    }
+    [prefs addEntriesFromDictionary:(__bridge NSDictionary *)dict];
+    CFRelease(dict);
+}
+
 static NSMutableDictionary *CILoadRawPrefs(void) {
     NSMutableDictionary *prefs = [NSMutableDictionary dictionary];
+    NSMutableDictionary *enabled = [NSMutableDictionary dictionary];
+    NSMutableArray *spoofed = [NSMutableArray array];
+    NSMutableSet *spoofedSeen = [NSMutableSet set];
+    NSMutableArray<NSDictionary *> *files = [NSMutableArray array];
+    NSFileManager *fm = [NSFileManager defaultManager];
     for (NSString *path in CIPrefsPaths()) {
         NSDictionary *file = [NSDictionary dictionaryWithContentsOfFile:path];
-        if (file.count > 0) {
-            [prefs addEntriesFromDictionary:file];
-            return prefs;
+        if (![file isKindOfClass:[NSDictionary class]] || file.count == 0) {
+            continue;
         }
+        NSDate *mtime = [fm attributesOfItemAtPath:path error:nil][NSFileModificationDate] ?: [NSDate distantPast];
+        [files addObject:@{@"file": file, @"mtime": mtime}];
     }
-    CILoadCFPrefsInto(prefs);
+    [files sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+        return [a[@"mtime"] compare:b[@"mtime"]];
+    }];
+    for (NSDictionary *item in files) {
+        NSDictionary *file = item[@"file"];
+        [prefs addEntriesFromDictionary:file];
+        CIUnionEnabled(enabled, file[@"appEnabled"]);
+        CIUnionSpoofed(spoofed, spoofedSeen, file[@"spoofedApps"]);
+    }
+    NSMutableDictionary *cf = [NSMutableDictionary dictionary];
+    if (files.count == 0) {
+        CILoadCFPrefsInto(cf);
+        if (geteuid() == 0) {
+            CILoadCFPrefsForUser(cf, CFSTR("mobile"));
+        }
+        if (cf.count > 0) {
+            [prefs addEntriesFromDictionary:cf];
+            CIUnionEnabled(enabled, cf[@"appEnabled"]);
+            CIUnionSpoofed(spoofed, spoofedSeen, cf[@"spoofedApps"]);
+        }
+    } else {
+        if (geteuid() == 0) {
+            CILoadCFPrefsForUser(cf, CFSTR("mobile"));
+        } else {
+            CILoadCFPrefsInto(cf);
+        }
+        CIUnionEnabled(enabled, cf[@"appEnabled"]);
+        CIUnionSpoofed(spoofed, spoofedSeen, cf[@"spoofedApps"]);
+    }
+    if (enabled.count > 0) {
+        prefs[@"appEnabled"] = enabled;
+    }
+    if (spoofed.count > 0) {
+        prefs[@"spoofedApps"] = spoofed;
+    }
     return prefs;
 }
 

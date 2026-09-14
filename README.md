@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.43
+
+- Alert **Khong xoa duoc app nao**: khong con nuot loi helper; neu chua tick app thi bao ro
+- Doc `appEnabled` tu **moi** file prefs (jb + mobile), khong de Random ghi de mat danh sach Change Apps
+- Van giu wipe TikTok lan 2 sau Random, khong co nut xoa toan bo app
+
 ## 1.2.42
 
 - Xoa app da chon + Random Toan Bo: wipe TikTok/Aweme lan 2 sau doi info (giong xoa rieng), kill plugin truoc/sau, hien ok/failed

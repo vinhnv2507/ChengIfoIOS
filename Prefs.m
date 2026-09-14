@@ -88,19 +88,60 @@ static void OVSLoadCFPreferences(NSMutableDictionary *merged) {
     CFRelease(dict);
 }
 
+static BOOL OVSPrefFlagOn(id value) {
+    if ([value isKindOfClass:[NSNumber class]] || [value isKindOfClass:[NSString class]]) {
+        return [value boolValue];
+    }
+    if ([value isKindOfClass:[NSDictionary class]]) {
+        return [value[@"enabled"] boolValue] || [value[@"tweakEnabled"] boolValue] || [value[@"on"] boolValue];
+    }
+    return NO;
+}
+
+static void OVSUnionEnabled(NSMutableDictionary *enabled, id incoming) {
+    if (![incoming isKindOfClass:[NSDictionary class]] || !enabled) {
+        return;
+    }
+    [(NSDictionary *)incoming enumerateKeysAndObjectsUsingBlock:^(id key, id value, BOOL *stop) {
+        (void)stop;
+        if (![key isKindOfClass:[NSString class]] || [key length] == 0) {
+            return;
+        }
+        if (OVSPrefFlagOn(value)) {
+            enabled[key] = @YES;
+        }
+    }];
+}
+
 void OVSReloadPreferences(void) {
     NSMutableDictionary *merged = [NSMutableDictionary dictionary];
+    NSMutableDictionary *enabled = [NSMutableDictionary dictionary];
+    NSMutableArray<NSDictionary *> *files = [NSMutableArray array];
+    NSFileManager *fm = [NSFileManager defaultManager];
     BOOL fromFile = NO;
     for (NSString *path in OVSCandidatePreferencePaths()) {
         NSDictionary *fileDict = [NSDictionary dictionaryWithContentsOfFile:path];
-        if (fileDict.count > 0) {
-            [merged addEntriesFromDictionary:fileDict];
-            fromFile = YES;
-            break;
+        if (![fileDict isKindOfClass:[NSDictionary class]] || fileDict.count == 0) {
+            continue;
         }
+        NSDate *mtime = [fm attributesOfItemAtPath:path error:nil][NSFileModificationDate] ?: [NSDate distantPast];
+        [files addObject:@{@"file": fileDict, @"mtime": mtime}];
+        fromFile = YES;
+    }
+    [files sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+        return [a[@"mtime"] compare:b[@"mtime"]];
+    }];
+    for (NSDictionary *item in files) {
+        NSDictionary *fileDict = item[@"file"];
+        [merged addEntriesFromDictionary:fileDict];
+        OVSUnionEnabled(enabled, fileDict[@"appEnabled"]);
     }
     if (!fromFile) {
         OVSLoadCFPreferences(merged);
+        OVSUnionEnabled(enabled, merged[@"appEnabled"]);
+    }
+    if (enabled.count > 0) {
+        merged[@"appEnabled"] = enabled;
     }
 
     pthread_mutex_lock(&gMutex);
@@ -618,6 +659,9 @@ static BOOL OVSBundleIsSelected(NSString *bundleIdentifier) {
         id flag = enabled[bundleIdentifier];
         if ([flag isKindOfClass:[NSNumber class]] || [flag isKindOfClass:[NSString class]]) {
             return [flag boolValue];
+        }
+        if ([flag isKindOfClass:[NSDictionary class]]) {
+            return [flag[@"enabled"] boolValue] || [flag[@"tweakEnabled"] boolValue] || [flag[@"on"] boolValue];
         }
     }
     return NO;
