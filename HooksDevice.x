@@ -160,6 +160,17 @@
 %end
 %end
 
+@interface DCDevice : NSObject
++ (instancetype)currentDevice;
+@property (nonatomic, readonly, getter=isSupported) BOOL supported;
+- (void)generateTokenWithCompletionHandler:(void (^)(NSData *token, NSError *error))completion;
+@end
+
+@interface DCAppAttestService : NSObject
++ (instancetype)sharedService;
+@property (nonatomic, readonly, getter=isSupported) BOOL supported;
+@end
+
 %group AdSupportHooks
 %hook ASIdentifierManager
 - (NSUUID *)advertisingIdentifier {
@@ -187,11 +198,10 @@
     return %orig;
 }
 
-- (void)generateTokenWithCompletionHandler:(id)completion {
+- (void)generateTokenWithCompletionHandler:(void (^)(NSData *token, NSError *error))completion {
     if (OVSSpoofingEnabled() && OVSIsShopeeFamily()) {
-        void (^handler)(NSData *, NSError *) = completion;
-        if (handler) {
-            handler(nil, [NSError errorWithDomain:@"DCErrorDomain" code:2 userInfo:nil]);
+        if (completion) {
+            completion(nil, [NSError errorWithDomain:@"com.vinhnv2507.chengios" code:2 userInfo:nil]);
         }
         return;
     }
