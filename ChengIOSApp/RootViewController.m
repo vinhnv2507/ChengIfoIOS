@@ -37,7 +37,8 @@ extern char **environ;
     return @[
         @[
             @{@"kind": @"switch", @"title": @"B\u1eadt ChengIOS", @"key": @"masterEnabled", @"defaultOn": @YES},
-            @{@"kind": @"switch", @"title": @"Spoof s\u00e2u (Gestalt / Darwin)", @"key": @"gestaltEnabled", @"defaultOn": @NO, @"detail": @"FB/Shopee b\u1ecf qua Gestalt; app th\u01b0\u1eddng m\u1edbi d\u00f9ng Darwin. Force-quit app \u0111\u00edch"}
+            @{@"kind": @"switch", @"title": @"Spoof s\u00e2u (Gestalt / Darwin)", @"key": @"gestaltEnabled", @"defaultOn": @NO, @"detail": @"FB/Shopee b\u1ecf qua Gestalt; app th\u01b0\u1eddng m\u1edbi d\u00f9ng Darwin. Force-quit app \u0111\u00edch"},
+            @{@"kind": @"switch", @"title": @"An jailbreak / bypass", @"key": @"hideJailbreakEnabled", @"defaultOn": @NO, @"detail": @"An Cydia/Sileo/ElleKit. FB/Shopee chi an file/URL. Force-quit; neu Shopee vang thi tat"}
         ],
         @[
             @{@"kind": @"nav", @"title": @"Change Apps", @"detail": @"C\u00f3 Safari \u1edf \u0111\u1ea7u danh s\u00e1ch"}
@@ -197,13 +198,13 @@ extern char **environ;
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     (void)tableView;
     if (section == 0) {
-        return @"Safari: tick Safari, vuot tat han roi mo lai tab. Facebook/Shopee van che do an toan.";
+        return @"Safari: tick Safari, vuot tat han roi mo lai tab. Facebook/Shopee van che do an toan. An jailbreak: force-quit app da chon; neu Shopee vang thi tat.";
     }
     if (section == 2) {
         return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";
     }
     if (section == 3) {
-        return @"Backup/restore kieu Apps Manager (can ldid). Xoa data: rm sandbox + SQL keychain, khong ldid. App chay mobile, helper root.";
+        return @"Backup/restore kieu Apps Manager (can ldid). Xoa data nhanh: doi ten sandbox roi rm nen, SQL keychain, khong ldid.";
     }
     if (section == 10) {
         return @"deviceinfo.me Region/City/ISP la IP cong cong that (Viettel/Hung Yen). Bam nut Detect de dung GPS gia lap.";

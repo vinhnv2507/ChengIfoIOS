@@ -501,7 +501,7 @@ static void OVSApplyWebViewUserAgent(id webView) {
     if (OVSSpoofingEnabled() && !OVSIsFragileApp() && NSClassFromString(@"TabDocument")) {
         %init(SafariTabHooks);
     }
-    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled() || OVSShouldSpoofOSVersion()) {
+    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
         %init(LowLevelSysctl);
     }
 }
