@@ -846,6 +846,44 @@ static NSDictionary *CIBuildProfile(BOOL full, NSString *iso) {
     return profile;
 }
 
+NSDictionary *ChengIOSMintAppIdentity(void) {
+    NSString *wifi = CIRandomMAC();
+    return @{
+        @"spoofedVendorUUID": [[NSUUID UUID] UUIDString],
+        @"spoofedAdvertisingUUID": [[NSUUID UUID] UUIDString],
+        @"spoofedSerialNumber": CIRandomSerial(),
+        @"spoofedUniqueDeviceID": CIRandomHex(40, NO),
+        @"wifiAddress": wifi,
+        @"macAddress": wifi,
+        @"bluetoothAddress": CIRandomMAC(),
+        @"spoofedIMEI": CIRandomIMEI(),
+        @"deviceIdentityEnabled": @YES
+    };
+}
+
+static BOOL CIProfileBundleLooksShopee(NSString *bundleID) {
+    NSString *low = bundleID.lowercaseString ?: @"";
+    return [low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."];
+}
+
+void ChengIOSAssignAppIdentity(NSArray<NSString *> *bundleIDs, NSDictionary *identity) {
+    NSDictionary *mint = identity.count ? identity : ChengIOSMintAppIdentity();
+    NSMutableDictionary *patch = [mint mutableCopy];
+    NSMutableDictionary *map = [NSMutableDictionary dictionary];
+    id existing = ChengIOSLoadRawPrefs()[@"appDeviceProfiles"];
+    if ([existing isKindOfClass:[NSDictionary class]]) {
+        [map addEntriesFromDictionary:existing];
+    }
+    for (NSString *bundleID in bundleIDs) {
+        if ([bundleID isKindOfClass:[NSString class]] && bundleID.length > 0) {
+            map[bundleID] = mint;
+        }
+    }
+    patch[@"appDeviceProfiles"] = map;
+    patch[@"deviceIdentityEnabled"] = @YES;
+    ChengIOSApplyProfile(patch);
+}
+
 NSDictionary *ChengIOSRandomIdentity(void) {
     return CIBuildProfile(NO, nil);
 }
@@ -915,6 +953,8 @@ NSString *ChengIOSProfileSummary(NSDictionary *profile) {
     return text;
 }
 
+static BOOL CIProfileBundleLooksShopee(NSString *bundleID);
+
 void ChengIOSApplyProfile(NSDictionary *profile) {
     if (profile.count == 0) {
         return;
@@ -933,6 +973,47 @@ void ChengIOSApplyProfile(NSDictionary *profile) {
     }];
     if (!asRoot) {
         CFPreferencesAppSynchronize(CFSTR("com.vinhnv2507.chengiosprefs"));
+    }
+    NSMutableDictionary *shopeeIds = [NSMutableDictionary dictionary];
+    for (NSString *key in @[@"spoofedVendorUUID", @"spoofedAdvertisingUUID", @"spoofedSerialNumber", @"spoofedUniqueDeviceID", @"wifiAddress", @"bluetoothAddress", @"spoofedIMEI", @"macAddress"]) {
+        id value = merged[key];
+        if ([value isKindOfClass:[NSString class]] && [value length] > 0) {
+            shopeeIds[key] = value;
+        }
+    }
+    if (shopeeIds.count > 0) {
+        NSMutableDictionary *map = [merged[@"appDeviceProfiles"] isKindOfClass:[NSDictionary class]] ? [merged[@"appDeviceProfiles"] mutableCopy] : [NSMutableDictionary dictionary];
+        NSMutableArray<NSString *> *targets = [NSMutableArray array];
+        id spoofed = merged[@"spoofedApps"];
+        if ([spoofed isKindOfClass:[NSArray class]]) {
+            for (id item in spoofed) {
+                if ([item isKindOfClass:[NSString class]]) {
+                    [targets addObject:item];
+                }
+            }
+        }
+        id enabled = merged[@"appEnabled"];
+        if ([enabled isKindOfClass:[NSDictionary class]]) {
+            [enabled enumerateKeysAndObjectsUsingBlock:^(id key, id val, BOOL *stop) {
+                (void)stop;
+                if ([key isKindOfClass:[NSString class]] && [val respondsToSelector:@selector(boolValue)] && [val boolValue] && ![targets containsObject:key]) {
+                    [targets addObject:key];
+                }
+            }];
+        }
+        BOOL changed = NO;
+        for (NSString *bundleID in targets) {
+            if (CIProfileBundleLooksShopee(bundleID)) {
+                map[bundleID] = shopeeIds;
+                changed = YES;
+            }
+        }
+        if (changed) {
+            merged[@"appDeviceProfiles"] = map;
+            if (!asRoot) {
+                CFPreferencesSetAppValue(CFSTR("appDeviceProfiles"), (__bridge CFPropertyListRef)map, CFSTR("com.vinhnv2507.chengiosprefs"));
+            }
+        }
     }
     for (NSString *path in CIPrefsPaths()) {
         NSString *dir = [path stringByDeletingLastPathComponent];

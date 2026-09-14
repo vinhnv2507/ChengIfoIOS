@@ -29,7 +29,9 @@ extern char **environ;
         @"chengios://random-all?silent=1",
         @"chengios://erase-device",
         @"chengios://erase-random-all",
-        @"chengios://erase-device-random"
+        @"chengios://erase-device-random",
+        @"chengios://new-partition",
+        @"chengios://new-partition-random"
     ];
 }
 
@@ -58,7 +60,8 @@ extern char **environ;
             @{@"kind": @"button", @"title": @"Xoa sach data app da chon", @"action": @"eraseApps"},
             @{@"kind": @"button", @"title": @"Xoa toan bo app + Safari", @"action": @"eraseDevice"},
             @{@"kind": @"button", @"title": @"Xoa app da chon + Random Toan Bo", @"action": @"eraseRandomAll"},
-            @{@"kind": @"button", @"title": @"Xoa toan bo + Random Toan Bo", @"action": @"eraseDeviceRandom"}
+            @{@"kind": @"button", @"title": @"Xoa toan bo + Random Toan Bo", @"action": @"eraseDeviceRandom"},
+            @{@"kind": @"button", @"title": @"Phan vung moi + Random Toan Bo", @"action": @"newPartitionRandom", @"detail": @"Shopee: UUID container moi + UDID/IDFV moi"}
         ],
         @[
             @{@"kind": @"text", @"title": @"Model", @"keys": @[@"spoofedModel", @"customDeviceModel"], @"placeholder": @"iPhone16,2"},
@@ -204,7 +207,7 @@ extern char **environ;
         return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";
     }
     if (section == 3) {
-        return @"Backup/restore kieu Apps Manager (can ldid). Xoa data nhanh: doi ten sandbox roi rm nen, SQL keychain, khong ldid.";
+        return @"Xoa Shopee tao phan vung container moi (UUID moi) + UDID/IDFV rieng. Backup/restore can ldid.";
     }
     if (section == 10) {
         return @"deviceinfo.me Region/City/ISP la IP cong cong that (Viettel/Hung Yen). Bam nut Detect de dung GPS gia lap.";
@@ -371,6 +374,8 @@ extern char **environ;
         ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-random-all"], self);
     } else if ([action isEqualToString:@"eraseDeviceRandom"]) {
         ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-device-random"], self);
+    } else if ([action isEqualToString:@"newPartitionRandom"]) {
+        ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://new-partition-random"], self);
     }
 }
 
