@@ -93,7 +93,7 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (BOOL)isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion)version {
-    if (!OVSShouldSpoofOSVersion()) {
+    if (!OVSShouldSpoofOSCapability()) {
         return %orig;
     }
     NSOperatingSystemVersion spoofed = OVSSpoofedOSVersion();
@@ -501,7 +501,7 @@ static void OVSApplyWebViewUserAgent(id webView) {
     if (OVSSpoofingEnabled() && !OVSIsFragileApp() && NSClassFromString(@"TabDocument")) {
         %init(SafariTabHooks);
     }
-    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
+    if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled() || OVSShouldSpoofOSVersion()) {
         %init(LowLevelSysctl);
     }
 }

@@ -32,7 +32,14 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.36
+
+- Shopee: spoof iOS version tren UIDevice / NSProcessInfo string / sysctl kern.osproductversion. Khong WKWebView, khong gestalt, khong isOperatingSystemAtLeastVersion (giu iOS that de tranh vang 1.2.33)
+- Restore ho so: helper root khong ghi CFPreferences cua root. Ghi plist, chown 501:501, kill cfprefsd, notify. Tweak uu tien doc file; app sandbox van dung cfprefsd sau kill
+- Reload prefs xoa cache IDFV/IDFA/build
+
 ## 1.2.35
+
 
 - Shopee van skip xac minh: IDFA that + DeviceCheck token Apple (song qua wipe). 1.2.35 spoof IDFA, tat DeviceCheck/App Attest (isSupported=NO), xoa keychain AppsFlyer/Adjust/Firebase/Tongdun theo team, pasteboard, extra prefs. Khong WK/iOS spoof (1.2.33 vang)
 - Facebook khong doi. Can Random Toan Bo (identity) + force-quit Shopee. DeviceCheck gia khong tao token Apple moi; chi an token cu
