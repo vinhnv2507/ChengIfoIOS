@@ -49,6 +49,7 @@ static NSString * const kChengBackupErrorDomain = @"com.vinhnv2507.chengios.back
 - (NSArray *)allInstalledApplications;
 @end
 
+static LSApplicationProxy *CIProxy(NSString *bundleID);
 static void CIRunKillall(NSString *processName);
 static void CITerminateBundle(NSString *bundleID);
 static void CITerminateRelatedBundles(NSString *bundleID);
