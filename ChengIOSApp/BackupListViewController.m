@@ -434,21 +434,44 @@ void ChengIOSRunEraseDevice(UIViewController *host, BOOL silent) {
 }
 
 void ChengIOSRunEraseThenRandom(UIViewController *host, NSArray<NSString *> *bundleIDs, BOOL allDevice, BOOL randomAll, NSString *region, BOOL silent) {
+    (void)allDevice;
+    NSArray *list = bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs();
     void (^go)(void) = ^{
-        CIRunBusy(host, allDevice ? @"Xoa toan bo + random" : @"Xoa app + random", ^(void (^done)(NSString *, NSString *)) {
+        CIRunBusy(host, @"Xoa app + random", ^(void (^done)(NSString *, NSString *)) {
             NSError *error = nil;
-            NSDictionary *result = ChengIOSEraseThenRandom(bundleIDs, allDevice, randomAll, region, &error);
-            done(@"Da xoa + doi info", CIEraseResultText(result, error, @"Force-quit app roi mo lai."));
+            NSDictionary *result = ChengIOSEraseThenRandom(list, NO, randomAll, region, &error);
+            NSMutableString *msg = [NSMutableString string];
+            NSArray *ok = result[@"ok"];
+            NSArray *failed = result[@"failed"];
+            NSArray *skipped = result[@"skipped"];
+            if (ok.count) {
+                [msg appendFormat:@"Da xoa: %@\n", [ok componentsJoinedByString:@", "]];
+            }
+            if (failed.count) {
+                [msg appendFormat:@"Loi: %@\n", [failed componentsJoinedByString:@", "]];
+            }
+            if (skipped.count) {
+                [msg appendFormat:@"Bo qua: %@\n", [skipped componentsJoinedByString:@", "]];
+            }
+            if ([result[@"profileSummary"] length]) {
+                [msg appendFormat:@"\n%@\n", result[@"profileSummary"]];
+            }
+            if (error && msg.length == 0) {
+                [msg appendString:ChengIOSBackupErrorMessage(error)];
+            }
+            if (msg.length == 0) {
+                [msg appendString:@"Force-quit app roi mo lai."];
+            }
+            [msg appendString:@"\nTikTok: force-quit roi mo lai. Neu van con acc thi xoa rieng TikTok trong sheet."];
+            done(ok.count ? @"Da xoa + doi info" : @"Xoa + random", msg);
         });
     };
     if (silent) {
         go();
         return;
     }
-    NSString *title = allDevice ? @"Xoa toan bo + Random" : @"Xoa app da chon + Random";
-    NSString *msg = allDevice
-        ? @"Xoa data MOI app user + Safari, roi random info may. Khong undo."
-        : @"Xoa sandbox/keychain app da chon (ke ca Safari neu dang tick), roi random info. Khong undo.";
+    NSString *title = @"Xoa app da chon + Random";
+    NSString *msg = [NSString stringWithFormat:@"Xoa sandbox/keychain %lu app da chon (ke ca Safari neu dang tick), roi random info. TikTok xoa them 1 lan sau random. Khong undo.", (unsigned long)list.count];
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
                                                                    message:msg
                                                             preferredStyle:UIAlertControllerStyleAlert];
@@ -474,7 +497,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
 
     NSString *region = CIQuery(url, @"region") ?: CIQuery(url, @"iso");
     if ([token containsString:@"erase-device-random"] || [token containsString:@"wipe-device-random"] || [token containsString:@"factory-random"]) {
-        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), YES, YES, region, silent);
+        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), NO, YES, region, silent);
         return YES;
     }
     if ([token containsString:@"erase-random-all"] || [token containsString:@"wipe-random-all"] || [token containsString:@"reset-all"]) {
@@ -486,7 +509,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
         return YES;
     }
     if ([token containsString:@"erase-device"] || [token containsString:@"wipe-device"] || [token containsString:@"erase-all-apps"]) {
-        ChengIOSRunEraseDevice(host, silent);
+        ChengIOSRunErase(host, CIBundlesFromQuery(url), silent);
         return YES;
     }
     if ([token containsString:@"erase-safari"] || [token containsString:@"wipe-safari"]) {

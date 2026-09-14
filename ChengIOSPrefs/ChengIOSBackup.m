@@ -59,6 +59,14 @@ static void CIWipeKnownKeychainServices(NSString *bundleID);
 static void CISettleForDisk(NSString *bundleID);
 static void CISettleAfterDisk(NSString *bundleID);
 static NSDictionary<NSString *, NSString *> *CIAllGroupPaths(NSString *bundleID);
+static NSDictionary<NSString *, NSString *> *CIPluginPaths(NSString *bundleID);
+static BOOL CIBundleIsTikTokFamily(NSString *bundleID);
+static BOOL CIBundleIsSticky(NSString *bundleID);
+static BOOL CIBundleLooksDirty(NSString *bundleID);
+static void CIKillTikTokHard(void);
+static void CIKillEraseTargets(NSArray<NSString *> *targets);
+static NSArray<NSString *> *CIExpandEraseTargets(NSArray<NSString *> *bundleIDs);
+static NSArray<NSString *> *CIEraseOrder(NSArray<NSString *> *targets);
 static NSDictionary<NSString *, NSString *> *CIScanContainersMatching(NSArray<NSString *> *roots, BOOL (^pred)(NSString *ident));
 static void CIContainerIndexClear(void);
 static void CIKeychainSQLSettle(void);
@@ -1080,18 +1088,7 @@ static void CISettleForDisk(NSString *bundleID) {
     if ([low containsString:@"tiktok"] || [low hasPrefix:@"com.zhiliaoapp."] ||
         [low hasPrefix:@"com.ss.iphone."] || [low containsString:@"musically"] ||
         [low containsString:@"aweme"]) {
-        CIRunKillall(@"TikTok");
-        CIRunKillall(@"Musical.ly");
-        CIRunKillall(@"Aweme");
-        CIRunKillall(@"trill");
-        CIRunKillall(@"TikTokNotification");
-        CIRunKillall(@"NotificationService");
-        CIRunKillall(@"TikTokShare");
-        CIRunKillall(@"ShareExtension");
-        CIRunKillall(@"TikTokWidget");
-        CIRunKillall(@"WidgetExtension");
-        CIRunKillall(@"BroadcastUpload");
-        CIRunKillall(@"TikTokBroadcast");
+        CIKillTikTokHard();
     }
 }
 
@@ -1206,7 +1203,11 @@ static NSArray<NSString *> *CIExtraWipePaths(NSString *bundleID) {
         [extraNames addObjectsFromArray:@[
             @"group.com.zhiliaoapp.musically.plist",
             @"com.zhiliaoapp.musically.plist",
-            @"com.zhiliaoapp.musically.go.plist"
+            @"com.zhiliaoapp.musically.go.plist",
+            @"group.com.ss.iphone.ugc.Aweme.plist",
+            @"com.ss.iphone.ugc.Aweme.plist",
+            @"AwemeUserDefaults.plist",
+            @"group.com.bytedance.tiktok.plist"
         ]];
     }
     for (NSString *prefRoot in prefRoots) {
@@ -1755,7 +1756,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.41, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.42, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -2160,7 +2161,7 @@ static NSUInteger CIKeychainSQLWipeForBundle(NSString *bundleID) {
         [likes addObjectsFromArray:@[@"%facebook%", @"%fbsdk%", @"%43aqtk3442.com.facebook%"]];
     }
     if ([low containsString:@"tiktok"] || [low hasPrefix:@"com.zhiliaoapp."] || [low containsString:@"aweme"]) {
-        [likes addObjectsFromArray:@[@"%tiktok%", @"%zhiliao%", @"%musically%", @"%aweme%"]];
+        [likes addObjectsFromArray:@[@"%tiktok%", @"%zhiliao%", @"%musically%", @"%aweme%", @"%bytedance%", @"%com.ss.iphone%", @"%passport%"]];
     }
     for (NSString *table in tables) {
         for (NSString *agrp in agrps) {
@@ -2420,7 +2421,9 @@ static NSArray<NSString *> *CICompanionBundleIDs(NSString *bundleID) {
     }
     if ([low hasPrefix:@"com.ss.iphone.ugc.aweme"] || [low containsString:@"aweme"]) {
         return @[
-            @"com.ss.iphone.ugc.Aweme"
+            @"com.ss.iphone.ugc.Aweme",
+            @"com.zhiliaoapp.musically",
+            @"com.zhiliaoapp.musically.go"
         ];
     }
     return @[];
@@ -4044,7 +4047,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.41",
+        @"version": @"1.2.42",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -4576,6 +4579,149 @@ static void CIWipeNamedPasteboards(NSString *bundleID) {
 }
 
 
+static BOOL CIBundleIsTikTokFamily(NSString *bundleID) {
+    NSString *low = bundleID.lowercaseString ?: @"";
+    return [low containsString:@"tiktok"] || [low hasPrefix:@"com.zhiliaoapp."] ||
+           [low hasPrefix:@"com.ss.iphone."] || [low containsString:@"aweme"] ||
+           [low containsString:@"musically"] || [low containsString:@"bytedance"];
+}
+
+static BOOL CIBundleIsSticky(NSString *bundleID) {
+    NSString *low = bundleID.lowercaseString ?: @"";
+    if (low.length == 0) {
+        return NO;
+    }
+    if ([low hasPrefix:@"com.facebook."] || [low hasPrefix:@"com.meta."] || [low containsString:@"facebook"]) {
+        return YES;
+    }
+    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."]) {
+        return YES;
+    }
+    return CIBundleIsTikTokFamily(bundleID);
+}
+
+static void CIKillTikTokHard(void) {
+    NSArray<NSString *> *names = @[
+        @"TikTok", @"Musical.ly", @"musical.ly", @"Musically", @"Aweme", @"trill",
+        @"TikTokNotification", @"AwemeNotification", @"NotificationService",
+        @"TikTokShare", @"AwemeShare", @"ShareExtension",
+        @"TikTokWidget", @"AwemeWidget", @"WidgetExtension",
+        @"BroadcastUpload", @"TikTokBroadcast", @"AwemeBroadcast",
+        @"TikTokLive", @"LiveExtension"
+    ];
+    for (NSString *name in names) {
+        CIRunKillall(name);
+    }
+}
+
+static BOOL CIBundleLooksDirty(NSString *bundleID) {
+    NSString *dataPath = CIDataPath(bundleID);
+    NSArray<NSString *> *subs = @[
+        @"Documents",
+        @"Library/Preferences",
+        @"Library/Cookies",
+        @"Library/HTTPStorages",
+        @"Library/Application Support",
+        @"Library/Accounts"
+    ];
+    for (NSString *sub in subs) {
+        if (dataPath.length > 0 && CITreeHasFiles([dataPath stringByAppendingPathComponent:sub])) {
+            return YES;
+        }
+    }
+    NSDictionary *plugins = CIPluginPaths(bundleID);
+    for (NSString *pluginID in plugins) {
+        NSString *path = plugins[pluginID];
+        if (CITreeHasFiles([path stringByAppendingPathComponent:@"Documents"]) ||
+            CITreeHasFiles([path stringByAppendingPathComponent:@"Library/Preferences"])) {
+            return YES;
+        }
+    }
+    NSDictionary *groups = CIAllGroupPaths(bundleID);
+    for (NSString *group in groups) {
+        if (!CIGroupAlwaysWipe(group, bundleID)) {
+            continue;
+        }
+        NSString *path = groups[group];
+        if (CITreeHasFiles([path stringByAppendingPathComponent:@"Documents"]) ||
+            CITreeHasFiles([path stringByAppendingPathComponent:@"Library/Preferences"])) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+static NSArray<NSString *> *CIExpandEraseTargets(NSArray<NSString *> *bundleIDs) {
+    NSMutableArray<NSString *> *out = [NSMutableArray array];
+    NSMutableSet<NSString *> *seen = [NSMutableSet set];
+    void (^add)(NSString *) = ^(NSString *bid) {
+        if (bid.length == 0 || [seen containsObject:bid]) {
+            return;
+        }
+        [seen addObject:bid];
+        [out addObject:bid];
+    };
+    for (NSString *raw in bundleIDs) {
+        if (![raw isKindOfClass:[NSString class]] || raw.length == 0) {
+            continue;
+        }
+        NSString *low = raw.lowercaseString;
+        BOOL truncatedAweme = [low hasPrefix:@"com.ss.iphone.ugc.ame"] && ![low hasPrefix:@"com.ss.iphone.ugc.aweme"];
+        if (truncatedAweme) {
+            if (CIProxy(@"com.ss.iphone.ugc.Aweme")) {
+                add(@"com.ss.iphone.ugc.Aweme");
+            }
+            continue;
+        }
+        add(raw);
+        if ([low hasPrefix:@"com.ss.iphone.ugc.aweme"] || [low containsString:@"aweme"]) {
+            if (CIProxy(@"com.ss.iphone.ugc.Aweme")) {
+                add(@"com.ss.iphone.ugc.Aweme");
+            }
+        }
+    }
+    return out;
+}
+
+static NSArray<NSString *> *CIEraseOrder(NSArray<NSString *> *targets) {
+    NSMutableArray<NSString *> *normal = [NSMutableArray array];
+    NSMutableArray<NSString *> *sticky = [NSMutableArray array];
+    for (NSString *bid in targets) {
+        if (CIBundleIsSticky(bid)) {
+            [sticky addObject:bid];
+        } else {
+            [normal addObject:bid];
+        }
+    }
+    [sticky sortUsingComparator:^NSComparisonResult(NSString *a, NSString *b) {
+        BOOL ta = CIBundleIsTikTokFamily(a);
+        BOOL tb = CIBundleIsTikTokFamily(b);
+        if (ta != tb) {
+            return ta ? NSOrderedDescending : NSOrderedAscending;
+        }
+        return [a compare:b];
+    }];
+    [normal addObjectsFromArray:sticky];
+    return normal;
+}
+
+static void CIKillEraseTargets(NSArray<NSString *> *targets) {
+    BOOL killedTikTok = NO;
+    for (NSString *bid in targets) {
+        if (![bid isKindOfClass:[NSString class]] || bid.length == 0) {
+            continue;
+        }
+        CISettleForDisk(bid);
+        NSDictionary *plugins = CIPluginPaths(bid);
+        for (NSString *pluginID in plugins) {
+            CITerminateBundle(pluginID);
+        }
+        if (CIBundleIsTikTokFamily(bid) && !killedTikTok) {
+            CIKillTikTokHard();
+            killedTikTok = YES;
+        }
+    }
+}
 static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
     if (ChengIOSBundleIsProtected(bundleID)) {
         return NO;
@@ -4678,8 +4824,41 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
             CIWipeAccountsForBundle(other);
             CIResetVendorIdentifier(other);
         }
+        if (ok) {
+            CIWipeLoginResidueInTree(dataPath, bundleID);
+            for (NSString *group in groups) {
+                CIWipeLoginResidueInTree(groups[group], bundleID);
+            }
+            for (NSString *pluginID in plugins) {
+                CIWipeLoginResidueInTree(plugins[pluginID], bundleID);
+            }
+        }
+        if (CIBundleIsTikTokFamily(bundleID) && CIBundleLooksDirty(bundleID)) {
+            CIKillTikTokHard();
+            CISettleForDisk(bundleID);
+            if (dataPath.length > 0) {
+                ok = CIEmptyContainer(dataPath) || ok;
+            }
+            for (NSString *group in groups) {
+                if (!CIGroupAlwaysWipe(group, bundleID) && !owned[group] && CIGroupUsedByOtherApps(group, bundleID, together)) {
+                    continue;
+                }
+                ok = CIEmptyContainer(groups[group]) || ok;
+            }
+            for (NSString *pluginID in plugins) {
+                ok = CIEmptyContainer(plugins[pluginID]) || ok;
+            }
+            CIKeychainSQLWipeForBundle(bundleID);
+            if (dataPath.length > 0) {
+                CIReemptyPrefs(dataPath);
+            }
+        }
     }
     CISettleAfterDisk(bundleID);
+    if (CIBundleIsTikTokFamily(bundleID)) {
+        CIKillTikTokHard();
+        CISettleForDisk(bundleID);
+    }
     return ok;
 }
 
@@ -4714,7 +4893,7 @@ NSDictionary *ChengIOSEraseBundles(NSArray<NSString *> *bundleIDs, NSError **err
     NSMutableArray *ok = [NSMutableArray array];
     NSMutableArray *failed = [NSMutableArray array];
     NSMutableArray *skipped = [NSMutableArray array];
-    NSArray<NSString *> *targets = bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs();
+    NSArray<NSString *> *targets = CIEraseOrder(CIExpandEraseTargets(bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs()));
     if (targets.count == 0) {
         if (error) {
             *error = CIError(5, @"Chua chon app nao (tru app he thong / jailbreak).");
@@ -4723,6 +4902,7 @@ NSDictionary *ChengIOSEraseBundles(NSArray<NSString *> *bundleIDs, NSError **err
     }
     CIContainerIndexClear();
     gCIFastErase = YES;
+    CIKillEraseTargets(targets);
     CIRunKillall(@"cfprefsd");
     CIRunKillall(@"securityd");
     CIRunKillall(@"secd");
@@ -4740,6 +4920,26 @@ NSDictionary *ChengIOSEraseBundles(NSArray<NSString *> *bundleIDs, NSError **err
             [failed addObject:bundleID];
         }
     }
+    CIContainerIndexClear();
+    CIKillEraseTargets(targets);
+    CIKeychainSQLSettle();
+    for (NSString *bundleID in targets) {
+        if (!CIBundleIsSticky(bundleID) || ChengIOSBundleIsProtected(bundleID)) {
+            continue;
+        }
+        if ([ok containsObject:bundleID] && !CIBundleLooksDirty(bundleID)) {
+            continue;
+        }
+        if (CIEraseOne(bundleID, targets)) {
+            if (![ok containsObject:bundleID]) {
+                [ok addObject:bundleID];
+            }
+            [failed removeObject:bundleID];
+        } else if (![ok containsObject:bundleID] && ![failed containsObject:bundleID]) {
+            [failed addObject:bundleID];
+        }
+    }
+    CIKillEraseTargets(targets);
     CIRunKillall(@"cfprefsd");
     CIRunKillall(@"securityd");
     CIRunKillall(@"secd");
@@ -4883,7 +5083,10 @@ NSDictionary *ChengIOSEraseDeviceApps(BOOL includeSafari, NSError **error) {
 }
 
 NSDictionary *ChengIOSEraseThenRandom(NSArray<NSString *> *bundleIDs, BOOL allDevice, BOOL randomAll, NSString *region, NSError **error) {
-    NSDictionary *erase = allDevice ? ChengIOSEraseDeviceApps(YES, error) : ChengIOSEraseBundles(bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs(), error);
+    (void)allDevice;
+    NSArray<NSString *> *targets = CIExpandEraseTargets(bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs());
+    NSDictionary *erase = ChengIOSEraseBundles(targets, error);
+    CIKillEraseTargets(targets);
     NSDictionary *profile = nil;
     if (region.length > 0) {
         profile = ChengIOSRandomFullProfileInRegion(region);
@@ -4895,10 +5098,35 @@ NSDictionary *ChengIOSEraseThenRandom(NSArray<NSString *> *bundleIDs, BOOL allDe
     if (profile.count > 0) {
         ChengIOSApplyProfile(profile);
     }
+    CIKillEraseTargets(targets);
+    NSMutableArray<NSString *> *tiktoks = [NSMutableArray array];
+    for (NSString *bid in targets) {
+        if (CIBundleIsTikTokFamily(bid) && !ChengIOSBundleIsProtected(bid)) {
+            [tiktoks addObject:bid];
+        }
+    }
+    NSMutableArray *ok = [erase[@"ok"] mutableCopy] ?: [NSMutableArray array];
+    NSMutableArray *failed = [erase[@"failed"] mutableCopy] ?: [NSMutableArray array];
+    NSArray *skipped = erase[@"skipped"] ?: @[];
+    if (tiktoks.count > 0) {
+        NSDictionary *again = ChengIOSEraseBundles(tiktoks, error);
+        for (NSString *bid in again[@"ok"] ?: @[]) {
+            if (![ok containsObject:bid]) {
+                [ok addObject:bid];
+            }
+            [failed removeObject:bid];
+        }
+        for (NSString *bid in again[@"failed"] ?: @[]) {
+            if (![ok containsObject:bid] && ![failed containsObject:bid]) {
+                [failed addObject:bid];
+            }
+        }
+        CIKillEraseTargets(tiktoks);
+    }
     return @{
-        @"ok": erase[@"ok"] ?: @[],
-        @"failed": erase[@"failed"] ?: @[],
-        @"skipped": erase[@"skipped"] ?: @[],
+        @"ok": ok,
+        @"failed": failed,
+        @"skipped": skipped,
         @"profileSummary": ChengIOSProfileSummary(profile) ?: @""
     };
 }
