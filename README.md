@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.41
+
+- TikTok: spoof model + Gestalt nhe (ProductType/iOS string). Khong spoof isOperatingSystemAtLeastVersion/WK/Darwin (vang). Facebook van 1.2.14, Shopee van khong model/iOS/WK/gestalt
+- Random: iPhone 12 family chi iOS 18.x, khong gan iOS 26 (combo 12+26 bi TikTok chan Maximum attempts). Runtime clamp neu ho so cu con 26
+- Xoa data TikTok: kill them extension, terminate plugin, retry empty, chflags truoc rename
+
 ## 1.2.40
 
 - Bo phan vung container UUID (1.2.38/39). Wipe ve kieu 1.2.37: empty sandbox, khong MCM regenerate. Xoa appDeviceProfiles overlay

@@ -1,8 +1,8 @@
 Package: com.vinhnv2507.chengios
 Name: ChengIOS
-Version: 1.2.40
+Version: 1.2.41
 Architecture: iphoneos-arm
-Description: Spoofs iOS version, app version, and optional device/location/network/Wi-Fi signals per selected app. Fast wipe (rename+async rm). Shopee: no partition/model/iOS/WK/gestalt spoof to keep captcha stable. IDFA+DeviceCheck off. Facebook change path is 1.2.14.
+Description: Spoofs iOS version, app version, and optional device/location/network/Wi-Fi signals per selected app. TikTok: model+light gestalt, no iOS capability/WK (crash). iPhone 12 clamped to iOS 18. Shopee captcha-safe. Facebook 1.2.14.
 Maintainer: vinhnv2507 <vinhnv2507@users.noreply.github.com>
 Author: vinhnv2507 <vinhnv2507@users.noreply.github.com>
 Section: Tweaks
