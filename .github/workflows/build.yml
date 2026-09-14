@@ -20,16 +20,36 @@ jobs:
 
       - name: Build rootful package
         run: |
-          make package FINALPACKAGE=1
-          mkdir -p built-packages
-          cp packages/*_iphoneos-arm.deb built-packages/
+          set -uo pipefail
+          if make package FINALPACKAGE=1 2>&1 | tee /tmp/build-rootful.log; then
+            mkdir -p built-packages
+            cp packages/*_iphoneos-arm.deb built-packages/
+          else
+            echo "==== compile errors ===="
+            grep -E "error:|fatal error:|undefined reference|clang: error|make: \*\*\*" /tmp/build-rootful.log | tail -n 60 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            echo "==== tail ===="
+            tail -n 120 /tmp/build-rootful.log
+            exit 1
+          fi
 
       - name: Build rootless package
         run: |
+          set -uo pipefail
           make clean
-          sed -i 's/^Architecture:.*/Architecture: iphoneos-arm64/' control
-          make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
-          cp packages/*_iphoneos-arm64.deb built-packages/
+          sed -i "s/^Architecture:.*/Architecture: iphoneos-arm64/" control
+          if make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless 2>&1 | tee /tmp/build-rootless.log; then
+            cp packages/*_iphoneos-arm64.deb built-packages/
+          else
+            echo "==== compile errors ===="
+            grep -E "error:|fatal error:|undefined reference|clang: error|make: \*\*\*" /tmp/build-rootless.log | tail -n 60 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            echo "==== tail ===="
+            tail -n 120 /tmp/build-rootless.log
+            exit 1
+          fi
 
       - name: Install APT tools
         run: sudo apt-get update && sudo apt-get install -y dpkg-dev gzip

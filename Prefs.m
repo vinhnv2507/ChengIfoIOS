@@ -1,5 +1,7 @@
 #import "Prefs.h"
 
+#import <objc/runtime.h>
+
 #import <pthread.h>
 #import <stdint.h>
 #import <math.h>
@@ -1391,3 +1393,61 @@ static void OVSPrefsConstructor(void) {
     }
     OVSRegisterPreferenceListener();
 }
+
+static IMP CIReplaceInstanceMethod(Class cls, SEL sel, IMP imp) {
+    if (!cls || !sel || !imp) {
+        return NULL;
+    }
+    Method method = class_getInstanceMethod(cls, sel);
+    if (!method) {
+        return NULL;
+    }
+    return method_setImplementation(method, imp);
+}
+
+static BOOL (*CIOrigDCIsSupported)(id, SEL);
+static BOOL CIHookedDCIsSupported(id self, SEL _cmd) {
+    if (OVSSpoofingEnabled() && OVSIsShopeeFamily()) {
+        return NO;
+    }
+    return CIOrigDCIsSupported ? CIOrigDCIsSupported(self, _cmd) : NO;
+}
+
+static void (*CIOrigDCGenerateToken)(id, SEL, id);
+static void CIHookedDCGenerateToken(id self, SEL _cmd, id completion) {
+    if (OVSSpoofingEnabled() && OVSIsShopeeFamily()) {
+        if (completion) {
+            void (^block)(NSData *, NSError *) = completion;
+            NSError *error = [NSError errorWithDomain:@"com.vinhnv2507.chengios" code:2 userInfo:nil];
+            block(nil, error);
+        }
+        return;
+    }
+    if (CIOrigDCGenerateToken) {
+        CIOrigDCGenerateToken(self, _cmd, completion);
+    }
+}
+
+static BOOL (*CIOrigAttestIsSupported)(id, SEL);
+static BOOL CIHookedAttestIsSupported(id self, SEL _cmd) {
+    if (OVSSpoofingEnabled() && OVSIsShopeeFamily()) {
+        return NO;
+    }
+    return CIOrigAttestIsSupported ? CIOrigAttestIsSupported(self, _cmd) : NO;
+}
+
+void CIInstallShopeeDeviceCheckHooks(void) {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        Class dc = NSClassFromString(@"DCDevice");
+        if (dc) {
+            CIOrigDCIsSupported = (BOOL (*)(id, SEL))CIReplaceInstanceMethod(dc, NSSelectorFromString(@"isSupported"), (IMP)CIHookedDCIsSupported);
+            CIOrigDCGenerateToken = (void (*)(id, SEL, id))CIReplaceInstanceMethod(dc, NSSelectorFromString(@"generateTokenWithCompletionHandler:"), (IMP)CIHookedDCGenerateToken);
+        }
+        Class attest = NSClassFromString(@"DCAppAttestService");
+        if (attest) {
+            CIOrigAttestIsSupported = (BOOL (*)(id, SEL))CIReplaceInstanceMethod(attest, NSSelectorFromString(@"isSupported"), (IMP)CIHookedAttestIsSupported);
+        }
+    });
+}
+

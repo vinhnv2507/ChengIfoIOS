@@ -25,6 +25,7 @@ BOOL OVSIsWebKitHelperProcess(void);
 BOOL OVSIsSafariFamily(void);
 BOOL OVSIsFragileApp(void);
 BOOL OVSIsShopeeFamily(void);
+void CIInstallShopeeDeviceCheckHooks(void);
 BOOL OVSShouldSpoofOSVersion(void);
 BOOL OVSGestaltEnabled(void);
 BOOL OVSLowLevelHooksEnabled(void);
