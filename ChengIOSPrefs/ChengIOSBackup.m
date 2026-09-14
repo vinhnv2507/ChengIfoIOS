@@ -4728,10 +4728,11 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
         if (!CIGroupAlwaysWipe(group, bundleID) && !owned[group] && CIGroupUsedByOtherApps(group, bundleID, together)) {
             continue;
         }
-        ok = CIRecreateContainer(groups[group], @"MCMSharedDataContainer", group) || ok;
+        NSString *groupPath = groups[group];
+        ok = CIRecreateContainer(groupPath, @"MCMSharedDataContainer", group) || ok;
         CIContainerIndexClear();
-        if (groups[group].length > 0 && [[NSFileManager defaultManager] fileExistsAtPath:groups[group]]) {
-            ok = CIEmptyContainer(groups[group]) || ok;
+        if (groupPath.length > 0 && [[NSFileManager defaultManager] fileExistsAtPath:groupPath]) {
+            ok = CIEmptyContainer(groupPath) || ok;
         }
         for (NSString *root in @[
             @"/var/mobile/Library/Preferences",
@@ -4755,10 +4756,11 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
     }
     NSDictionary *plugins = CIPluginPaths(bundleID);
     for (NSString *pluginID in plugins) {
-        ok = CIRecreateContainer(plugins[pluginID], @"MCMPluginKitPluginDataContainer", pluginID) || ok;
+        NSString *pluginPath = plugins[pluginID];
+        ok = CIRecreateContainer(pluginPath, @"MCMPluginKitPluginDataContainer", pluginID) || ok;
         CIContainerIndexClear();
-        if (plugins[pluginID].length > 0 && [[NSFileManager defaultManager] fileExistsAtPath:plugins[pluginID]]) {
-            ok = CIEmptyContainer(plugins[pluginID]) || ok;
+        if (pluginPath.length > 0 && [[NSFileManager defaultManager] fileExistsAtPath:pluginPath]) {
+            ok = CIEmptyContainer(pluginPath) || ok;
         }
     }
     if (ChengIOSBundleIsSafari(bundleID)) {
