@@ -61,7 +61,7 @@ extern char **environ;
             @{@"kind": @"button", @"title": @"Xoa toan bo app + Safari", @"action": @"eraseDevice"},
             @{@"kind": @"button", @"title": @"Xoa app da chon + Random Toan Bo", @"action": @"eraseRandomAll"},
             @{@"kind": @"button", @"title": @"Xoa toan bo + Random Toan Bo", @"action": @"eraseDeviceRandom"},
-            @{@"kind": @"button", @"title": @"Phan vung moi + Random Toan Bo", @"action": @"newPartitionRandom", @"detail": @"Shopee: UUID container moi + UDID/IDFV moi"}
+            @{@"kind": @"button", @"title": @"Phan vung moi + Random Toan Bo", @"action": @"newPartitionRandom", @"detail": @"App da chon: UUID container moi + UDID/IDFV moi"}
         ],
         @[
             @{@"kind": @"text", @"title": @"Model", @"keys": @[@"spoofedModel", @"customDeviceModel"], @"placeholder": @"iPhone16,2"},
@@ -207,7 +207,7 @@ extern char **environ;
         return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";
     }
     if (section == 3) {
-        return @"Xoa Shopee tao phan vung container moi (UUID moi) + UDID/IDFV rieng. Backup/restore can ldid.";
+        return @"Xoa app da chon tao phan vung container moi (UUID moi) + UDID/IDFV rieng. Shopee khong Gestalt. Backup/restore can ldid.";
     }
     if (section == 10) {
         return @"deviceinfo.me Region/City/ISP la IP cong cong that (Viettel/Hung Yen). Bam nut Detect de dung GPS gia lap.";

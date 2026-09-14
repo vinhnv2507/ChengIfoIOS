@@ -29,7 +29,6 @@ void CIInstallShopeeDeviceCheckHooks(void);
 BOOL OVSShouldSpoofOSVersion(void);
 BOOL OVSShouldSpoofOSCapability(void);
 BOOL OVSHideJailbreakEnabled(void);
-BOOL OVSShopeeIdentityHooksEnabled(void);
 BOOL OVSGestaltEnabled(void);
 BOOL OVSLowLevelHooksEnabled(void);
 BOOL OVSMachineHooksEnabled(void);

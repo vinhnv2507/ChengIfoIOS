@@ -1140,6 +1140,15 @@ static NSArray<NSString *> *CIExtraWipePaths(NSString *bundleID) {
     for (NSString *root in cacheRoots) {
         [paths addObject:[root stringByAppendingPathComponent:bundleID]];
     }
+    NSArray<NSString *> *httpRoots = @[
+        @"/var/mobile/Library/HTTPStorages",
+        @"/private/var/mobile/Library/HTTPStorages",
+        @"/var/mobile/Library/WebKit",
+        @"/private/var/mobile/Library/WebKit"
+    ];
+    for (NSString *root in httpRoots) {
+        [paths addObject:[root stringByAppendingPathComponent:bundleID]];
+    }
     NSArray<NSString *> *snapRoots = @[
         @"/var/mobile/Library/SplashBoard/Snapshots",
         @"/private/var/mobile/Library/SplashBoard/Snapshots"
@@ -1189,7 +1198,12 @@ static NSArray<NSString *> *CIExtraWipePaths(NSString *bundleID) {
             @"com.beeasy.marketplace.vn.plist",
             @"com.appsflyer.plist",
             @"com.adjust.sdk.plist",
-            @"com.google.gmp.measurement.plist"
+            @"com.google.gmp.measurement.plist",
+            @"com.google.iid.plist",
+            @"com.tongdun.plist",
+            @"com.trustdecision.plist",
+            @"fmdevice.plist",
+            @"group.com.google.firebase.plist"
         ]];
     }
     if ([low containsString:@"tiktok"] || [low hasPrefix:@"com.zhiliaoapp."] ||
@@ -1211,6 +1225,23 @@ static NSArray<NSString *> *CIExtraWipePaths(NSString *bundleID) {
     ];
     for (NSString *root in stateRoots) {
         [paths addObject:[root stringByAppendingPathComponent:[bundleID stringByAppendingString:@".savedState"]]];
+    }
+    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."]) {
+        NSArray<NSString *> *sdkNames = @[
+            @"AppsFlyer", @"Adjust", @"TrustDecision", @"Tongdun", @"Firebase",
+            @"FMDeviceManager", @"seclink", @"blackbox", @"Google"
+        ];
+        NSArray<NSString *> *sdkRoots = @[
+            @"/var/mobile/Library/Caches",
+            @"/private/var/mobile/Library/Caches",
+            @"/var/mobile/Library/Application Support",
+            @"/private/var/mobile/Library/Application Support"
+        ];
+        for (NSString *root in sdkRoots) {
+            for (NSString *name in sdkNames) {
+                [paths addObject:[root stringByAppendingPathComponent:name]];
+            }
+        }
     }
     return paths;
 }
@@ -1746,7 +1777,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.38, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.39, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -3431,7 +3462,7 @@ static NSArray<NSString *> *CISupportPathsForBundle(NSString *bundleID) {
         [names addObjectsFromArray:@[@"Facebook", @"com.facebook.Facebook", @"com.facebook.Messenger"]];
     }
     if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."]) {
-        [names addObjectsFromArray:@[@"Shopee", @"AppsFlyer", @"Adjust", @"Firebase", @"Tongdun", bundleID]];
+        [names addObjectsFromArray:@[@"Shopee", @"AppsFlyer", @"Adjust", @"Firebase", @"Tongdun", @"TrustDecision", @"TDID", @"FMDevice", @"FMDeviceManager", @"Google", @"seclink", @"blackbox", bundleID]];
     }
     if ([low containsString:@"tiktok"] || [low hasPrefix:@"com.zhiliaoapp."] ||
         [low hasPrefix:@"com.ss.iphone."] || [low containsString:@"aweme"] ||
@@ -4035,7 +4066,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.38",
+        @"version": @"1.2.39",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -4556,6 +4587,10 @@ static void CIWipeNamedPasteboards(NSString *bundleID) {
         @"appsflyer",
         @"adjust",
         @"shopee",
+        @"TrustDecision",
+        @"tongdun",
+        @"tdid",
+        @"seclink",
         bundleID ?: @""
     ];
     for (NSString *name in names) {
@@ -4677,11 +4712,6 @@ static BOOL CIRecreateContainer(NSString *path, NSString *mcmClass, NSString *id
         return CIEmptyContainer(path);
     }
     return NO;
-}
-
-static BOOL CIBundleLooksShopee(NSString *bundleID) {
-    NSString *low = bundleID.lowercaseString ?: @"";
-    return [low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."];
 }
 
 static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
@@ -4859,14 +4889,8 @@ NSDictionary *ChengIOSEraseBundles(NSArray<NSString *> *bundleIDs, NSError **err
     CIRunKillall(@"containermanagerd");
     CIRunKillall(@"lsd");
     CIContainerIndexClear();
-    NSMutableArray<NSString *> *shopee = [NSMutableArray array];
-    for (NSString *bundleID in ok) {
-        if (CIBundleLooksShopee(bundleID) && ![shopee containsObject:bundleID]) {
-            [shopee addObject:bundleID];
-        }
-    }
-    if (shopee.count > 0) {
-        ChengIOSAssignAppIdentity(shopee, ChengIOSMintAppIdentity());
+    if (ok.count > 0) {
+        ChengIOSAssignAppIdentity(ok, ChengIOSMintAppIdentity());
     }
     gCIFastErase = NO;
     return @{@"ok": ok, @"failed": failed, @"skipped": skipped};

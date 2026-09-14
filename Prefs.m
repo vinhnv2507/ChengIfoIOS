@@ -646,10 +646,6 @@ BOOL OVSHideJailbreakEnabled(void) {
     return OVSSpoofingEnabled() && OVSBoolForKey(@"hideJailbreakEnabled", NO);
 }
 
-BOOL OVSShopeeIdentityHooksEnabled(void) {
-    return OVSIsShopeeFamily() && OVSSpoofingEnabled() && OVSDeviceIdentityEnabled();
-}
-
 static NSDictionary *OVSAppDeviceProfile(void) {
     id map = OVSObjectForKey(@"appDeviceProfiles");
     if (![map isKindOfClass:[NSDictionary class]]) {

@@ -304,7 +304,7 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
             if (msg.length == 0) {
                 [msg appendString:@"Khong xoa duoc app nao."];
             }
-            [msg appendString:@"\nDa tao phan vung container moi (UUID moi) + xoa group/plugin/keychain. Shopee nhan UDID/IDFV moi. Force-quit app, neu khong mo duoc thi Respring."];
+            [msg appendString:@"\nDa tao phan vung container moi (UUID moi) + xoa group/plugin/keychain. App da chon nhan UDID/IDFV moi. Force-quit app, neu khong mo duoc thi Respring."];
             done(ok.count ? @"Da xoa data" : @"Xoa data", msg);
         });
     };
