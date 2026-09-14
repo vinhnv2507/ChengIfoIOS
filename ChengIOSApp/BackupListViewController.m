@@ -304,7 +304,7 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
             if (msg.length == 0) {
                 [msg appendString:@"Khong xoa duoc app nao."];
             }
-            [msg appendString:@"\nDa tao phan vung container moi (UUID moi) + xoa group/plugin/keychain. App da chon nhan UDID/IDFV moi. Force-quit app, neu khong mo duoc thi Respring."];
+            [msg appendString:@"\nDa xoa sandbox + group + plugin + keychain SQL. Force-quit app, doi, dung mo ngay. Neu Shopee captcha loi sau ban 1.2.38/39 thi xoa app Shopee roi cai lai 1 lan."];
             done(ok.count ? @"Da xoa data" : @"Xoa data", msg);
         });
     };
@@ -473,14 +473,6 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     NSString *backupID = CIQuery(url, @"id") ?: CIQuery(url, @"backup") ?: CIQuery(url, @"backup-id");
 
     NSString *region = CIQuery(url, @"region") ?: CIQuery(url, @"iso");
-    if ([token containsString:@"new-partition-random"] || [token containsString:@"phan-vung-random"]) {
-        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), NO, YES, region, silent);
-        return YES;
-    }
-    if ([token isEqualToString:@"new-partition"] || [token containsString:@"phan-vung"]) {
-        ChengIOSRunErase(host, CIBundlesFromQuery(url), silent);
-        return YES;
-    }
     if ([token containsString:@"erase-device-random"] || [token containsString:@"wipe-device-random"] || [token containsString:@"factory-random"]) {
         ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), YES, YES, region, silent);
         return YES;

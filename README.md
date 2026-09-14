@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.40
+
+- Bo phan vung container UUID (1.2.38/39). Wipe ve kieu 1.2.37: empty sandbox, khong MCM regenerate. Xoa appDeviceProfiles overlay
+- Shopee captcha: khong spoof model/uname/sysctl (giu iPhone that + iOS that). Van khong Gestalt/iOS/WK. Facebook van spoof model kieu 1.2.14
+- Giu IDFA spoof + DeviceCheck off. Neu captcha van loi sau 1.2.38/39 thi xoa app Shopee roi cai lai 1 lan de lay container lanh
+
 ## 1.2.39
 
 - Shopee: bo hook MGCopyAnswer/gestalt (1.2.38 lam vang trang ho so). Giu IDFA/IDFV overlay, DeviceCheck off, container UUID moi khi xoa. Khong spoof iOS/WK/Darwin/ProductType

@@ -36,8 +36,6 @@
         @{@"title": @"Xoa data Facebook", @"url": @"chengios://erase?bundle=com.facebook.Facebook"},
         @{@"title": @"Xoa toan bo app + Safari", @"url": @"chengios://erase-device"},
         @{@"title": @"Xoa app da chon + Random Toan Bo", @"url": @"chengios://erase-random-all"},
-        @{@"title": @"Phan vung moi + Random Toan Bo", @"url": @"chengios://new-partition-random"},
-        @{@"title": @"Phan vung moi app da chon", @"url": @"chengios://new-partition"},
         @{@"title": @"Xoa toan bo + Random Toan Bo", @"url": @"chengios://erase-device-random"},
         @{@"title": @"Respring", @"url": @"chengios://respring"},
         @{@"title": @"Random silent", @"url": @"chengios://random-all?silent=1"}

@@ -278,26 +278,6 @@
 			<key>action</key>
 			<string>copyURL:</string>
 			<key>label</key>
-			<string>Phan vung moi + Random Toan Bo</string>
-			<key>url</key>
-			<string>chengios://new-partition-random</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>action</key>
-			<string>copyURL:</string>
-			<key>label</key>
-			<string>Phan vung moi app da chon</string>
-			<key>url</key>
-			<string>chengios://new-partition</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>action</key>
-			<string>copyURL:</string>
-			<key>label</key>
 			<string>Xoa toan bo + Random Toan Bo</string>
 			<key>url</key>
 			<string>chengios://erase-device-random</string>

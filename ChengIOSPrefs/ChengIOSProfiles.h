@@ -7,8 +7,6 @@ NSArray<NSDictionary *> *ChengIOSRegionChoices(void);
 NSDictionary *ChengIOSLoadSavedProfile(void);
 NSString *ChengIOSProfileSummary(NSDictionary *profile);
 void ChengIOSApplyProfile(NSDictionary *profile);
-NSDictionary *ChengIOSMintAppIdentity(void);
-void ChengIOSAssignAppIdentity(NSArray<NSString *> *bundleIDs, NSDictionary *identity);
 void ChengIOSReplaceRawPrefs(NSDictionary *prefs);
 NSMutableDictionary *ChengIOSLoadRawPrefs(void);
 void ChengIOSSetPrefValue(NSString *key, id value);
