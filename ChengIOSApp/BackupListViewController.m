@@ -298,17 +298,32 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
             if (skipped.count) {
                 [msg appendFormat:@"Bo qua (he thong): %@\n", [skipped componentsJoinedByString:@", "]];
             }
-            if (error && msg.length == 0) {
+            if (error && (msg.length == 0 || ok.count == 0)) {
+                if (msg.length) {
+                    [msg appendString:@"\n"];
+                }
                 [msg appendString:ChengIOSBackupErrorMessage(error)];
             }
-            if (msg.length == 0) {
-                [msg appendString:@"Khong xoa duoc app nao."];
+            if (msg.length == 0 && [result[@"error"] isKindOfClass:[NSString class]]) {
+                [msg appendString:result[@"error"]];
             }
-            [msg appendString:@"\nDa xoa sandbox + group + plugin + keychain SQL. Force-quit app, doi, dung mo ngay. Neu Shopee captcha loi sau ban 1.2.38/39 thi xoa app Shopee roi cai lai 1 lan."];
+            if (ok.count) {
+                [msg appendString:@"\nDa xoa sandbox + group + plugin + keychain SQL. Force-quit app, doi, dung mo ngay."];
+            } else if (msg.length == 0) {
+                if (list.count == 0) {
+                    [msg appendString:@"Chua tick app trong Change Apps. Mo Change Apps, tick TikTok/Facebook/Shopee/Safari roi bam lai."];
+                } else {
+                    [msg appendFormat:@"Khong xoa duoc. App da chon: %@. Respring, mo lai ChengIOS, tick lai app neu mat dau tick.", [list componentsJoinedByString:@", "]];
+                }
+            }
             done(ok.count ? @"Da xoa data" : @"Xoa data", msg);
         });
     };
     NSArray *targets = bundleIDs.count ? bundleIDs : fallback;
+    if (targets.count == 0) {
+        CIPresent(host, @"Chua chon app", @"Mo Change Apps, tick TikTok / Facebook / Shopee / Safari, roi bam Xoa lai.\nNeu vua Random ma mat dau tick thi tick lai 1 lan.");
+        return;
+    }
     if (silent) {
         go(targets);
         return;
@@ -436,6 +451,10 @@ void ChengIOSRunEraseDevice(UIViewController *host, BOOL silent) {
 void ChengIOSRunEraseThenRandom(UIViewController *host, NSArray<NSString *> *bundleIDs, BOOL allDevice, BOOL randomAll, NSString *region, BOOL silent) {
     (void)allDevice;
     NSArray *list = bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs();
+    if (list.count == 0) {
+        CIPresent(host, @"Chua chon app", @"Mo Change Apps, tick TikTok / Facebook / Shopee / Safari, roi bam Xoa + Random lai.");
+        return;
+    }
     void (^go)(void) = ^{
         CIRunBusy(host, @"Xoa app + random", ^(void (^done)(NSString *, NSString *)) {
             NSError *error = nil;
@@ -456,13 +475,21 @@ void ChengIOSRunEraseThenRandom(UIViewController *host, NSArray<NSString *> *bun
             if ([result[@"profileSummary"] length]) {
                 [msg appendFormat:@"\n%@\n", result[@"profileSummary"]];
             }
-            if (error && msg.length == 0) {
+            if (error && (msg.length == 0 || ok.count == 0)) {
+                if (msg.length) {
+                    [msg appendString:@"\n"];
+                }
                 [msg appendString:ChengIOSBackupErrorMessage(error)];
+            }
+            if (msg.length == 0 && [result[@"error"] isKindOfClass:[NSString class]]) {
+                [msg appendString:result[@"error"]];
             }
             if (msg.length == 0) {
                 [msg appendString:@"Force-quit app roi mo lai."];
             }
-            [msg appendString:@"\nTikTok: force-quit roi mo lai. Neu van con acc thi xoa rieng TikTok trong sheet."];
+            if (ok.count) {
+                [msg appendString:@"\nTikTok: force-quit roi mo lai. Neu van con acc thi xoa rieng TikTok trong sheet."];
+            }
             done(ok.count ? @"Da xoa + doi info" : @"Xoa + random", msg);
         });
     };

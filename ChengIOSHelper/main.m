@@ -39,8 +39,12 @@ static NSDictionary *CIExecuteOp(NSString *op, NSDictionary *input) {
         }
     } else if ([op isEqualToString:@"erase"]) {
         NSDictionary *erase = ChengIOSEraseBundles(input[@"bundles"], &error);
+        NSMutableDictionary *eraseOut = [erase isKindOfClass:[NSDictionary class]] ? [erase mutableCopy] : [NSMutableDictionary dictionary];
+        if (error && eraseOut[@"error"] == nil) {
+            eraseOut[@"error"] = error.localizedDescription ?: @"error";
+        }
         result[@"ok"] = @YES;
-        result[@"result"] = erase ?: @{};
+        result[@"result"] = eraseOut;
     } else if ([op isEqualToString:@"erase-safari"]) {
         NSDictionary *erase = ChengIOSEraseSafari(&error);
         result[@"ok"] = @YES;

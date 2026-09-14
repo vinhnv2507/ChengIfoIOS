@@ -279,6 +279,16 @@ BOOL ChengIOSBundleIsProtected(NSString *bundleID) {
     return NO;
 }
 
+static BOOL CIAppEnabledFlag(id value) {
+    if ([value isKindOfClass:[NSNumber class]] || [value isKindOfClass:[NSString class]]) {
+        return [value boolValue];
+    }
+    if ([value isKindOfClass:[NSDictionary class]]) {
+        return [value[@"enabled"] boolValue] || [value[@"tweakEnabled"] boolValue] || [value[@"on"] boolValue];
+    }
+    return NO;
+}
+
 NSArray<NSString *> *ChengIOSSelectedBundleIDs(void) {
     NSMutableArray<NSString *> *out = [NSMutableArray array];
     NSMutableSet<NSString *> *seen = [NSMutableSet set];
@@ -288,7 +298,7 @@ NSArray<NSString *> *ChengIOSSelectedBundleIDs(void) {
             if (![key isKindOfClass:[NSString class]] || key.length == 0) {
                 continue;
             }
-            if ([enabled[key] boolValue] && ![seen containsObject:key]) {
+            if (CIAppEnabledFlag(enabled[key]) && ![seen containsObject:key]) {
                 [out addObject:key];
                 [seen addObject:key];
             }
@@ -1756,7 +1766,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.42, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.43, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -4047,7 +4057,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.42",
+        @"version": @"1.2.43",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -4877,6 +4887,17 @@ NSDictionary *ChengIOSEraseBundles(NSArray<NSString *> *bundleIDs, NSError **err
         if (remote) {
             NSDictionary *result = remote[@"result"];
             if ([result isKindOfClass:[NSDictionary class]]) {
+                NSString *remoteErr = nil;
+                if ([remote[@"error"] isKindOfClass:[NSString class]]) {
+                    remoteErr = remote[@"error"];
+                }
+                if (remoteErr.length == 0 && [result[@"error"] isKindOfClass:[NSString class]]) {
+                    remoteErr = result[@"error"];
+                }
+                NSArray *okItems = [result[@"ok"] isKindOfClass:[NSArray class]] ? result[@"ok"] : nil;
+                if (error && !*error && remoteErr.length > 0 && okItems.count == 0) {
+                    *error = CIError(4, remoteErr);
+                }
                 return result;
             }
             if (error && !*error) {
@@ -4895,10 +4916,11 @@ NSDictionary *ChengIOSEraseBundles(NSArray<NSString *> *bundleIDs, NSError **err
     NSMutableArray *skipped = [NSMutableArray array];
     NSArray<NSString *> *targets = CIEraseOrder(CIExpandEraseTargets(bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs()));
     if (targets.count == 0) {
+        NSString *msg = @"Chua tick app trong Change Apps. Mo Change Apps, tick TikTok/Facebook/Shopee/Safari roi bam lai.";
         if (error) {
-            *error = CIError(5, @"Chua chon app nao (tru app he thong / jailbreak).");
+            *error = CIError(5, msg);
         }
-        return @{@"ok": ok, @"failed": failed, @"skipped": skipped};
+        return @{@"ok": ok, @"failed": failed, @"skipped": skipped, @"error": msg};
     }
     CIContainerIndexClear();
     gCIFastErase = YES;
