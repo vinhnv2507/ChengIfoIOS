@@ -11,6 +11,9 @@ NSArray<NSString *> *ChengIOSUserSelectedBundleIDs(void);
 NSArray<NSString *> *ChengIOSInstalledUserBundleIDs(void);
 BOOL ChengIOSBundleIsProtected(NSString *bundleID);
 BOOL ChengIOSBundleIsSafari(NSString *bundleID);
+NSString *ChengIOSCanonicalBundleID(NSString *bundleID);
+NSString *ChengIOSBundleDisplayName(NSString *bundleID);
+NSString *ChengIOSBundleDisplayTitle(NSString *bundleID);
 
 NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleIDs, BOOL includeAppData, NSError **error);
 BOOL ChengIOSRestoreBackup(NSString *backupID, BOOL restoreProfile, BOOL restoreAppData, NSError **error);

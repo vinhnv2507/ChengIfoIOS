@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.44
+
+- TikTok `com.ss.iphone.ugc.Ame` (bundle cat) map sang Aweme/Musically that, helper khong con bo TikTok khi xoa rieng
+- Xoa app da chon expand TikTok family truoc khi goi root helper (giong xoa+random)
+- Danh sach / ket qua xoa hien **ten + bundle** (TikTok (com.ss.iphone.ugc.Aweme))
+
 ## 1.2.43
 
 - Alert **Khong xoa duoc app nao**: khong con nuot loi helper; neu chua tick app thi bao ro

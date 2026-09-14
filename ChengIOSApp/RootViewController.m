@@ -200,7 +200,7 @@ extern char **environ;
         return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";
     }
     if (section == 3) {
-        return @"Xoa data can tick app trong Change Apps. Neu bao chua chon app: vao Change Apps tick lai (Random cu co the lam mat tick). TikTok xoa lan 2 sau Random.";
+        return @"Change Apps hien ten + bundle. TikTok Aweme/Musically duoc map dung, xoa rieng khong con bao chua tick. Force-quit sau khi xoa.";
     }
     if (section == 10) {
         return @"deviceinfo.me Region/City/ISP la IP cong cong that (Viettel/Hung Yen). Bam nut Detect de dung GPS gia lap.";
