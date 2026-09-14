@@ -1,8 +1,5 @@
 #import "Prefs.h"
 
-#import <objc/runtime.h>
-#import <substrate.h>
-
 #import <CoreFoundation/CoreFoundation.h>
 
 #import <string.h>
@@ -180,48 +177,6 @@
 }
 %end
 %end
-
-static BOOL (*CIOrigDCIsSupported)(id, SEL);
-static BOOL CIHookedDCIsSupported(id self, SEL _cmd) {
-    if (OVSSpoofingEnabled() && OVSIsShopeeFamily()) {
-        return NO;
-    }
-    return CIOrigDCIsSupported ? CIOrigDCIsSupported(self, _cmd) : NO;
-}
-
-static void (*CIOrigDCGenerateToken)(id, SEL, id);
-static void CIHookedDCGenerateToken(id self, SEL _cmd, id completion) {
-    if (OVSSpoofingEnabled() && OVSIsShopeeFamily()) {
-        if (completion) {
-            void (^block)(NSData *, NSError *) = completion;
-            block(nil, [NSError errorWithDomain:@"com.vinhnv2507.chengios" code:2 userInfo:nil]);
-        }
-        return;
-    }
-    if (CIOrigDCGenerateToken) {
-        CIOrigDCGenerateToken(self, _cmd, completion);
-    }
-}
-
-static BOOL (*CIOrigAttestIsSupported)(id, SEL);
-static BOOL CIHookedAttestIsSupported(id self, SEL _cmd) {
-    if (OVSSpoofingEnabled() && OVSIsShopeeFamily()) {
-        return NO;
-    }
-    return CIOrigAttestIsSupported ? CIOrigAttestIsSupported(self, _cmd) : NO;
-}
-
-static void CIInstallShopeeDeviceCheckHooks(void) {
-    Class dc = NSClassFromString(@"DCDevice");
-    if (dc) {
-        MSHookMessageEx(dc, @selector(isSupported), (IMP)CIHookedDCIsSupported, (IMP *)&CIOrigDCIsSupported);
-        MSHookMessageEx(dc, NSSelectorFromString(@"generateTokenWithCompletionHandler:"), (IMP)CIHookedDCGenerateToken, (IMP *)&CIOrigDCGenerateToken);
-    }
-    Class attest = NSClassFromString(@"DCAppAttestService");
-    if (attest) {
-        MSHookMessageEx(attest, @selector(isSupported), (IMP)CIHookedAttestIsSupported, (IMP *)&CIOrigAttestIsSupported);
-    }
-}
 
 %hook BrowserController
 - (NSUUID *)UUID {
