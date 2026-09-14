@@ -1,5 +1,6 @@
 #import "ChengIOSAppListController.h"
 #import "ChengIOSProfiles.h"
+#import "ChengIOSBackup.h"
 
 #import <objc/runtime.h>
 #import <UIKit/UIKit.h>
@@ -26,12 +27,36 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
     UITableView *_tableView;
 }
 
+- (NSMutableDictionary *)canonicalEnabled:(id)current {
+    NSMutableDictionary *out = [NSMutableDictionary dictionary];
+    if (![current isKindOfClass:[NSDictionary class]]) {
+        return out;
+    }
+    [(NSDictionary *)current enumerateKeysAndObjectsUsingBlock:^(id key, id val, BOOL *stop) {
+        (void)stop;
+        if (![key isKindOfClass:[NSString class]] || [key length] == 0) {
+            return;
+        }
+        NSString *canon = ChengIOSCanonicalBundleID(key) ?: key;
+        BOOL on = NO;
+        if ([val isKindOfClass:[NSNumber class]] || [val isKindOfClass:[NSString class]]) {
+            on = [val boolValue];
+        }
+        if (on) {
+            out[canon] = @YES;
+        } else if (out[canon] == nil) {
+            out[canon] = @NO;
+        }
+    }];
+    return out;
+}
+
 - (void)loadPrefs {
-    id current = ChengIOSPrefValue(@"appEnabled");
-    _enabled = [current isKindOfClass:[NSDictionary class]] ? [current mutableCopy] : [NSMutableDictionary dictionary];
+    _enabled = [self canonicalEnabled:ChengIOSPrefValue(@"appEnabled")];
 }
 
 - (void)saveEnabled {
+    _enabled = [self canonicalEnabled:_enabled];
     ChengIOSSetPrefValue(@"appEnabled", _enabled);
 }
 
@@ -85,6 +110,7 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
     _tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     _tableView.dataSource = (id)self;
     _tableView.delegate = (id)self;
+    _tableView.rowHeight = 64;
     [self.view addSubview:_tableView];
 }
 
@@ -136,14 +162,18 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellId];
     }
 
-    NSString *bundleId = [self bundleIdForIndexPath:indexPath];
+    NSString *bundleId = ChengIOSCanonicalBundleID([self bundleIdForIndexPath:indexPath]) ?: [self bundleIdForIndexPath:indexPath];
     LSApplicationProxy *app = [self proxyForIndexPath:indexPath];
-    NSString *name = app.localizedName.length ? app.localizedName : nil;
+    NSString *name = app.localizedName.length ? app.localizedName : ChengIOSBundleDisplayName(bundleId);
     if (name.length == 0 && [bundleId isEqualToString:kSafariBundleID]) {
         name = @"Safari";
     }
     cell.textLabel.text = name.length ? name : bundleId;
     cell.detailTextLabel.text = bundleId;
+    cell.detailTextLabel.numberOfLines = 2;
+    cell.detailTextLabel.lineBreakMode = NSLineBreakByCharWrapping;
+    cell.detailTextLabel.adjustsFontSizeToFitWidth = YES;
+    cell.detailTextLabel.minimumScaleFactor = 0.7;
     cell.accessoryType = [_enabled[bundleId] boolValue] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
 
     UIImage *icon = nil;
@@ -159,7 +189,7 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    NSString *bundleId = [self bundleIdForIndexPath:indexPath];
+    NSString *bundleId = ChengIOSCanonicalBundleID([self bundleIdForIndexPath:indexPath]) ?: [self bundleIdForIndexPath:indexPath];
     BOOL enabled = [_enabled[bundleId] boolValue];
     _enabled[bundleId] = @(!enabled);
     [self saveEnabled];

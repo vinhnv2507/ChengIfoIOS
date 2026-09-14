@@ -1,5 +1,6 @@
 #import "AppListViewController.h"
 #import "../ChengIOSPrefs/ChengIOSProfiles.h"
+#import "../ChengIOSPrefs/ChengIOSBackup.h"
 
 #import <objc/runtime.h>
 
@@ -30,8 +31,7 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"Change Apps";
-    id current = ChengIOSPrefValue(@"appEnabled");
-    self.enabled = [current isKindOfClass:[NSDictionary class]] ? [current mutableCopy] : [NSMutableDictionary dictionary];
+    self.enabled = [self canonicalEnabled:ChengIOSPrefValue(@"appEnabled")];
     [self loadApps];
     self.search = [[UISearchController alloc] initWithSearchResultsController:nil];
     self.search.searchResultsUpdater = self;
@@ -40,7 +40,31 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
     if (@available(iOS 11.0, *)) {
         self.navigationItem.searchController = self.search;
     }
-    self.tableView.rowHeight = 52;
+    self.tableView.rowHeight = 64;
+}
+
+- (NSMutableDictionary *)canonicalEnabled:(id)current {
+    NSMutableDictionary *out = [NSMutableDictionary dictionary];
+    if (![current isKindOfClass:[NSDictionary class]]) {
+        return out;
+    }
+    [(NSDictionary *)current enumerateKeysAndObjectsUsingBlock:^(id key, id val, BOOL *stop) {
+        (void)stop;
+        if (![key isKindOfClass:[NSString class]] || [key length] == 0) {
+            return;
+        }
+        NSString *canon = ChengIOSCanonicalBundleID(key) ?: key;
+        BOOL on = NO;
+        if ([val isKindOfClass:[NSNumber class]] || [val isKindOfClass:[NSString class]]) {
+            on = [val boolValue];
+        }
+        if (on) {
+            out[canon] = @YES;
+        } else if (out[canon] == nil) {
+            out[canon] = @NO;
+        }
+    }];
+    return out;
 }
 
 - (BOOL)keepBundle:(NSString *)bundleId {
@@ -118,6 +142,7 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
 }
 
 - (void)saveEnabled {
+    self.enabled = [self canonicalEnabled:self.enabled];
     ChengIOSSetPrefValue(@"appEnabled", self.enabled);
 }
 
@@ -213,14 +238,19 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellId];
         cell.detailTextLabel.numberOfLines = 1;
     }
-    NSString *bundleId = [self bundleIdForIndexPath:indexPath];
+    NSString *bundleId = ChengIOSCanonicalBundleID([self bundleIdForIndexPath:indexPath]) ?: [self bundleIdForIndexPath:indexPath];
     LSApplicationProxy *app = [self proxyForIndexPath:indexPath];
-    NSString *name = app.localizedName.length ? app.localizedName : nil;
+    NSString *name = app.localizedName.length ? app.localizedName : ChengIOSBundleDisplayName(bundleId);
     if (name.length == 0 && [bundleId isEqualToString:kSafariBundleID]) {
         name = @"Safari";
     }
     cell.textLabel.text = name.length ? name : bundleId;
     cell.detailTextLabel.text = bundleId;
+    cell.detailTextLabel.numberOfLines = 2;
+    cell.detailTextLabel.lineBreakMode = NSLineBreakByCharWrapping;
+    cell.detailTextLabel.adjustsFontSizeToFitWidth = YES;
+    cell.detailTextLabel.minimumScaleFactor = 0.7;
+    cell.textLabel.adjustsFontSizeToFitWidth = YES;
     cell.accessoryType = [self.enabled[bundleId] boolValue] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
     UIImage *icon = nil;
     if ([app respondsToSelector:@selector(iconDataForVariant:)]) {
@@ -235,7 +265,7 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    NSString *bundleId = [self bundleIdForIndexPath:indexPath];
+    NSString *bundleId = ChengIOSCanonicalBundleID([self bundleIdForIndexPath:indexPath]) ?: [self bundleIdForIndexPath:indexPath];
     if (bundleId.length == 0) {
         return;
     }

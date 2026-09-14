@@ -68,6 +68,17 @@ static NSArray<NSString *> *CIBundlesFromQuery(NSURL *url) {
     return out;
 }
 
+static NSString *CIJoinTitles(NSArray *bundles) {
+    NSMutableArray *parts = [NSMutableArray array];
+    for (id item in bundles) {
+        if (![item isKindOfClass:[NSString class]] || [item length] == 0) {
+            continue;
+        }
+        [parts addObject:ChengIOSBundleDisplayTitle(item)];
+    }
+    return [parts componentsJoinedByString:@", "];
+}
+
 static void CIPresent(UIViewController *host, NSString *title, NSString *message) {
     if (!host) {
         return;
@@ -290,13 +301,13 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
             NSArray *failed = result[@"failed"];
             NSArray *skipped = result[@"skipped"];
             if (ok.count) {
-                [msg appendFormat:@"Da xoa: %@\n", [ok componentsJoinedByString:@", "]];
+                [msg appendFormat:@"Da xoa: %@\n", CIJoinTitles(ok)];
             }
             if (failed.count) {
-                [msg appendFormat:@"Loi: %@\n", [failed componentsJoinedByString:@", "]];
+                [msg appendFormat:@"Loi: %@\n", CIJoinTitles(failed)];
             }
             if (skipped.count) {
-                [msg appendFormat:@"Bo qua (he thong): %@\n", [skipped componentsJoinedByString:@", "]];
+                [msg appendFormat:@"Bo qua (he thong): %@\n", CIJoinTitles(skipped)];
             }
             if (error && (msg.length == 0 || ok.count == 0)) {
                 if (msg.length) {
@@ -313,7 +324,7 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
                 if (list.count == 0) {
                     [msg appendString:@"Chua tick app trong Change Apps. Mo Change Apps, tick TikTok/Facebook/Shopee/Safari roi bam lai."];
                 } else {
-                    [msg appendFormat:@"Khong xoa duoc. App da chon: %@. Respring, mo lai ChengIOS, tick lai app neu mat dau tick.", [list componentsJoinedByString:@", "]];
+                    [msg appendFormat:@"Khong xoa duoc. App da chon: %@. Respring, mo lai ChengIOS, tick lai app neu mat dau tick.", CIJoinTitles(list)];
                 }
             }
             done(ok.count ? @"Da xoa data" : @"Xoa data", msg);
@@ -340,7 +351,7 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
         }]];
         for (NSString *bundle in fallback) {
             NSString *captured = [bundle copy];
-            [sheet addAction:[UIAlertAction actionWithTitle:captured style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            [sheet addAction:[UIAlertAction actionWithTitle:ChengIOSBundleDisplayTitle(captured) style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
                 (void)action;
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                     go(@[captured]);
@@ -357,7 +368,11 @@ void ChengIOSRunErase(UIViewController *host, NSArray<NSString *> *bundleIDs, BO
         [host presentViewController:sheet animated:YES completion:nil];
         return;
     }
-    NSString *list = targets.count ? [targets componentsJoinedByString:@"\n"] : @"(khong co app user nao duoc chon)";
+    NSMutableArray *titleLines = [NSMutableArray array];
+    for (NSString *bid in targets) {
+        [titleLines addObject:ChengIOSBundleDisplayTitle(bid)];
+    }
+    NSString *list = titleLines.count ? [titleLines componentsJoinedByString:@"\n"] : @"(khong co app user nao duoc chon)";
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Xoa sach data app"
                                                                    message:[NSString stringWithFormat:@"Kill app roi xoa sandbox:\n%@\n\nKhong undo neu chua backup.", list]
                                                             preferredStyle:UIAlertControllerStyleAlert];
@@ -378,13 +393,13 @@ static NSString *CIEraseResultText(NSDictionary *result, NSError *error, NSStrin
     NSArray *failed = result[@"failed"];
     NSArray *skipped = result[@"skipped"];
     if (ok.count) {
-        [msg appendFormat:@"Da xoa: %@\n", [ok componentsJoinedByString:@", "]];
+        [msg appendFormat:@"Da xoa: %@\n", CIJoinTitles(ok)];
     }
     if (failed.count) {
-        [msg appendFormat:@"Loi: %@\n", [failed componentsJoinedByString:@", "]];
+        [msg appendFormat:@"Loi: %@\n", CIJoinTitles(failed)];
     }
     if (skipped.count) {
-        [msg appendFormat:@"Bo qua: %@\n", [skipped componentsJoinedByString:@", "]];
+        [msg appendFormat:@"Bo qua: %@\n", CIJoinTitles(skipped)];
     }
     if ([result[@"profileSummary"] length]) {
         [msg appendFormat:@"\n%@\n", result[@"profileSummary"]];
@@ -464,13 +479,13 @@ void ChengIOSRunEraseThenRandom(UIViewController *host, NSArray<NSString *> *bun
             NSArray *failed = result[@"failed"];
             NSArray *skipped = result[@"skipped"];
             if (ok.count) {
-                [msg appendFormat:@"Da xoa: %@\n", [ok componentsJoinedByString:@", "]];
+                [msg appendFormat:@"Da xoa: %@\n", CIJoinTitles(ok)];
             }
             if (failed.count) {
-                [msg appendFormat:@"Loi: %@\n", [failed componentsJoinedByString:@", "]];
+                [msg appendFormat:@"Loi: %@\n", CIJoinTitles(failed)];
             }
             if (skipped.count) {
-                [msg appendFormat:@"Bo qua: %@\n", [skipped componentsJoinedByString:@", "]];
+                [msg appendFormat:@"Bo qua: %@\n", CIJoinTitles(skipped)];
             }
             if ([result[@"profileSummary"] length]) {
                 [msg appendFormat:@"\n%@\n", result[@"profileSummary"]];

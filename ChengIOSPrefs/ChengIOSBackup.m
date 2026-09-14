@@ -67,6 +67,8 @@ static void CIKillTikTokHard(void);
 static void CIKillEraseTargets(NSArray<NSString *> *targets);
 static NSArray<NSString *> *CIExpandEraseTargets(NSArray<NSString *> *bundleIDs);
 static NSArray<NSString *> *CIEraseOrder(NSArray<NSString *> *targets);
+static NSArray<NSString *> *CIDataContainerRoots(void);
+static NSString *CIResolveBundleID(NSString *bundleID);
 static NSDictionary<NSString *, NSString *> *CIScanContainersMatching(NSArray<NSString *> *roots, BOOL (^pred)(NSString *ident));
 static void CIContainerIndexClear(void);
 static void CIKeychainSQLSettle(void);
@@ -322,12 +324,58 @@ NSArray<NSString *> *ChengIOSSelectedBundleIDs(void) {
 
 NSArray<NSString *> *ChengIOSUserSelectedBundleIDs(void) {
     NSMutableArray<NSString *> *out = [NSMutableArray array];
+    NSMutableSet<NSString *> *seen = [NSMutableSet set];
     for (NSString *bundle in ChengIOSSelectedBundleIDs()) {
-        if (!ChengIOSBundleIsProtected(bundle)) {
-            [out addObject:bundle];
+        NSString *resolved = CIResolveBundleID(bundle) ?: bundle;
+        NSString *use = resolved.length ? resolved : bundle;
+        if (use.length == 0 || [seen containsObject:use] || ChengIOSBundleIsProtected(use)) {
+            continue;
         }
+        [seen addObject:use];
+        [out addObject:use];
     }
     return out;
+}
+
+NSString *ChengIOSCanonicalBundleID(NSString *bundleID) {
+    return CIResolveBundleID(bundleID);
+}
+
+NSString *ChengIOSBundleDisplayName(NSString *bundleID) {
+    if (bundleID.length == 0) {
+        return @"";
+    }
+    LSApplicationProxy *proxy = CIProxy(CIResolveBundleID(bundleID));
+    if (proxy.localizedName.length > 0) {
+        return proxy.localizedName;
+    }
+    NSString *low = bundleID.lowercaseString;
+    if ([low containsString:@"facebook"]) return @"Facebook";
+    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."]) return @"Shopee";
+    if (CIBundleIsTikTokFamily(bundleID) || [low hasPrefix:@"com.ss.iphone."] || [low hasPrefix:@"com.zhiliaoapp."]) return @"TikTok";
+    if ([low containsString:@"safari"]) return @"Safari";
+    if ([low containsString:@"aida64"] || [low containsString:@"finalwire"]) return @"AIDA64";
+    if ([low containsString:@"instagram"]) return @"Instagram";
+    NSString *tail = bundleID.pathExtension.length ? bundleID.pathExtension : bundleID;
+    if ([tail isEqualToString:@"vn"] || [tail isEqualToString:@"go"] || tail.length <= 2) {
+        NSArray *parts = [bundleID componentsSeparatedByString:@"."];
+        if (parts.count >= 2) {
+            return parts[parts.count - 2];
+        }
+    }
+    return tail;
+}
+
+NSString *ChengIOSBundleDisplayTitle(NSString *bundleID) {
+    NSString *resolved = CIResolveBundleID(bundleID) ?: bundleID;
+    NSString *name = ChengIOSBundleDisplayName(resolved);
+    if (name.length == 0) {
+        return resolved ?: @"";
+    }
+    if ([name isEqualToString:resolved]) {
+        return resolved;
+    }
+    return [NSString stringWithFormat:@"%@ (%@)", name, resolved];
 }
 
 static LSApplicationProxy *CIProxy(NSString *bundleID) {
@@ -400,17 +448,86 @@ static NSString *CIScanContainer(NSArray<NSString *> *roots, NSString *identifie
     return nil;
 }
 
+static NSArray<NSString *> *CIDataContainerRoots(void) {
+    return @[
+        @"/var/mobile/Containers/Data/Application",
+        @"/private/var/mobile/Containers/Data/Application"
+    ];
+}
+
+static BOOL CIBundleHasContainer(NSString *bundleID) {
+    if (bundleID.length == 0) {
+        return NO;
+    }
+    if (CIProxy(bundleID)) {
+        return YES;
+    }
+    return CIScanContainer(CIDataContainerRoots(), bundleID).length > 0;
+}
+
+static NSString *CIResolveBundleID(NSString *bundleID) {
+    if (bundleID.length == 0) {
+        return bundleID;
+    }
+    if (CIBundleHasContainer(bundleID)) {
+        return bundleID;
+    }
+    NSString *low = bundleID.lowercaseString ?: @"";
+    NSMutableArray<NSString *> *prefixHits = [NSMutableArray array];
+    for (NSString *root in CIDataContainerRoots()) {
+        NSDictionary<NSString *, NSString *> *index = CIContainerIndexForRoot(root);
+        for (NSString *ident in index) {
+            NSString *il = ident.lowercaseString ?: @"";
+            if ([il isEqualToString:low]) {
+                return ident;
+            }
+            if (low.length >= 10 && [il hasPrefix:low]) {
+                [prefixHits addObject:ident];
+            }
+        }
+    }
+    if (prefixHits.count == 1) {
+        return prefixHits.firstObject;
+    }
+    BOOL tiktokish = CIBundleIsTikTokFamily(bundleID) ||
+                     [low hasPrefix:@"com.ss.iphone.ugc."] ||
+                     [low hasPrefix:@"com.zhiliaoapp."];
+    if (tiktokish) {
+        NSArray<NSString *> *cands = @[
+            @"com.ss.iphone.ugc.Aweme",
+            @"com.zhiliaoapp.musically",
+            @"com.zhiliaoapp.musically.go"
+        ];
+        for (NSString *cand in cands) {
+            if (CIBundleHasContainer(cand)) {
+                return cand;
+            }
+        }
+        for (NSString *root in CIDataContainerRoots()) {
+            NSDictionary<NSString *, NSString *> *index = CIContainerIndexForRoot(root);
+            for (NSString *ident in index) {
+                if (CIBundleIsTikTokFamily(ident)) {
+                    return ident;
+                }
+            }
+        }
+        return @"com.ss.iphone.ugc.Aweme";
+    }
+    if (prefixHits.count > 0) {
+        return prefixHits.firstObject;
+    }
+    return bundleID;
+}
+
 static NSString *CIDataPath(NSString *bundleID) {
+    bundleID = CIResolveBundleID(bundleID);
     LSApplicationProxy *proxy = CIProxy(bundleID);
     NSString *path = proxy.dataContainerURL.path;
     BOOL dir = NO;
     if (path.length > 0 && [[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:&dir] && dir) {
         return path;
     }
-    return CIScanContainer(@[
-        @"/var/mobile/Containers/Data/Application",
-        @"/private/var/mobile/Containers/Data/Application"
-    ], bundleID);
+    return CIScanContainer(CIDataContainerRoots(), bundleID);
 }
 
 static NSDictionary<NSString *, NSString *> *CIGroupPaths(NSString *bundleID) {
@@ -1766,7 +1883,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.43, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.44, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -2422,14 +2539,9 @@ static NSArray<NSString *> *CICompanionBundleIDs(NSString *bundleID) {
             @"com.beeasy.marketplace.vn"
         ];
     }
-    if ([low hasPrefix:@"com.zhiliaoapp.musically"] || [low containsString:@"tiktok"]) {
-        return @[
-            @"com.zhiliaoapp.musically",
-            @"com.zhiliaoapp.musically.go",
-            @"com.ss.iphone.ugc.Aweme"
-        ];
-    }
-    if ([low hasPrefix:@"com.ss.iphone.ugc.aweme"] || [low containsString:@"aweme"]) {
+    if ([low hasPrefix:@"com.zhiliaoapp."] || [low containsString:@"tiktok"] ||
+        [low hasPrefix:@"com.ss.iphone."] || [low containsString:@"aweme"] ||
+        [low containsString:@"musically"] || [low containsString:@"bytedance"]) {
         return @[
             @"com.ss.iphone.ugc.Aweme",
             @"com.zhiliaoapp.musically",
@@ -4057,7 +4169,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.43",
+        @"version": @"1.2.44",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -4671,22 +4783,36 @@ static NSArray<NSString *> *CIExpandEraseTargets(NSArray<NSString *> *bundleIDs)
         [seen addObject:bid];
         [out addObject:bid];
     };
+    BOOL wantTikTok = NO;
     for (NSString *raw in bundleIDs) {
         if (![raw isKindOfClass:[NSString class]] || raw.length == 0) {
             continue;
         }
-        NSString *low = raw.lowercaseString;
-        BOOL truncatedAweme = [low hasPrefix:@"com.ss.iphone.ugc.ame"] && ![low hasPrefix:@"com.ss.iphone.ugc.aweme"];
-        if (truncatedAweme) {
-            if (CIProxy(@"com.ss.iphone.ugc.Aweme")) {
-                add(@"com.ss.iphone.ugc.Aweme");
-            }
-            continue;
+        NSString *resolved = CIResolveBundleID(raw);
+        add(resolved);
+        if (CIBundleIsTikTokFamily(raw) || CIBundleIsTikTokFamily(resolved) ||
+            [raw.lowercaseString hasPrefix:@"com.ss.iphone."] ||
+            [raw.lowercaseString hasPrefix:@"com.zhiliaoapp."]) {
+            wantTikTok = YES;
         }
-        add(raw);
-        if ([low hasPrefix:@"com.ss.iphone.ugc.aweme"] || [low containsString:@"aweme"]) {
-            if (CIProxy(@"com.ss.iphone.ugc.Aweme")) {
-                add(@"com.ss.iphone.ugc.Aweme");
+        for (NSString *other in CICompanionBundleIDs(resolved)) {
+            if (CIBundleHasContainer(other)) {
+                add(other);
+            }
+        }
+    }
+    if (wantTikTok) {
+        for (NSString *cand in @[@"com.ss.iphone.ugc.Aweme", @"com.zhiliaoapp.musically", @"com.zhiliaoapp.musically.go"]) {
+            if (CIBundleHasContainer(cand)) {
+                add(cand);
+            }
+        }
+        for (NSString *root in CIDataContainerRoots()) {
+            NSDictionary<NSString *, NSString *> *index = CIContainerIndexForRoot(root);
+            for (NSString *ident in index) {
+                if (CIBundleIsTikTokFamily(ident)) {
+                    add(ident);
+                }
             }
         }
     }
@@ -4733,6 +4859,7 @@ static void CIKillEraseTargets(NSArray<NSString *> *targets) {
     }
 }
 static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
+    bundleID = CIResolveBundleID(bundleID);
     if (ChengIOSBundleIsProtected(bundleID)) {
         return NO;
     }
@@ -4761,14 +4888,12 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
             if ([together containsObject:other] || ChengIOSBundleIsProtected(other)) {
                 continue;
             }
-            LSApplicationProxy *companion = CIProxy(other);
-            if (!companion) {
+            if (!CIBundleHasContainer(other)) {
                 continue;
             }
             CITerminateBundle(other);
-            NSString *companionData = companion.dataContainerURL.path;
-            BOOL dir = NO;
-            if (companionData.length > 0 && [[NSFileManager defaultManager] fileExistsAtPath:companionData isDirectory:&dir] && dir) {
+            NSString *companionData = CIDataPath(other);
+            if (companionData.length > 0) {
                 ok = CIEmptyContainer(companionData) || ok;
             }
         }
@@ -4827,7 +4952,7 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
     CIWipeNamedPasteboards(bundleID);
     if (wipeFamily) {
         for (NSString *other in CICompanionBundleIDs(bundleID)) {
-            if ([together containsObject:other] || !CIProxy(other)) {
+            if ([together containsObject:other] || !CIBundleHasContainer(other)) {
                 continue;
             }
             CIKeychainSQLWipeForBundle(other);
@@ -4873,16 +4998,17 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
 }
 
 NSDictionary *ChengIOSEraseBundles(NSArray<NSString *> *bundleIDs, NSError **error) {
+    NSArray<NSString *> *requested = CIExpandEraseTargets(bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs());
     if (!CIIsRootProcess()) {
         if (CIInHelperProcess()) {
             if (error) {
                 *error = CIError(4, @"chengiosroot uid != 0");
             }
-            return @{@"ok": @[], @"failed": bundleIDs ?: @[], @"skipped": @[], @"error": @"uid"};
+            return @{@"ok": @[], @"failed": requested.count ? requested : (bundleIDs ?: @[]), @"skipped": @[], @"error": @"uid"};
         }
         NSDictionary *remote = CIRunRootOp(@{
             @"op": @"erase",
-            @"bundles": bundleIDs ?: @[]
+            @"bundles": requested.count ? requested : (bundleIDs ?: @[])
         }, error);
         if (remote) {
             NSDictionary *result = remote[@"result"];
@@ -4914,9 +5040,11 @@ NSDictionary *ChengIOSEraseBundles(NSArray<NSString *> *bundleIDs, NSError **err
     NSMutableArray *ok = [NSMutableArray array];
     NSMutableArray *failed = [NSMutableArray array];
     NSMutableArray *skipped = [NSMutableArray array];
-    NSArray<NSString *> *targets = CIEraseOrder(CIExpandEraseTargets(bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs()));
+    NSArray<NSString *> *targets = CIEraseOrder(requested.count ? requested : CIExpandEraseTargets(bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs()));
     if (targets.count == 0) {
-        NSString *msg = @"Chua tick app trong Change Apps. Mo Change Apps, tick TikTok/Facebook/Shopee/Safari roi bam lai.";
+        NSString *msg = (bundleIDs.count > 0)
+            ? [NSString stringWithFormat:@"Khong resolve duoc container cho: %@. Tick lai TikTok trong Change Apps (bundle that: com.ss.iphone.ugc.Aweme / com.zhiliaoapp.musically).", [bundleIDs componentsJoinedByString:@", "]]
+            : @"Chua tick app trong Change Apps. Mo Change Apps, tick TikTok/Facebook/Shopee/Safari roi bam lai.";
         if (error) {
             *error = CIError(5, msg);
         }
