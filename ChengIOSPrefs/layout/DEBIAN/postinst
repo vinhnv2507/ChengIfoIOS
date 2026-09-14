@@ -28,7 +28,9 @@ done
 
 for d in \
   /var/tmp/ChengIOS \
+  /var/tmp/ChengIOS-trash \
   /private/var/tmp/ChengIOS \
+  /private/var/tmp/ChengIOS-trash \
   /tmp/ChengIOS \
   /var/mobile/tmp/ChengIOS \
   /var/mobile/Documents/ChengIOS/.work \

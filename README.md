@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.37
+
+- Shopee: tat spoof iOS version (1.2.36 vang). Giu IDFA spoof + DeviceCheck/App Attest off. Khong WKWebView, khong gestalt. Facebook van 1.2.14 (model qua hw.machine/UIDevice/uname)
+- Xoa data nhanh kieu doi ten: rename sandbox/app group sang /var/tmp/ChengIOS-trash roi `rm -rf` nen, khong doi xong. Bo SecItemDelete, Accounts3, sleep, settle securityd luc xoa. SQL keychain van xoa. Backup/restore van can ldid
+- An jailbreak (opt-in, mac dinh tat): an file Cydia/Sileo/ElleKit, DYLD_INSERT_LIBRARIES, canOpenURL. Facebook/Shopee chi an file/URL, khong hook fork/dyld. Force-quit app da chon. Neu Shopee vang thi tat switch nay
+
 ## 1.2.36
 
 - Shopee: spoof iOS version tren UIDevice / NSProcessInfo string / sysctl kern.osproductversion. Khong WKWebView, khong gestalt, khong isOperatingSystemAtLeastVersion (giu iOS that de tranh vang 1.2.33)
@@ -352,7 +358,7 @@ Depends: Cydia Substrate / ElleKit (`mobilesubstrate`), PreferenceLoader, AltLis
 
 - Phiên bản iOS tự động chỉ là heuristic theo ngày, không phải API của Apple. App khó tính thì nên nhập tay.
 - Vendor/advertising ID random theo process khi bật module định danh.
-- Tweak không giấu jailbreak và không vượt kiểm tra phía server.
+- An jailbreak la opt-in, chi app da chon. Khong vuot kiem tra phia server.
 - Hãy thử module vị trí/mạng trên app test trước.
 
 ## License

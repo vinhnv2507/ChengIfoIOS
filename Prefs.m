@@ -635,17 +635,15 @@ BOOL OVSSpoofingEnabled(void) {
 }
 
 BOOL OVSShouldSpoofOSVersion(void) {
-    if (!OVSSpoofingEnabled() || OVSIsSafariFamily()) {
-        return NO;
-    }
-    if (OVSIsFragileApp() && !OVSIsShopeeFamily()) {
-        return NO;
-    }
-    return YES;
+    return OVSSpoofingEnabled() && !OVSIsFragileApp() && !OVSIsSafariFamily();
 }
 
 BOOL OVSShouldSpoofOSCapability(void) {
-    return OVSShouldSpoofOSVersion() && !OVSIsShopeeFamily();
+    return OVSShouldSpoofOSVersion();
+}
+
+BOOL OVSHideJailbreakEnabled(void) {
+    return OVSSpoofingEnabled() && OVSBoolForKey(@"hideJailbreakEnabled", NO);
 }
 
 BOOL OVSUseCustomOSVersion(void) {
