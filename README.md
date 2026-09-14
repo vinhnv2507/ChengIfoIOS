@@ -36,6 +36,7 @@ Kích thước màn hình không bị đổi.
 
 - Shopee van skip xac minh: IDFA that + DeviceCheck token Apple (song qua wipe). 1.2.35 spoof IDFA, tat DeviceCheck/App Attest (isSupported=NO), xoa keychain AppsFlyer/Adjust/Firebase/Tongdun theo team, pasteboard, extra prefs. Khong WK/iOS spoof (1.2.33 vang)
 - Facebook khong doi. Can Random Toan Bo (identity) + force-quit Shopee. DeviceCheck gia khong tao token Apple moi; chi an token cu
+- Fix CI: DeviceCheck/App Attest hook bang MSHookMessageEx (khong %hook block), pasteboard wipe bang objc_msgSend de chengiosroot compile khong UIKit
 
 ## 1.2.34
 

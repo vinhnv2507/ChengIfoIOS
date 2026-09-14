@@ -2,6 +2,7 @@
 #import "ChengIOSProfiles.h"
 
 #import <objc/runtime.h>
+#import <objc/message.h>
 #import <spawn.h>
 #import <sys/wait.h>
 #import <unistd.h>
@@ -4465,7 +4466,8 @@ static void CIWipeNamedPasteboards(NSString *bundleID) {
         return;
     }
     Class pb = NSClassFromString(@"UIPasteboard");
-    if (!pb || ![pb respondsToSelector:@selector(removePasteboardWithName:)]) {
+    SEL sel = NSSelectorFromString(@"removePasteboardWithName:");
+    if (!pb || !sel || ![pb respondsToSelector:sel]) {
         return;
     }
     NSArray<NSString *> *names = @[
@@ -4480,7 +4482,7 @@ static void CIWipeNamedPasteboards(NSString *bundleID) {
         if (name.length == 0) {
             continue;
         }
-        [pb removePasteboardWithName:name];
+        ((void (*)(id, SEL, id))objc_msgSend)(pb, sel, name);
     }
 }
 

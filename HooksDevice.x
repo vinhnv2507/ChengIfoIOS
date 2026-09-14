@@ -1,5 +1,8 @@
 #import "Prefs.h"
 
+#import <objc/runtime.h>
+#import <substrate.h>
+
 #import <CoreFoundation/CoreFoundation.h>
 
 #import <string.h>
@@ -160,17 +163,6 @@
 %end
 %end
 
-@interface DCDevice : NSObject
-+ (instancetype)currentDevice;
-@property (nonatomic, readonly, getter=isSupported) BOOL supported;
-- (void)generateTokenWithCompletionHandler:(void (^)(NSData *token, NSError *error))completion;
-@end
-
-@interface DCAppAttestService : NSObject
-+ (instancetype)sharedService;
-@property (nonatomic, readonly, getter=isSupported) BOOL supported;
-@end
-
 %group AdSupportHooks
 %hook ASIdentifierManager
 - (NSUUID *)advertisingIdentifier {
@@ -189,37 +181,47 @@
 %end
 %end
 
-%group DeviceCheckHooks
-%hook DCDevice
-- (BOOL)isSupported {
+static BOOL (*CIOrigDCIsSupported)(id, SEL);
+static BOOL CIHookedDCIsSupported(id self, SEL _cmd) {
     if (OVSSpoofingEnabled() && OVSIsShopeeFamily()) {
         return NO;
     }
-    return %orig;
+    return CIOrigDCIsSupported ? CIOrigDCIsSupported(self, _cmd) : NO;
 }
 
-- (void)generateTokenWithCompletionHandler:(void (^)(NSData *token, NSError *error))completion {
+static void (*CIOrigDCGenerateToken)(id, SEL, id);
+static void CIHookedDCGenerateToken(id self, SEL _cmd, id completion) {
     if (OVSSpoofingEnabled() && OVSIsShopeeFamily()) {
         if (completion) {
-            completion(nil, [NSError errorWithDomain:@"com.vinhnv2507.chengios" code:2 userInfo:nil]);
+            void (^block)(NSData *, NSError *) = completion;
+            block(nil, [NSError errorWithDomain:@"com.vinhnv2507.chengios" code:2 userInfo:nil]);
         }
         return;
     }
-    %orig;
+    if (CIOrigDCGenerateToken) {
+        CIOrigDCGenerateToken(self, _cmd, completion);
+    }
 }
-%end
-%end
 
-%group AppAttestHooks
-%hook DCAppAttestService
-- (BOOL)isSupported {
+static BOOL (*CIOrigAttestIsSupported)(id, SEL);
+static BOOL CIHookedAttestIsSupported(id self, SEL _cmd) {
     if (OVSSpoofingEnabled() && OVSIsShopeeFamily()) {
         return NO;
     }
-    return %orig;
+    return CIOrigAttestIsSupported ? CIOrigAttestIsSupported(self, _cmd) : NO;
 }
-%end
-%end
+
+static void CIInstallShopeeDeviceCheckHooks(void) {
+    Class dc = NSClassFromString(@"DCDevice");
+    if (dc) {
+        MSHookMessageEx(dc, @selector(isSupported), (IMP)CIHookedDCIsSupported, (IMP *)&CIOrigDCIsSupported);
+        MSHookMessageEx(dc, NSSelectorFromString(@"generateTokenWithCompletionHandler:"), (IMP)CIHookedDCGenerateToken, (IMP *)&CIOrigDCGenerateToken);
+    }
+    Class attest = NSClassFromString(@"DCAppAttestService");
+    if (attest) {
+        MSHookMessageEx(attest, @selector(isSupported), (IMP)CIHookedAttestIsSupported, (IMP *)&CIOrigAttestIsSupported);
+    }
+}
 
 %hook BrowserController
 - (NSUUID *)UUID {
@@ -279,12 +281,7 @@
         if (NSClassFromString(@"ASIdentifierManager")) {
             %init(AdSupportHooks);
         }
-        if (NSClassFromString(@"DCDevice")) {
-            %init(DeviceCheckHooks);
-        }
-        if (NSClassFromString(@"DCAppAttestService")) {
-            %init(AppAttestHooks);
-        }
+        CIInstallShopeeDeviceCheckHooks();
     }
     if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
         %init(LowLevelUname);
