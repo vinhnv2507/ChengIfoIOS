@@ -27,9 +27,7 @@ extern char **environ;
         @"chengios://copy",
         @"chengios://settings",
         @"chengios://random-all?silent=1",
-        @"chengios://erase-device",
-        @"chengios://erase-random-all",
-        @"chengios://erase-device-random"
+        @"chengios://erase-random-all"
     ];
 }
 
@@ -56,9 +54,7 @@ extern char **environ;
             @{@"kind": @"button", @"title": @"Backup ho so", @"action": @"backupProfile"},
             @{@"kind": @"button", @"title": @"Backup ho so + data app", @"action": @"backupApps"},
             @{@"kind": @"button", @"title": @"Xoa sach data app da chon", @"action": @"eraseApps"},
-            @{@"kind": @"button", @"title": @"Xoa toan bo app + Safari", @"action": @"eraseDevice"},
-            @{@"kind": @"button", @"title": @"Xoa app da chon + Random Toan Bo", @"action": @"eraseRandomAll"},
-            @{@"kind": @"button", @"title": @"Xoa toan bo + Random Toan Bo", @"action": @"eraseDeviceRandom"}
+            @{@"kind": @"button", @"title": @"Xoa app da chon + Random Toan Bo", @"action": @"eraseRandomAll"}
         ],
         @[
             @{@"kind": @"text", @"title": @"Model", @"keys": @[@"spoofedModel", @"customDeviceModel"], @"placeholder": @"iPhone16,2"},
@@ -204,7 +200,7 @@ extern char **environ;
         return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";
     }
     if (section == 3) {
-        return @"TikTok: model + iOS chuoi, khong capability/WK. iPhone 12 khong gan iOS 26. Shopee khong spoof model/iOS/WK/gestalt. Backup can ldid.";
+        return @"Xoa app da chon + Random: wipe TikTok lan 2 sau doi info. Khong con xoa toan bo app. Shopee khong spoof model/iOS/WK/gestalt.";
     }
     if (section == 10) {
         return @"deviceinfo.me Region/City/ISP la IP cong cong that (Viettel/Hung Yen). Bam nut Detect de dung GPS gia lap.";
@@ -365,12 +361,8 @@ extern char **environ;
         ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://backup-apps"], self);
     } else if ([action isEqualToString:@"eraseApps"]) {
         ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-apps"], self);
-    } else if ([action isEqualToString:@"eraseDevice"]) {
-        ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-device"], self);
     } else if ([action isEqualToString:@"eraseRandomAll"]) {
         ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-random-all"], self);
-    } else if ([action isEqualToString:@"eraseDeviceRandom"]) {
-        ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-device-random"], self);
     }
 }
 

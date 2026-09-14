@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.42
+
+- Xoa app da chon + Random Toan Bo: wipe TikTok/Aweme lan 2 sau doi info (giong xoa rieng), kill plugin truoc/sau, hien ok/failed
+- Bo nut/deeplink **Xoa toan bo app + Safari** va **Xoa toan bo + Random Toan Bo**. Shortcut cu chi xoa app da chon
+- Facebook van 1.2.14, Shopee van khong model/iOS/WK/gestalt
+
 ## 1.2.41
 
 - TikTok: spoof model + Gestalt nhe (ProductType/iOS string). Khong spoof isOperatingSystemAtLeastVersion/WK/Darwin (vang). Facebook van 1.2.14, Shopee van khong model/iOS/WK/gestalt
@@ -214,7 +220,7 @@ Kích thước màn hình không bị đổi.
 - Xoa Facebook sach hon: family group, plugin, keychain SSO (khong con chi logout)
 - Xoa duoc Safari (history/cookies/website data)
 - Nut xoa toan bo app user + Safari (khong phai Restore iOS, giu jailbreak)
-- Xoa data roi random info: `chengios://erase-random-all`, `chengios://erase-device-random`
+- Xoa data roi random info: `chengios://erase-random-all`
 
 ## 1.2.14
 - Facebook/Shopee: không hook `MGCopyAnswer` khi bật Spoof sâu (nguyên nhân văng FB/Shopee/Hồ sơ)
