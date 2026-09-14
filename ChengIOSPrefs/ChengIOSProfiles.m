@@ -846,39 +846,6 @@ static NSDictionary *CIBuildProfile(BOOL full, NSString *iso) {
     return profile;
 }
 
-NSDictionary *ChengIOSMintAppIdentity(void) {
-    NSString *wifi = CIRandomMAC();
-    return @{
-        @"spoofedVendorUUID": [[NSUUID UUID] UUIDString],
-        @"spoofedAdvertisingUUID": [[NSUUID UUID] UUIDString],
-        @"spoofedSerialNumber": CIRandomSerial(),
-        @"spoofedUniqueDeviceID": CIRandomHex(40, NO),
-        @"wifiAddress": wifi,
-        @"macAddress": wifi,
-        @"bluetoothAddress": CIRandomMAC(),
-        @"spoofedIMEI": CIRandomIMEI(),
-        @"deviceIdentityEnabled": @YES
-    };
-}
-
-void ChengIOSAssignAppIdentity(NSArray<NSString *> *bundleIDs, NSDictionary *identity) {
-    NSDictionary *mint = identity.count ? identity : ChengIOSMintAppIdentity();
-    NSMutableDictionary *patch = [mint mutableCopy];
-    NSMutableDictionary *map = [NSMutableDictionary dictionary];
-    id existing = ChengIOSLoadRawPrefs()[@"appDeviceProfiles"];
-    if ([existing isKindOfClass:[NSDictionary class]]) {
-        [map addEntriesFromDictionary:existing];
-    }
-    for (NSString *bundleID in bundleIDs) {
-        if ([bundleID isKindOfClass:[NSString class]] && bundleID.length > 0) {
-            map[bundleID] = mint;
-        }
-    }
-    patch[@"appDeviceProfiles"] = map;
-    patch[@"deviceIdentityEnabled"] = @YES;
-    ChengIOSApplyProfile(patch);
-}
-
 NSDictionary *ChengIOSRandomIdentity(void) {
     return CIBuildProfile(NO, nil);
 }
@@ -967,46 +934,10 @@ void ChengIOSApplyProfile(NSDictionary *profile) {
     if (!asRoot) {
         CFPreferencesAppSynchronize(CFSTR("com.vinhnv2507.chengiosprefs"));
     }
-    NSMutableDictionary *appIds = [NSMutableDictionary dictionary];
-    for (NSString *key in @[@"spoofedVendorUUID", @"spoofedAdvertisingUUID", @"spoofedSerialNumber", @"spoofedUniqueDeviceID", @"wifiAddress", @"bluetoothAddress", @"spoofedIMEI", @"macAddress"]) {
-        id value = merged[key];
-        if ([value isKindOfClass:[NSString class]] && [value length] > 0) {
-            appIds[key] = value;
-        }
-    }
-    if (appIds.count > 0) {
-        NSMutableDictionary *map = [merged[@"appDeviceProfiles"] isKindOfClass:[NSDictionary class]] ? [merged[@"appDeviceProfiles"] mutableCopy] : [NSMutableDictionary dictionary];
-        NSMutableArray<NSString *> *targets = [NSMutableArray array];
-        id spoofed = merged[@"spoofedApps"];
-        if ([spoofed isKindOfClass:[NSArray class]]) {
-            for (id item in spoofed) {
-                if ([item isKindOfClass:[NSString class]]) {
-                    [targets addObject:item];
-                }
-            }
-        }
-        id enabled = merged[@"appEnabled"];
-        if ([enabled isKindOfClass:[NSDictionary class]]) {
-            [enabled enumerateKeysAndObjectsUsingBlock:^(id key, id val, BOOL *stop) {
-                (void)stop;
-                if ([key isKindOfClass:[NSString class]] && [val respondsToSelector:@selector(boolValue)] && [val boolValue] && ![targets containsObject:key]) {
-                    [targets addObject:key];
-                }
-            }];
-        }
-        BOOL changed = NO;
-        for (NSString *bundleID in targets) {
-            if (bundleID.length == 0) {
-                continue;
-            }
-            map[bundleID] = appIds;
-            changed = YES;
-        }
-        if (changed) {
-            merged[@"appDeviceProfiles"] = map;
-            if (!asRoot) {
-                CFPreferencesSetAppValue(CFSTR("appDeviceProfiles"), (__bridge CFPropertyListRef)map, CFSTR("com.vinhnv2507.chengiosprefs"));
-            }
+    if (merged[@"appDeviceProfiles"]) {
+        [merged removeObjectForKey:@"appDeviceProfiles"];
+        if (!asRoot) {
+            CFPreferencesSetAppValue(CFSTR("appDeviceProfiles"), NULL, CFSTR("com.vinhnv2507.chengiosprefs"));
         }
     }
     for (NSString *path in CIPrefsPaths()) {

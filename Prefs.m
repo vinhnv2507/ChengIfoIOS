@@ -646,26 +646,6 @@ BOOL OVSHideJailbreakEnabled(void) {
     return OVSSpoofingEnabled() && OVSBoolForKey(@"hideJailbreakEnabled", NO);
 }
 
-static NSDictionary *OVSAppDeviceProfile(void) {
-    id map = OVSObjectForKey(@"appDeviceProfiles");
-    if (![map isKindOfClass:[NSDictionary class]]) {
-        return nil;
-    }
-    NSDictionary *profile = map[OVSEffectiveBundleIdentifier() ?: @""];
-    if (![profile isKindOfClass:[NSDictionary class]] || profile.count == 0) {
-        profile = map[OVSMainBundleIdentifier() ?: @""];
-    }
-    return [profile isKindOfClass:[NSDictionary class]] ? profile : nil;
-}
-
-static NSString *OVSAppProfileString(NSString *key) {
-    id value = OVSAppDeviceProfile()[key];
-    if ([value isKindOfClass:[NSString class]] && [value length] > 0) {
-        return value;
-    }
-    return nil;
-}
-
 BOOL OVSUseCustomOSVersion(void) {
     if (OVSBoolForKey(@"useCustomOSVersion", NO)) {
         return YES;
@@ -812,7 +792,7 @@ BOOL OVSShouldSpoofHostName(void) {
 }
 
 BOOL OVSShouldSpoofModel(void) {
-    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && OVSSpoofedModel().length > 0;
+    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && !OVSIsShopeeFamily() && OVSSpoofedModel().length > 0;
 }
 
 static NSDictionary *OVSHardwareInfoForModel(NSString *model) {
@@ -929,13 +909,11 @@ NSString *OVSDarwinVersionString(void) {
 }
 
 NSString *OVSSpoofedSerialNumber(void) {
-    NSString *value = OVSAppProfileString(@"spoofedSerialNumber");
-    return value.length ? value : OVSStringForKeys(@[@"spoofedSerialNumber"], nil);
+    return OVSStringForKeys(@[@"spoofedSerialNumber"], nil);
 }
 
 NSString *OVSSpoofedUniqueDeviceID(void) {
-    NSString *value = OVSAppProfileString(@"spoofedUniqueDeviceID");
-    return value.length ? value : OVSStringForKeys(@[@"spoofedUniqueDeviceID"], nil);
+    return OVSStringForKeys(@[@"spoofedUniqueDeviceID"], nil);
 }
 
 NSString *OVSSpoofedMLBSerial(void) {
@@ -943,24 +921,15 @@ NSString *OVSSpoofedMLBSerial(void) {
 }
 
 NSString *OVSSpoofedIMEI(void) {
-    NSString *value = OVSAppProfileString(@"spoofedIMEI");
-    return value.length ? value : OVSStringForKeys(@[@"spoofedIMEI"], nil);
+    return OVSStringForKeys(@[@"spoofedIMEI"], nil);
 }
 
 NSString *OVSSpoofedWifiAddress(void) {
-    NSString *value = OVSAppProfileString(@"wifiAddress");
-    if (value.length == 0) {
-        value = OVSAppProfileString(@"macAddress");
-    }
-    return value.length ? value : OVSStringForKeys(@[@"wifiAddress", @"macAddress"], nil);
+    return OVSStringForKeys(@[@"wifiAddress", @"macAddress"], nil);
 }
 
 NSString *OVSSpoofedBluetoothAddress(void) {
-    NSString *value = OVSAppProfileString(@"bluetoothAddress");
-    if (value.length > 0) {
-        return value;
-    }
-    value = OVSStringForKeys(@[@"bluetoothAddress"], nil);
+    NSString *value = OVSStringForKeys(@[@"bluetoothAddress"], nil);
     if (value.length > 0) {
         return value;
     }
@@ -1007,10 +976,7 @@ uint64_t OVSSpoofedUniqueChipID(void) {
 }
 
 NSUUID *OVSSpoofedVendorUUID(void) {
-    NSString *raw = OVSAppProfileString(@"spoofedVendorUUID");
-    if (raw.length == 0) {
-        raw = OVSStringForKeys(@[@"spoofedVendorUUID"], nil);
-    }
+    NSString *raw = OVSStringForKeys(@[@"spoofedVendorUUID"], nil);
     if (raw.length > 0) {
         NSUUID *parsed = [[NSUUID alloc] initWithUUIDString:raw];
         if (parsed) {
@@ -1027,10 +993,7 @@ NSUUID *OVSSpoofedVendorUUID(void) {
 }
 
 NSUUID *OVSSpoofedAdvertisingUUID(void) {
-    NSString *raw = OVSAppProfileString(@"spoofedAdvertisingUUID");
-    if (raw.length == 0) {
-        raw = OVSStringForKeys(@[@"spoofedAdvertisingUUID"], nil);
-    }
+    NSString *raw = OVSStringForKeys(@[@"spoofedAdvertisingUUID"], nil);
     if (raw.length > 0) {
         NSUUID *parsed = [[NSUUID alloc] initWithUUIDString:raw];
         if (parsed) {
