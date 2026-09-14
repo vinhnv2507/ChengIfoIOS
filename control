@@ -1,8 +1,8 @@
 Package: com.vinhnv2507.chengios
 Name: ChengIOS
-Version: 1.2.35
+Version: 1.2.36
 Architecture: iphoneos-arm
-Description: Spoofs iOS version, app version, and optional device/location/network/Wi-Fi signals per selected app. Fast wipe without ldid; backup/restore still need ldid. Shopee: IDFV+IDFA spoof, DeviceCheck off, tracking keychain wipe. No WK/iOS spoof. Change path is 1.2.14.
+Description: Spoofs iOS version, app version, and optional device/location/network/Wi-Fi signals per selected app. Fast wipe without ldid; backup/restore still need ldid. Shopee: IDFV+IDFA, DeviceCheck off, spoof iOS via UIDevice/sysctl, no WK/gestalt. Profile restore chown mobile + kill cfprefsd. Change path is 1.2.14.
 Maintainer: vinhnv2507 <vinhnv2507@users.noreply.github.com>
 Author: vinhnv2507 <vinhnv2507@users.noreply.github.com>
 Section: Tweaks

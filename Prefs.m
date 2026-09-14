@@ -73,26 +73,34 @@ static id OVSCopyLocked(id object) {
     return object;
 }
 
+static void OVSLoadCFPreferences(NSMutableDictionary *merged) {
+    CFStringRef appID = CFSTR("com.vinhnv2507.chengiosprefs");
+    CFArrayRef keys = CFPreferencesCopyKeyList(appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+    if (!keys) {
+        return;
+    }
+    CFDictionaryRef dict = CFPreferencesCopyMultiple(keys, appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+    CFRelease(keys);
+    if (!dict) {
+        return;
+    }
+    [merged addEntriesFromDictionary:(__bridge NSDictionary *)dict];
+    CFRelease(dict);
+}
+
 void OVSReloadPreferences(void) {
     NSMutableDictionary *merged = [NSMutableDictionary dictionary];
-
+    BOOL fromFile = NO;
     for (NSString *path in OVSCandidatePreferencePaths()) {
         NSDictionary *fileDict = [NSDictionary dictionaryWithContentsOfFile:path];
         if (fileDict.count > 0) {
             [merged addEntriesFromDictionary:fileDict];
+            fromFile = YES;
             break;
         }
     }
-
-    CFStringRef appID = CFSTR("com.vinhnv2507.chengiosprefs");
-    CFArrayRef keys = CFPreferencesCopyKeyList(appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-    if (keys) {
-        CFDictionaryRef dict = CFPreferencesCopyMultiple(keys, appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-        if (dict) {
-            [merged addEntriesFromDictionary:(__bridge NSDictionary *)dict];
-            CFRelease(dict);
-        }
-        CFRelease(keys);
+    if (!fromFile) {
+        OVSLoadCFPreferences(merged);
     }
 
     pthread_mutex_lock(&gMutex);
@@ -100,6 +108,9 @@ void OVSReloadPreferences(void) {
     gGPXLocations = nil;
     gGPXOffsets = nil;
     gLoadedGPXPath = nil;
+    gBuildNumber = nil;
+    gVendorUUID = nil;
+    gAdvertisingUUID = nil;
     pthread_mutex_unlock(&gMutex);
 }
 
@@ -624,7 +635,17 @@ BOOL OVSSpoofingEnabled(void) {
 }
 
 BOOL OVSShouldSpoofOSVersion(void) {
-    return OVSSpoofingEnabled() && !OVSIsFragileApp() && !OVSIsSafariFamily();
+    if (!OVSSpoofingEnabled() || OVSIsSafariFamily()) {
+        return NO;
+    }
+    if (OVSIsFragileApp() && !OVSIsShopeeFamily()) {
+        return NO;
+    }
+    return YES;
+}
+
+BOOL OVSShouldSpoofOSCapability(void) {
+    return OVSShouldSpoofOSVersion() && !OVSIsShopeeFamily();
 }
 
 BOOL OVSUseCustomOSVersion(void) {

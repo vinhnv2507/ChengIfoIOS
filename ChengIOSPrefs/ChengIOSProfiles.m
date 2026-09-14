@@ -3,6 +3,12 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import <stdint.h>
 #import <notify.h>
+#import <spawn.h>
+#import <sys/stat.h>
+#import <sys/wait.h>
+#import <unistd.h>
+
+extern char **environ;
 
 
 static NSArray<NSString *> *CIPrefsPaths(void) {
@@ -22,25 +28,64 @@ static BOOL CIIsPlistValue(id value) {
            [value isKindOfClass:[NSDate class]];
 }
 
+static void CILoadCFPrefsInto(NSMutableDictionary *prefs) {
+    CFStringRef appID = CFSTR("com.vinhnv2507.chengiosprefs");
+    CFArrayRef keys = CFPreferencesCopyKeyList(appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+    if (!keys) {
+        return;
+    }
+    CFDictionaryRef dict = CFPreferencesCopyMultiple(keys, appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+    CFRelease(keys);
+    if (!dict) {
+        return;
+    }
+    [prefs addEntriesFromDictionary:(__bridge NSDictionary *)dict];
+    CFRelease(dict);
+}
+
+static void CIKillCFPrefsDaemon(void) {
+    const char *bins[] = {
+        "/usr/bin/killall",
+        "/var/jb/usr/bin/killall",
+        "/usr/sbin/killall",
+        NULL
+    };
+    for (int i = 0; bins[i]; i++) {
+        pid_t pid = 0;
+        char *args[] = {(char *)bins[i], "-9", "cfprefsd", NULL};
+        if (posix_spawn(&pid, bins[i], NULL, NULL, args, environ) == 0) {
+            int status = 0;
+            waitpid(pid, &status, 0);
+            break;
+        }
+    }
+}
+
+static void CIFinalizePrefsFiles(void) {
+    for (NSString *path in CIPrefsPaths()) {
+        const char *raw = path.fileSystemRepresentation;
+        if (!raw || access(raw, F_OK) != 0) {
+            continue;
+        }
+        lchown(raw, 501, 501);
+        chmod(raw, 0644);
+    }
+    if (geteuid() == 0) {
+        CIKillCFPrefsDaemon();
+        usleep(80000);
+    }
+}
+
 static NSMutableDictionary *CILoadRawPrefs(void) {
     NSMutableDictionary *prefs = [NSMutableDictionary dictionary];
     for (NSString *path in CIPrefsPaths()) {
         NSDictionary *file = [NSDictionary dictionaryWithContentsOfFile:path];
         if (file.count > 0) {
             [prefs addEntriesFromDictionary:file];
-            break;
+            return prefs;
         }
     }
-    CFStringRef appID = CFSTR("com.vinhnv2507.chengiosprefs");
-    CFArrayRef keys = CFPreferencesCopyKeyList(appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-    if (keys) {
-        CFDictionaryRef dict = CFPreferencesCopyMultiple(keys, appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-        if (dict) {
-            [prefs addEntriesFromDictionary:(__bridge NSDictionary *)dict];
-            CFRelease(dict);
-        }
-        CFRelease(keys);
-    }
+    CILoadCFPrefsInto(prefs);
     return prefs;
 }
 
@@ -875,15 +920,20 @@ void ChengIOSApplyProfile(NSDictionary *profile) {
         return;
     }
     NSMutableDictionary *merged = CILoadRawPrefs();
+    BOOL asRoot = geteuid() == 0;
     [profile enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
         (void)stop;
         if (![key isKindOfClass:[NSString class]] || [key hasPrefix:@"_"] || !CIIsPlistValue(value)) {
             return;
         }
         merged[key] = value;
-        CFPreferencesSetAppValue((__bridge CFStringRef)key, (__bridge CFPropertyListRef)value, CFSTR("com.vinhnv2507.chengiosprefs"));
+        if (!asRoot) {
+            CFPreferencesSetAppValue((__bridge CFStringRef)key, (__bridge CFPropertyListRef)value, CFSTR("com.vinhnv2507.chengiosprefs"));
+        }
     }];
-    CFPreferencesAppSynchronize(CFSTR("com.vinhnv2507.chengiosprefs"));
+    if (!asRoot) {
+        CFPreferencesAppSynchronize(CFSTR("com.vinhnv2507.chengiosprefs"));
+    }
     for (NSString *path in CIPrefsPaths()) {
         NSString *dir = [path stringByDeletingLastPathComponent];
         if (![[NSFileManager defaultManager] fileExistsAtPath:dir]) {
@@ -891,6 +941,7 @@ void ChengIOSApplyProfile(NSDictionary *profile) {
         }
         [merged writeToFile:path atomically:YES];
     }
+    CIFinalizePrefsFiles();
     notify_post("com.vinhnv2507.chengiosprefs/changed");
     notify_post("com.vinhnv2507.chengiosprefs/ReloadPrefs");
 }
@@ -907,24 +958,27 @@ void ChengIOSReplaceRawPrefs(NSDictionary *prefs) {
         }
         clean[key] = value;
     }];
+    BOOL asRoot = geteuid() == 0;
     CFStringRef appID = CFSTR("com.vinhnv2507.chengiosprefs");
-    CFArrayRef oldKeys = CFPreferencesCopyKeyList(appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-    if (oldKeys) {
-        CFIndex count = CFArrayGetCount(oldKeys);
-        for (CFIndex i = 0; i < count; i++) {
-            CFStringRef key = CFArrayGetValueAtIndex(oldKeys, i);
-            NSString *nsKey = (__bridge NSString *)key;
-            if (clean[nsKey] == nil) {
-                CFPreferencesSetAppValue(key, NULL, appID);
+    if (!asRoot) {
+        CFArrayRef oldKeys = CFPreferencesCopyKeyList(appID, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+        if (oldKeys) {
+            CFIndex count = CFArrayGetCount(oldKeys);
+            for (CFIndex i = 0; i < count; i++) {
+                CFStringRef key = CFArrayGetValueAtIndex(oldKeys, i);
+                NSString *nsKey = (__bridge NSString *)key;
+                if (clean[nsKey] == nil) {
+                    CFPreferencesSetAppValue(key, NULL, appID);
+                }
             }
+            CFRelease(oldKeys);
         }
-        CFRelease(oldKeys);
+        [clean enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
+            (void)stop;
+            CFPreferencesSetAppValue((__bridge CFStringRef)key, (__bridge CFPropertyListRef)value, appID);
+        }];
+        CFPreferencesAppSynchronize(appID);
     }
-    [clean enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
-        (void)stop;
-        CFPreferencesSetAppValue((__bridge CFStringRef)key, (__bridge CFPropertyListRef)value, appID);
-    }];
-    CFPreferencesAppSynchronize(appID);
     for (NSString *path in CIPrefsPaths()) {
         NSString *dir = [path stringByDeletingLastPathComponent];
         if (![[NSFileManager defaultManager] fileExistsAtPath:dir]) {
@@ -932,6 +986,7 @@ void ChengIOSReplaceRawPrefs(NSDictionary *prefs) {
         }
         [clean writeToFile:path atomically:YES];
     }
+    CIFinalizePrefsFiles();
     notify_post("com.vinhnv2507.chengiosprefs/changed");
     notify_post("com.vinhnv2507.chengiosprefs/ReloadPrefs");
 }
