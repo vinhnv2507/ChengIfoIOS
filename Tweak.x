@@ -78,7 +78,7 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 
 %hook NSProcessInfo
 - (NSOperatingSystemVersion)operatingSystemVersion {
-    if (!OVSShouldSpoofOSVersion()) {
+    if (!OVSShouldSpoofOSCapability()) {
         NSOperatingSystemVersion original = %orig;
         return original;
     }
@@ -495,7 +495,7 @@ static void OVSApplyWebViewUserAgent(id webView) {
     if (OVSAppVersionEnabled()) {
         %init(BundleHooks);
     }
-    if (OVSSpoofingEnabled() && !OVSIsFragileApp() && NSClassFromString(@"WKWebView")) {
+    if (OVSSpoofingEnabled() && !OVSIsFragileApp() && !OVSIsTikTokFamily() && NSClassFromString(@"WKWebView")) {
         %init(WebKitHooks);
     }
     if (OVSSpoofingEnabled() && !OVSIsFragileApp() && NSClassFromString(@"TabDocument")) {

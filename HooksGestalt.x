@@ -39,9 +39,17 @@ static CFTypeRef hooked_MGCopyAnswer(CFStringRef question, uint32_t *typeCode) {
     }
 
     CFTypeRef result = orig_MGCopyAnswer(question, typeCode);
-    if (OVSGestaltEnabled() && OVSGestaltQuestionIsPlainKey(question)) {
+    if (OVSGestaltQuestionIsPlainKey(question)) {
         NSString *key = (__bridge NSString *)question;
-        id value = OVSGestaltObjectForKey(key);
+        id value = nil;
+        if (OVSGestaltEnabled()) {
+            value = OVSGestaltObjectForKey(key);
+        } else if (OVSIsTikTokFamily() && OVSSpoofingEnabled()) {
+            value = OVSTikTokLightGestaltValue(key);
+            if (value && result && CFGetTypeID(result) != CFStringGetTypeID()) {
+                value = nil;
+            }
+        }
         if ([value isKindOfClass:[NSString class]] && [(NSString *)value length] > 0) {
             if (result) {
                 CFRelease(result);
@@ -58,7 +66,8 @@ static CFTypeRef hooked_MGCopyAnswer(CFStringRef question, uint32_t *typeCode) {
         return;
     }
     OVSRegisterPreferenceListener();
-    if (!OVSGestaltEnabled()) {
+    BOOL tiktokLight = OVSIsTikTokFamily() && OVSSpoofingEnabled();
+    if (!OVSGestaltEnabled() && !tiktokLight) {
         return;
     }
     void *handle = dlopen("/usr/lib/libMobileGestalt.dylib", RTLD_LAZY);

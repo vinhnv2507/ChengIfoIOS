@@ -107,7 +107,7 @@ static BOOL OVSHiddenDylib(const char *name) {
 }
 
 static BOOL OVSHideJailbreakDeep(void) {
-    return OVSHideJailbreakEnabled() && !OVSIsFragileApp();
+    return OVSHideJailbreakEnabled() && !OVSIsFragileApp() && !OVSIsTikTokFamily();
 }
 
 static int (*CIOrigAccess)(const char *, int);

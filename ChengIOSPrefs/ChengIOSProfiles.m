@@ -331,10 +331,10 @@ static NSArray<NSDictionary *> *CIDevices(void) {
         @{@"model": @"iPhone12,3", @"product": @"iPhone 11 Pro", @"os": ios18, @"weight": @2},
         @{@"model": @"iPhone12,5", @"product": @"iPhone 11 Pro Max", @"os": ios18, @"weight": @3},
         @{@"model": @"iPhone12,8", @"product": @"iPhone SE", @"os": ios18, @"weight": @1},
-        @{@"model": @"iPhone13,1", @"product": @"iPhone 12 mini", @"os": iosBoth, @"weight": @2},
-        @{@"model": @"iPhone13,2", @"product": @"iPhone 12", @"os": iosBoth, @"weight": @3},
-        @{@"model": @"iPhone13,3", @"product": @"iPhone 12 Pro", @"os": iosBoth, @"weight": @3},
-        @{@"model": @"iPhone13,4", @"product": @"iPhone 12 Pro Max", @"os": iosBoth, @"weight": @4},
+        @{@"model": @"iPhone13,1", @"product": @"iPhone 12 mini", @"os": ios18, @"weight": @2},
+        @{@"model": @"iPhone13,2", @"product": @"iPhone 12", @"os": ios18, @"weight": @3},
+        @{@"model": @"iPhone13,3", @"product": @"iPhone 12 Pro", @"os": ios18, @"weight": @3},
+        @{@"model": @"iPhone13,4", @"product": @"iPhone 12 Pro Max", @"os": ios18, @"weight": @4},
         @{@"model": @"iPhone14,4", @"product": @"iPhone 13 mini", @"os": iosBoth, @"weight": @2},
         @{@"model": @"iPhone14,5", @"product": @"iPhone 13", @"os": iosBoth, @"weight": @5},
         @{@"model": @"iPhone14,2", @"product": @"iPhone 13 Pro", @"os": iosBoth, @"weight": @5},
@@ -752,6 +752,11 @@ static NSString *CIRadioForModel(NSString *model) {
 static NSDictionary *CIBuildProfile(BOOL full, NSString *iso) {
     NSDictionary *device = CIPickWeighted(CIDevices(), @"weight");
     NSDictionary *os = CIPick(CIBiasRecent(device[@"os"]));
+    NSString *pickModel = device[@"model"] ?: @"";
+    NSInteger osMajor = [os[@"version"] integerValue];
+    if (osMajor >= 19 && ([pickModel hasPrefix:@"iPhone12,"] || [pickModel hasPrefix:@"iPhone13,"])) {
+        os = @{@"version": @"18.7", @"build": @"22H20"};
+    }
     NSDictionary *region = CIRegionForISO(iso);
     if (!region) {
         region = CIPickWeighted(CIRegions(), @"weight");

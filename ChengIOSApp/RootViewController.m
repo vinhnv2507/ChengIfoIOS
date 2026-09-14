@@ -204,7 +204,7 @@ extern char **environ;
         return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";
     }
     if (section == 3) {
-        return @"Backup/restore kieu Apps Manager (can ldid). Xoa data nhanh: doi ten sandbox roi rm nen, SQL keychain, khong ldid. Shopee khong spoof model/iOS/WK/gestalt.";
+        return @"TikTok: model + iOS chuoi, khong capability/WK. iPhone 12 khong gan iOS 26. Shopee khong spoof model/iOS/WK/gestalt. Backup can ldid.";
     }
     if (section == 10) {
         return @"deviceinfo.me Region/City/ISP la IP cong cong that (Viettel/Hung Yen). Bam nut Detect de dung GPS gia lap.";

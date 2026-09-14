@@ -795,6 +795,7 @@ static BOOL CIStashDelete(NSString *path) {
     if (![fm fileExistsAtPath:path]) {
         return YES;
     }
+    CIClearItemFlags(path);
     NSString *root = @"/var/tmp/ChengIOS-trash";
     [fm createDirectoryAtPath:root withIntermediateDirectories:YES attributes:nil error:nil];
     const char *rootRaw = root.fileSystemRepresentation;
@@ -1083,6 +1084,14 @@ static void CISettleForDisk(NSString *bundleID) {
         CIRunKillall(@"Musical.ly");
         CIRunKillall(@"Aweme");
         CIRunKillall(@"trill");
+        CIRunKillall(@"TikTokNotification");
+        CIRunKillall(@"NotificationService");
+        CIRunKillall(@"TikTokShare");
+        CIRunKillall(@"ShareExtension");
+        CIRunKillall(@"TikTokWidget");
+        CIRunKillall(@"WidgetExtension");
+        CIRunKillall(@"BroadcastUpload");
+        CIRunKillall(@"TikTokBroadcast");
     }
 }
 
@@ -1746,7 +1755,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.40, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.41, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -4035,7 +4044,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.40",
+        @"version": @"1.2.41",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -4572,10 +4581,18 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
         return NO;
     }
     CISettleForDisk(bundleID);
+    NSDictionary *pluginsEarly = CIPluginPaths(bundleID);
+    for (NSString *pluginID in pluginsEarly) {
+        CITerminateBundle(pluginID);
+    }
     BOOL ok = NO;
     NSString *dataPath = CIDataPath(bundleID);
     if (dataPath.length > 0) {
         ok = CIEmptyContainer(dataPath) || ok;
+        if (!ok) {
+            CISettleForDisk(bundleID);
+            ok = CIEmptyContainer(dataPath) || ok;
+        }
     }
 
     NSString *eraseLow = bundleID.lowercaseString;

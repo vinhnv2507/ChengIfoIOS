@@ -25,6 +25,7 @@ BOOL OVSIsWebKitHelperProcess(void);
 BOOL OVSIsSafariFamily(void);
 BOOL OVSIsFragileApp(void);
 BOOL OVSIsShopeeFamily(void);
+BOOL OVSIsTikTokFamily(void);
 void CIInstallShopeeDeviceCheckHooks(void);
 BOOL OVSShouldSpoofOSVersion(void);
 BOOL OVSShouldSpoofOSCapability(void);
@@ -71,6 +72,7 @@ uint64_t OVSSpoofedUniqueChipID(void);
 NSUUID *OVSSpoofedVendorUUID(void);
 NSUUID *OVSSpoofedAdvertisingUUID(void);
 id OVSGestaltObjectForKey(NSString *key);
+id OVSTikTokLightGestaltValue(NSString *key);
 
 BOOL OVSLocaleEnabled(void);
 NSString *OVSSpoofedLocaleIdentifier(void);

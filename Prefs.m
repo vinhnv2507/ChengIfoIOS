@@ -536,8 +536,36 @@ BOOL OVSIsShopeeFamily(void) {
     return shopee;
 }
 
+static BOOL OVSStringLooksTikTok(NSString *value) {
+    NSString *text = value.lowercaseString ?: @"";
+    if (text.length == 0) {
+        return NO;
+    }
+    return [text containsString:@"tiktok"] ||
+           [text containsString:@"musically"] ||
+           [text containsString:@"aweme"] ||
+           [text containsString:@"trill"] ||
+           [text hasPrefix:@"com.zhiliaoapp."] ||
+           [text hasPrefix:@"com.ss.iphone."];
+}
+
+BOOL OVSIsTikTokFamily(void) {
+    static BOOL tiktok;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        tiktok = OVSStringLooksTikTok(OVSEffectiveBundleIdentifier()) ||
+                 OVSStringLooksTikTok(OVSMainBundleIdentifier()) ||
+                 OVSStringLooksTikTok([[NSProcessInfo processInfo] processName]) ||
+                 OVSStringLooksTikTok(OVSParentProcessName()) ||
+                 OVSStringLooksTikTok(NSHomeDirectory()) ||
+                 OVSStringLooksTikTok(OVSContainerBundleIdentifier()) ||
+                 OVSStringLooksTikTok(OVSResponsibleBundleIdentifier());
+    });
+    return tiktok;
+}
+
 BOOL OVSGestaltEnabled(void) {
-    if (!OVSSpoofingEnabled() || OVSIsWebKitHelperProcess() || OVSIsFragileApp() || OVSIsSafariFamily()) {
+    if (!OVSSpoofingEnabled() || OVSIsWebKitHelperProcess() || OVSIsFragileApp() || OVSIsSafariFamily() || OVSIsTikTokFamily()) {
         return NO;
     }
     return OVSBoolForKey(@"gestaltEnabled", NO);
@@ -639,7 +667,7 @@ BOOL OVSShouldSpoofOSVersion(void) {
 }
 
 BOOL OVSShouldSpoofOSCapability(void) {
-    return OVSShouldSpoofOSVersion();
+    return OVSShouldSpoofOSVersion() && !OVSIsTikTokFamily();
 }
 
 BOOL OVSHideJailbreakEnabled(void) {
@@ -705,14 +733,29 @@ NSOperatingSystemVersion OVSPredictedOSVersion(void) {
     return version;
 }
 
+static BOOL OVSModelRejectsIOS26(NSString *model) {
+    return [model hasPrefix:@"iPhone12,"] || [model hasPrefix:@"iPhone13,"];
+}
+
 NSOperatingSystemVersion OVSSpoofedOSVersion(void) {
+    NSOperatingSystemVersion version;
+    version.majorVersion = 0;
+    version.minorVersion = 0;
+    version.patchVersion = 0;
     if (OVSUseCustomOSVersion()) {
-        NSOperatingSystemVersion parsed;
-        if (OVSParseVersion(OVSStringForKeys(@[@"customOSVersion", @"spoofedSystemVersion"], nil), &parsed)) {
-            return parsed;
+        if (OVSParseVersion(OVSStringForKeys(@[@"customOSVersion", @"spoofedSystemVersion"], nil), &version)) {
+        } else {
+            version = OVSPredictedOSVersion();
         }
+    } else {
+        version = OVSPredictedOSVersion();
     }
-    return OVSPredictedOSVersion();
+    if (OVSModelRejectsIOS26(OVSSpoofedModel()) && version.majorVersion >= 19) {
+        version.majorVersion = 18;
+        version.minorVersion = 7;
+        version.patchVersion = 0;
+    }
+    return version;
 }
 
 NSString *OVSSpoofedOSVersionString(void) {
@@ -728,6 +771,13 @@ NSString *OVSSpoofedOSVersionUnderscore(void) {
 }
 
 NSString *OVSSpoofedBuildNumber(void) {
+    if (OVSModelRejectsIOS26(OVSSpoofedModel()) && OVSSpoofedOSVersion().majorVersion <= 18) {
+        NSString *custom = OVSStringForKeys(@[@"customBuildNumber", @"spoofedBuild"], nil);
+        if (custom.length == 0 || [custom hasPrefix:@"23"]) {
+            return @"22H20";
+        }
+        return custom;
+    }
     NSString *custom = OVSStringForKeys(@[@"customBuildNumber", @"spoofedBuild"], nil);
     if (custom.length > 0) {
         return custom;
@@ -1011,6 +1061,28 @@ NSUUID *OVSSpoofedAdvertisingUUID(void) {
 
 static BOOL OVSGestaltKeyIs(NSString *key, NSString *name) {
     return [key caseInsensitiveCompare:name] == NSOrderedSame;
+}
+
+id OVSTikTokLightGestaltValue(NSString *key) {
+    if (key.length == 0 || !OVSIsTikTokFamily() || !OVSSpoofingEnabled()) {
+        return nil;
+    }
+    if (OVSGestaltKeyIs(key, @"ProductVersion")) {
+        return OVSSpoofedOSVersionString();
+    }
+    if (OVSGestaltKeyIs(key, @"BuildVersion")) {
+        return OVSSpoofedBuildNumber();
+    }
+    if (OVSShouldSpoofModel() && (OVSGestaltKeyIs(key, @"ProductType") || OVSGestaltKeyIs(key, @"product-type"))) {
+        return OVSSpoofedModel();
+    }
+    if (OVSShouldSpoofModel() && (OVSGestaltKeyIs(key, @"HWModelStr") || OVSGestaltKeyIs(key, @"HWModel") || OVSGestaltKeyIs(key, @"hw-model") || OVSGestaltKeyIs(key, @"HardwareModel"))) {
+        return OVSSpoofedHwModel();
+    }
+    if (OVSShouldSpoofModel() && (OVSGestaltKeyIs(key, @"DeviceName") || OVSGestaltKeyIs(key, @"marketing-name") || OVSGestaltKeyIs(key, @"MarketingProductName"))) {
+        return OVSSpoofedMarketingName();
+    }
+    return nil;
 }
 
 id OVSGestaltObjectForKey(NSString *key) {
