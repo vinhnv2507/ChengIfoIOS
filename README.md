@@ -32,6 +32,13 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.39
+
+- Shopee: bo hook MGCopyAnswer/gestalt (1.2.38 lam vang trang ho so). Giu IDFA/IDFV overlay, DeviceCheck off, container UUID moi khi xoa. Khong spoof iOS/WK/Darwin/ProductType
+- Phan vung moi ap dung moi app da chon (khong chi Shopee): recreate data/group/plugin UUID + ghi UDID/IDFV/IDFA/serial vao appDeviceProfiles. Random Toan Bo/Info May dong bo identity vao tat ca app da chon
+- Them wipe SDK Shopee (Tongdun/TrustDecision/AppsFlyer/Firebase) o Application Support/Caches/HTTPStorages. Facebook van change 1.2.14
+- Shopee van co the nhan may cu qua UDID that (MGCopyAnswer hashed). Khong Gestalt thi khong doi UDID phan cung; email verify khong dam bao
+
 ## 1.2.38
 
 - Shopee thiet bi moi: moi lan xoa tao phan vung container UUID moi (MCM regenerate hoac doi folder metadata), roi cap UDID/IDFV/IDFA/serial rieng vao appDeviceProfiles

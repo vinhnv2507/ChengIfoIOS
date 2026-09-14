@@ -861,11 +861,6 @@ NSDictionary *ChengIOSMintAppIdentity(void) {
     };
 }
 
-static BOOL CIProfileBundleLooksShopee(NSString *bundleID) {
-    NSString *low = bundleID.lowercaseString ?: @"";
-    return [low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."];
-}
-
 void ChengIOSAssignAppIdentity(NSArray<NSString *> *bundleIDs, NSDictionary *identity) {
     NSDictionary *mint = identity.count ? identity : ChengIOSMintAppIdentity();
     NSMutableDictionary *patch = [mint mutableCopy];
@@ -953,8 +948,6 @@ NSString *ChengIOSProfileSummary(NSDictionary *profile) {
     return text;
 }
 
-static BOOL CIProfileBundleLooksShopee(NSString *bundleID);
-
 void ChengIOSApplyProfile(NSDictionary *profile) {
     if (profile.count == 0) {
         return;
@@ -974,14 +967,14 @@ void ChengIOSApplyProfile(NSDictionary *profile) {
     if (!asRoot) {
         CFPreferencesAppSynchronize(CFSTR("com.vinhnv2507.chengiosprefs"));
     }
-    NSMutableDictionary *shopeeIds = [NSMutableDictionary dictionary];
+    NSMutableDictionary *appIds = [NSMutableDictionary dictionary];
     for (NSString *key in @[@"spoofedVendorUUID", @"spoofedAdvertisingUUID", @"spoofedSerialNumber", @"spoofedUniqueDeviceID", @"wifiAddress", @"bluetoothAddress", @"spoofedIMEI", @"macAddress"]) {
         id value = merged[key];
         if ([value isKindOfClass:[NSString class]] && [value length] > 0) {
-            shopeeIds[key] = value;
+            appIds[key] = value;
         }
     }
-    if (shopeeIds.count > 0) {
+    if (appIds.count > 0) {
         NSMutableDictionary *map = [merged[@"appDeviceProfiles"] isKindOfClass:[NSDictionary class]] ? [merged[@"appDeviceProfiles"] mutableCopy] : [NSMutableDictionary dictionary];
         NSMutableArray<NSString *> *targets = [NSMutableArray array];
         id spoofed = merged[@"spoofedApps"];
@@ -1003,10 +996,11 @@ void ChengIOSApplyProfile(NSDictionary *profile) {
         }
         BOOL changed = NO;
         for (NSString *bundleID in targets) {
-            if (CIProfileBundleLooksShopee(bundleID)) {
-                map[bundleID] = shopeeIds;
-                changed = YES;
+            if (bundleID.length == 0) {
+                continue;
             }
+            map[bundleID] = appIds;
+            changed = YES;
         }
         if (changed) {
             merged[@"appDeviceProfiles"] = map;
