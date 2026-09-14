@@ -221,6 +221,7 @@
         return;
     }
     %init;
+    BOOL shopeeSpoof = OVSIsShopeeFamily() && OVSSpoofingEnabled();
     if (!OVSIsFragileApp()) {
         %init(LocaleClassHooks);
         if (OVSLocaleEnabled()) {
@@ -229,14 +230,11 @@
         if (NSClassFromString(@"CTCarrier") || NSClassFromString(@"CTTelephonyNetworkInfo")) {
             %init(TelephonyHooks);
         }
-        if (NSClassFromString(@"ASIdentifierManager")) {
-            %init(AdSupportHooks);
-        }
-    } else if (OVSIsShopeeFamily() && OVSSpoofingEnabled()) {
-        if (NSClassFromString(@"ASIdentifierManager")) {
-            %init(AdSupportHooks);
-        }
+    } else if (shopeeSpoof) {
         CIInstallShopeeDeviceCheckHooks();
+    }
+    if ((!OVSIsFragileApp() || shopeeSpoof) && NSClassFromString(@"ASIdentifierManager")) {
+        %init(AdSupportHooks);
     }
     if (OVSLowLevelHooksEnabled() || OVSMachineHooksEnabled()) {
         %init(LowLevelUname);
