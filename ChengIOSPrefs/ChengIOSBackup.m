@@ -15,6 +15,7 @@
 #include <copyfile.h>
 #include <errno.h>
 #include <signal.h>
+#include <dlfcn.h>
 #ifndef COPYFILE_NOFOLLOW
 #define COPYFILE_NOFOLLOW (COPYFILE_NOFOLLOW_SRC | COPYFILE_NOFOLLOW_DST)
 #endif
@@ -1745,7 +1746,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.37, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.38, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -4034,7 +4035,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.37",
+        @"version": @"1.2.38",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -4565,6 +4566,124 @@ static void CIWipeNamedPasteboards(NSString *bundleID) {
     }
 }
 
+
+static NSString *CIContainerMetaPath(NSString *dir) {
+    return [dir stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist"];
+}
+
+static BOOL CIMCMRegenerate(NSString *className, NSString *identifier) {
+    if (className.length == 0 || identifier.length == 0) {
+        return NO;
+    }
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        dlopen("/System/Library/PrivateFrameworks/MobileContainerManager.framework/MobileContainerManager", RTLD_LAZY);
+    });
+    Class cls = NSClassFromString(className);
+    if (!cls) {
+        return NO;
+    }
+    SEL sel = NSSelectorFromString(@"containerWithIdentifier:createIfNecessary:existed:error:");
+    if (![cls respondsToSelector:sel]) {
+        return NO;
+    }
+    NSError *error = nil;
+    BOOL existed = NO;
+    id container = ((id (*)(id, SEL, id, BOOL, BOOL *, id *))objc_msgSend)(cls, sel, identifier, YES, &existed, &error);
+    if (!container) {
+        return NO;
+    }
+    SEL regen = NSSelectorFromString(@"regenerateDirectoryUUIDWithError:");
+    if (![container respondsToSelector:regen]) {
+        return NO;
+    }
+    return ((BOOL (*)(id, SEL, id *))objc_msgSend)(container, regen, &error);
+}
+
+static BOOL CIRotateContainerFolder(NSString *path) {
+    if (!CIPathSafeToMutate(path)) {
+        return NO;
+    }
+    NSFileManager *fm = [NSFileManager defaultManager];
+    BOOL isDir = NO;
+    if (![fm fileExistsAtPath:path isDirectory:&isDir] || !isDir) {
+        return NO;
+    }
+    NSString *metaPath = CIContainerMetaPath(path);
+    NSDictionary *meta = [NSDictionary dictionaryWithContentsOfFile:metaPath];
+    if (![meta isKindOfClass:[NSDictionary class]] || ![meta[@"MCMMetadataIdentifier"] isKindOfClass:[NSString class]]) {
+        return NO;
+    }
+    NSString *newUUID = [[[NSUUID UUID] UUIDString] uppercaseString];
+    NSString *dest = [[path stringByDeletingLastPathComponent] stringByAppendingPathComponent:newUUID];
+    if ([fm fileExistsAtPath:dest]) {
+        return NO;
+    }
+    NSMutableDictionary *newMeta = [meta mutableCopy];
+    newMeta[@"MCMMetadataUUID"] = newUUID;
+    id info = newMeta[@"MCMMetadataInfo"];
+    if ([info isKindOfClass:[NSDictionary class]]) {
+        NSMutableDictionary *infoMut = [info mutableCopy];
+        if (infoMut[@"MCMMetadataUUID"]) {
+            infoMut[@"MCMMetadataUUID"] = newUUID;
+        }
+        if (infoMut[@"UUID"]) {
+            infoMut[@"UUID"] = newUUID;
+        }
+        newMeta[@"MCMMetadataInfo"] = infoMut;
+    }
+    if (![fm createDirectoryAtPath:dest withIntermediateDirectories:YES attributes:nil error:nil]) {
+        return NO;
+    }
+    for (NSString *sub in CIAppDataSubdirs()) {
+        NSString *child = [dest stringByAppendingPathComponent:sub];
+        [fm createDirectoryAtPath:child withIntermediateDirectories:YES attributes:nil error:nil];
+        const char *raw = child.fileSystemRepresentation;
+        if (raw) {
+            lchown(raw, kCIMobileUID, kCIMobileGID);
+            chmod(raw, [sub isEqualToString:@"tmp"] ? 0777 : 0755);
+        }
+    }
+    [newMeta writeToFile:CIContainerMetaPath(dest) atomically:YES];
+    const char *destRaw = dest.fileSystemRepresentation;
+    if (destRaw) {
+        lchown(destRaw, kCIMobileUID, kCIMobileGID);
+        chmod(destRaw, 0755);
+    }
+    const char *metaRaw = CIContainerMetaPath(dest).fileSystemRepresentation;
+    if (metaRaw) {
+        lchown(metaRaw, kCIMobileUID, kCIMobileGID);
+        chmod(metaRaw, 0644);
+    }
+    if (!CIStashDelete(path)) {
+        CIStashDelete(dest);
+        return NO;
+    }
+    return YES;
+}
+
+static BOOL CIRecreateContainer(NSString *path, NSString *mcmClass, NSString *identifier) {
+    BOOL regenerated = CIMCMRegenerate(mcmClass, identifier);
+    if (regenerated) {
+        if (path.length > 0 && [[NSFileManager defaultManager] fileExistsAtPath:path]) {
+            CIStashDelete(path);
+        }
+        return YES;
+    }
+    if (path.length > 0 && CIRotateContainerFolder(path)) {
+        return YES;
+    }
+    if (path.length > 0) {
+        return CIEmptyContainer(path);
+    }
+    return NO;
+}
+
+static BOOL CIBundleLooksShopee(NSString *bundleID) {
+    NSString *low = bundleID.lowercaseString ?: @"";
+    return [low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."];
+}
+
 static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
     if (ChengIOSBundleIsProtected(bundleID)) {
         return NO;
@@ -4572,6 +4691,9 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
     CISettleForDisk(bundleID);
     BOOL ok = NO;
     NSString *dataPath = CIDataPath(bundleID);
+    ok = CIRecreateContainer(dataPath, @"MCMAppDataContainer", bundleID) || ok;
+    CIContainerIndexClear();
+    dataPath = CIDataPath(bundleID);
     if (dataPath.length > 0) {
         ok = CIEmptyContainer(dataPath) || ok;
     }
@@ -4606,7 +4728,11 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
         if (!CIGroupAlwaysWipe(group, bundleID) && !owned[group] && CIGroupUsedByOtherApps(group, bundleID, together)) {
             continue;
         }
-        ok = CIEmptyContainer(groups[group]) || ok;
+        ok = CIRecreateContainer(groups[group], @"MCMSharedDataContainer", group) || ok;
+        CIContainerIndexClear();
+        if (groups[group].length > 0 && [[NSFileManager defaultManager] fileExistsAtPath:groups[group]]) {
+            ok = CIEmptyContainer(groups[group]) || ok;
+        }
         for (NSString *root in @[
             @"/var/mobile/Library/Preferences",
             @"/private/var/mobile/Library/Preferences"
@@ -4629,7 +4755,11 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
     }
     NSDictionary *plugins = CIPluginPaths(bundleID);
     for (NSString *pluginID in plugins) {
-        ok = CIEmptyContainer(plugins[pluginID]) || ok;
+        ok = CIRecreateContainer(plugins[pluginID], @"MCMPluginKitPluginDataContainer", pluginID) || ok;
+        CIContainerIndexClear();
+        if (plugins[pluginID].length > 0 && [[NSFileManager defaultManager] fileExistsAtPath:plugins[pluginID]]) {
+            ok = CIEmptyContainer(plugins[pluginID]) || ok;
+        }
     }
     if (ChengIOSBundleIsSafari(bundleID)) {
         CIKillSafariProcesses();
@@ -4724,7 +4854,18 @@ NSDictionary *ChengIOSEraseBundles(NSArray<NSString *> *bundleIDs, NSError **err
     CIRunKillall(@"cfprefsd");
     CIRunKillall(@"securityd");
     CIRunKillall(@"secd");
+    CIRunKillall(@"containermanagerd");
+    CIRunKillall(@"lsd");
     CIContainerIndexClear();
+    NSMutableArray<NSString *> *shopee = [NSMutableArray array];
+    for (NSString *bundleID in ok) {
+        if (CIBundleLooksShopee(bundleID) && ![shopee containsObject:bundleID]) {
+            [shopee addObject:bundleID];
+        }
+    }
+    if (shopee.count > 0) {
+        ChengIOSAssignAppIdentity(shopee, ChengIOSMintAppIdentity());
+    }
     gCIFastErase = NO;
     return @{@"ok": ok, @"failed": failed, @"skipped": skipped};
 }

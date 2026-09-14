@@ -32,6 +32,13 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.38
+
+- Shopee thiet bi moi: moi lan xoa tao phan vung container UUID moi (MCM regenerate hoac doi folder metadata), roi cap UDID/IDFV/IDFA/serial rieng vao appDeviceProfiles
+- Hook gestalt nhe cho Shopee: chi doi UniqueDeviceID/Serial/MAC/ProductType (ke ca hashed MGCopyAnswer bang so sanh gia tri that). Khong spoof iOS version, khong Darwin/RAM, khong WK
+- Random Toan Bo/Info May dong bo identity vao ho so Shopee da chon. Nut/deeplink `chengios://new-partition-random`
+- Facebook van change 1.2.14. Shopee van khong WK/gestalt day du
+
 ## 1.2.37
 
 - Shopee: tat spoof iOS version (1.2.36 vang). Giu IDFA spoof + DeviceCheck/App Attest off. Khong WKWebView, khong gestalt. Facebook van 1.2.14 (model qua hw.machine/UIDevice/uname)
