@@ -32,6 +32,13 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.46
+
+- Shopee change kieu Facebook: spoof model (UIDevice/uname/sysctl) + IDFV/IDFA. Van khong iOS/WK/Gestalt/DeviceCheck hook
+- Shopee wipe: resolve `com.beeasy.shopee.vn`, scan family, kill process, retry dirty, xoa lai sau Random
+- TikTok light gestalt them UniqueDeviceID/Serial
+- Nut/deeplink **Xoa toan bo app + Safari** va **Xoa toan bo + Random Toan Bo** (`chengios://erase-device-random`)
+
 ## 1.2.45
 
 - Facebook: spoof IDFV + IDFA (truoc giu IDFV that nen "Dang nhap gan day" gom cung 1 thiet bi). Khong Gestalt/WK/Darwin
