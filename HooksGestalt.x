@@ -62,7 +62,7 @@ static CFTypeRef hooked_MGCopyAnswer(CFStringRef question, uint32_t *typeCode) {
 }
 
 %ctor {
-    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess() || OVSIsFragileApp()) {
+    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess() || OVSIsFragileApp() || OVSIsShopeeFamily()) {
         return;
     }
     OVSRegisterPreferenceListener();

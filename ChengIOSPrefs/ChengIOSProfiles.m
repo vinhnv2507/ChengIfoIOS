@@ -1,4 +1,5 @@
 #import "ChengIOSProfiles.h"
+#import "ChengIOSBackup.h"
 
 #import <CoreFoundation/CoreFoundation.h>
 #import <stdint.h>
@@ -1053,6 +1054,9 @@ void ChengIOSApplyProfile(NSDictionary *profile) {
     CIFinalizePrefsFiles();
     notify_post("com.vinhnv2507.chengiosprefs/changed");
     notify_post("com.vinhnv2507.chengiosprefs/ReloadPrefs");
+    if (profile[@"appEnabled"] || profile[@"spoofedApps"]) {
+        ChengIOSRequestInjectionFilterSync();
+    }
 }
 
 void ChengIOSReplaceRawPrefs(NSDictionary *prefs) {
@@ -1098,6 +1102,7 @@ void ChengIOSReplaceRawPrefs(NSDictionary *prefs) {
     CIFinalizePrefsFiles();
     notify_post("com.vinhnv2507.chengiosprefs/changed");
     notify_post("com.vinhnv2507.chengiosprefs/ReloadPrefs");
+    ChengIOSRequestInjectionFilterSync();
 }
 
 NSMutableDictionary *ChengIOSLoadRawPrefs(void) {

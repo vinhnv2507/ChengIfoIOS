@@ -88,6 +88,18 @@ EOF
   launchctl kickstart -k system/com.vinhnv2507.chengiosroot >/dev/null 2>&1 || true
 fi
 
+if [ -n "$HELPER" ]; then
+  mkdir -p /var/tmp/ChengIOS 2>/dev/null || true
+  cat > /var/tmp/ChengIOS/sync-in.plist <<PL
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict/>
+</plist>
+PL
+  "$HELPER" sync-filter /var/tmp/ChengIOS/sync-in.plist /var/tmp/ChengIOS/sync-out.plist >/dev/null 2>&1 || true
+fi
+
 killall -9 Preferences >/dev/null 2>&1 || true
 killall -9 ChengIOSApp >/dev/null 2>&1 || true
 

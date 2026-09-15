@@ -1908,7 +1908,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.48, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.49, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -4220,7 +4220,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.48",
+        @"version": @"1.2.49",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -4797,6 +4797,149 @@ static void CIKillShopeeHard(void) {
     for (NSString *bid in CIKnownShopeeBundles()) {
         CITerminateBundle(bid);
     }
+}
+
+
+static BOOL CIBundleBlockedFromInjection(NSString *bundleID) {
+    NSString *low = bundleID.lowercaseString ?: @"";
+    if (low.length == 0) {
+        return YES;
+    }
+    if (CIBundleIsShopeeFamily(bundleID) ||
+        [low containsString:@"shopee"] ||
+        [low containsString:@"beeasy"] ||
+        [low containsString:@"shopeepay"] ||
+        [low hasPrefix:@"com.shopee."] ||
+        [low hasPrefix:@"com.beeasy."]) {
+        return YES;
+    }
+    if ([low isEqualToString:@"com.apple.uikit"] ||
+        [low isEqualToString:@"com.apple.foundation"] ||
+        [low hasPrefix:@"com.apple.webkit"]) {
+        return YES;
+    }
+    return ChengIOSBundleIsProtected(bundleID) && !ChengIOSBundleIsSafari(bundleID);
+}
+
+static NSArray<NSString *> *CIDefaultInjectionBundles(void) {
+    return @[
+        @"com.apple.mobilesafari",
+        @"com.facebook.Facebook",
+        @"com.facebook.Messenger",
+        @"com.ss.iphone.ugc.Aweme",
+        @"com.zhiliaoapp.musically",
+        @"com.zhiliaoapp.musically.go",
+        @"com.finalwire.aida64",
+        @"com.ksauxiliary.AIDA64"
+    ];
+}
+
+static NSArray<NSString *> *CIInjectionFilterPlistPaths(void) {
+    return @[
+        @"/Library/MobileSubstrate/DynamicLibraries/ChengIOS.plist",
+        @"/var/jb/Library/MobileSubstrate/DynamicLibraries/ChengIOS.plist",
+        @"/usr/lib/TweakInject/ChengIOS.plist",
+        @"/var/jb/usr/lib/TweakInject/ChengIOS.plist",
+        @"/Library/TweakInject/ChengIOS.plist",
+        @"/var/jb/Library/TweakInject/ChengIOS.plist"
+    ];
+}
+
+static NSArray<NSString *> *CIBuildInjectionFilterBundles(void) {
+    NSMutableArray<NSString *> *out = [NSMutableArray array];
+    NSMutableSet<NSString *> *seen = [NSMutableSet set];
+    void (^add)(NSString *) = ^(NSString *bundleID) {
+        NSString *use = ChengIOSCanonicalBundleID(bundleID) ?: bundleID;
+        if (use.length == 0 || [seen containsObject:use] || CIBundleBlockedFromInjection(use)) {
+            return;
+        }
+        [seen addObject:use];
+        [out addObject:use];
+    };
+    BOOL any = NO;
+    for (NSString *bundle in ChengIOSUserSelectedBundleIDs()) {
+        if (CIBundleBlockedFromInjection(bundle)) {
+            continue;
+        }
+        any = YES;
+        add(bundle);
+        if (ChengIOSBundleIsSafari(bundle)) {
+            add(@"com.apple.mobilesafari");
+        }
+    }
+    if (!any) {
+        for (NSString *bundle in CIDefaultInjectionBundles()) {
+            add(bundle);
+        }
+    }
+    if (out.count == 0) {
+        add(@"com.vinhnv2507.chengios.app");
+        if (out.count == 0) {
+            [out addObject:@"com.vinhnv2507.chengios.app"];
+        }
+    }
+    [out sortUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+    return out;
+}
+
+static NSDictionary *CIWriteInjectionFilterPlist(NSArray<NSString *> *bundles, NSError **error) {
+    NSArray<NSString *> *use = bundles.count ? bundles : CIBuildInjectionFilterBundles();
+    NSDictionary *plist = @{
+        @"Filter": @{
+            @"Bundles": use
+        }
+    };
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSMutableArray<NSString *> *written = [NSMutableArray array];
+    for (NSString *path in CIInjectionFilterPlistPaths()) {
+        NSString *dir = [path stringByDeletingLastPathComponent];
+        BOOL isDir = NO;
+        if (![fm fileExistsAtPath:dir isDirectory:&isDir] || !isDir) {
+            continue;
+        }
+        NSString *dylib = [[path stringByDeletingPathExtension] stringByAppendingPathExtension:@"dylib"];
+        if (![fm fileExistsAtPath:path] && ![fm fileExistsAtPath:dylib]) {
+            continue;
+        }
+        if (![plist writeToFile:path atomically:YES]) {
+            continue;
+        }
+        const char *raw = path.fileSystemRepresentation;
+        if (raw) {
+            chmod(raw, 0644);
+            chown(raw, 0, 0);
+        }
+        [written addObject:path];
+    }
+    if (written.count == 0 && error) {
+        *error = CIError(2, @"Khong ghi duoc ChengIOS.plist filter.");
+    }
+    return @{
+        @"ok": @(written.count > 0),
+        @"bundles": use ?: @[],
+        @"written": written
+    };
+}
+
+NSDictionary *ChengIOSSyncInjectionFilter(NSError **error) {
+    NSArray<NSString *> *bundles = CIBuildInjectionFilterBundles();
+    if (!CIIsRootProcess() && !CIInHelperProcess()) {
+        NSDictionary *remote = CIRunRootOp(@{@"op": @"sync-filter"}, error);
+        if ([remote isKindOfClass:[NSDictionary class]]) {
+            return remote;
+        }
+    }
+    return CIWriteInjectionFilterPlist(bundles, error);
+}
+
+void ChengIOSRequestInjectionFilterSync(void) {
+    if (CIIsRootProcess() || CIInHelperProcess()) {
+        ChengIOSSyncInjectionFilter(NULL);
+        return;
+    }
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        ChengIOSSyncInjectionFilter(NULL);
+    });
 }
 
 static BOOL CIBundleIsSticky(NSString *bundleID) {
