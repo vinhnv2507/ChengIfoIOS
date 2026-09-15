@@ -1,5 +1,6 @@
 #import "APPRootListController.h"
 #import "ChengIOSProfiles.h"
+#import "ChengIOSBackup.h"
 
 #import <notify.h>
 #import <spawn.h>
@@ -65,30 +66,7 @@ extern char **environ;
 }
 
 - (void)performRespring {
-    pid_t pid = 0;
-    const char *candidates[] = {
-        "/var/jb/usr/bin/sbreload",
-        "/usr/bin/sbreload",
-        "/var/jb/usr/bin/killall",
-        "/usr/bin/killall",
-        NULL
-    };
-    for (int i = 0; candidates[i] != NULL; i++) {
-        if (access(candidates[i], X_OK) != 0) {
-            continue;
-        }
-        if (strstr(candidates[i], "sbreload") != NULL) {
-            const char *args[] = {candidates[i], NULL};
-            if (posix_spawn(&pid, candidates[i], NULL, NULL, (char *const *)args, environ) == 0) {
-                return;
-            }
-        } else {
-            const char *args[] = {candidates[i], "-9", "SpringBoard", NULL};
-            if (posix_spawn(&pid, candidates[i], NULL, NULL, (char *const *)args, environ) == 0) {
-                return;
-            }
-        }
-    }
+    ChengIOSRequestRespring();
 }
 
 - (void)chengApplyProfile:(NSDictionary *)profile {
@@ -116,12 +94,31 @@ extern char **environ;
     [self presentViewController:alert animated:YES completion:nil];
 }
 
+- (void)chengApplyAndRespring:(NSDictionary *)profile title:(NSString *)title {
+    [self chengApplyProfile:profile];
+    NSString *summary = ChengIOSProfileSummary(profile);
+    if (summary.length > 0) {
+        [UIPasteboard generalPasteboard].string = summary;
+    }
+    if (![UIAlertController class]) {
+        [self performRespring];
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
+                                                                   message:@"Da copy ho so. Dang Respring..."
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [self presentViewController:alert animated:YES completion:^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.9 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self performRespring];
+        });
+    }];
+}
+
 - (void)randomizeIdentity {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSDictionary *profile = ChengIOSRandomIdentity();
         dispatch_async(dispatch_get_main_queue(), ^{
-            [self chengApplyProfile:profile];
-            [self chengShowProfile:profile title:@"Random Info May" full:NO];
+            [self chengApplyAndRespring:profile title:@"Random Info May"];
         });
     });
 }
@@ -130,8 +127,7 @@ extern char **environ;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSDictionary *profile = ChengIOSRandomFullProfile();
         dispatch_async(dispatch_get_main_queue(), ^{
-            [self chengApplyProfile:profile];
-            [self chengShowProfile:profile title:@"Random Toan Bo" full:YES];
+            [self chengApplyAndRespring:profile title:@"Random Toan Bo"];
         });
     });
 }

@@ -29,6 +29,7 @@
         @{@"title": @"Quan ly Backup", @"url": @"chengios://backup"},
         @{@"title": @"Backup ho so", @"url": @"chengios://backup-profile"},
         @{@"title": @"Backup ho so + data app", @"url": @"chengios://backup-apps"},
+        @{@"title": @"Backup + Xoa + Random + Respring", @"url": @"chengios://backup-erase-random"},
         @{@"title": @"Backup 1 app (Facebook)", @"url": @"chengios://backup-apps?bundle=com.facebook.Facebook"},
         @{@"title": @"Restore backup moi nhat", @"url": @"chengios://restore-latest"},
         @{@"title": @"Restore + data moi nhat", @"url": @"chengios://restore-latest?data=1"},
@@ -38,7 +39,8 @@
         @{@"title": @"Xoa data Shopee", @"url": @"chengios://erase?bundle=com.beeasy.shopee.vn"},
         @{@"title": @"Xoa toan bo + Random Toan Bo", @"url": @"chengios://erase-device-random"},
         @{@"title": @"Respring", @"url": @"chengios://respring"},
-        @{@"title": @"Random silent", @"url": @"chengios://random-all?silent=1"}
+        @{@"title": @"Random silent", @"url": @"chengios://random-all?silent=1"},
+        @{@"title": @"Random silent no respring", @"url": @"chengios://random-all?silent=1&norespring=1"}
     ];
 }
 

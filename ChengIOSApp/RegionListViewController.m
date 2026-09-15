@@ -1,5 +1,6 @@
 #import "RegionListViewController.h"
 #import "../ChengIOSPrefs/ChengIOSProfiles.h"
+#import "../ChengIOSPrefs/ChengIOSBackup.h"
 
 @implementation RegionListViewController
 
@@ -41,15 +42,17 @@
         NSString *text = ChengIOSProfileSummary(profile);
         dispatch_async(dispatch_get_main_queue(), ^{
             ChengIOSApplyProfile(profile);
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
-                                                                           message:text
-                                                                    preferredStyle:UIAlertControllerStyleAlert];
-            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-            [alert addAction:[UIAlertAction actionWithTitle:@"Sao chep" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-                (void)action;
+            if (text.length > 0) {
                 [UIPasteboard generalPasteboard].string = text;
-            }]];
-            [self presentViewController:alert animated:YES completion:nil];
+            }
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
+                                                                           message:@"Da copy ho so. Dang Respring..."
+                                                                    preferredStyle:UIAlertControllerStyleAlert];
+            [self presentViewController:alert animated:YES completion:^{
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.9 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    ChengIOSRequestRespring();
+                });
+            }];
         });
     });
 }

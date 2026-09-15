@@ -186,21 +186,245 @@ static NSString *CIResultText(NSDictionary *meta, NSError *error, NSString *fall
     return text;
 }
 
-static void CIRunBusy(UIViewController *host, NSString *title, void (^work)(void (^done)(NSString *resultTitle, NSString *message))) {
+static void CIPresentMaybeRespring(UIViewController *host, NSString *title, NSString *message, BOOL respring);
+static void CIRunBusyEx(UIViewController *host, NSString *title, void (^work)(void (^done)(NSString *resultTitle, NSString *message, BOOL respring)));
+
+static void CIRespringSoon(void) {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.9 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        ChengIOSRequestRespring();
+    });
+}
+
+static void CIPresentMaybeRespring(UIViewController *host, NSString *title, NSString *message, BOOL respring) {
+    if (!respring) {
+        CIPresent(host, title, message);
+        return;
+    }
+    NSString *text = message.length ? [message stringByAppendingString:@"\n\nDang Respring..."] : @"Dang Respring...";
+    if (!host) {
+        CIRespringSoon();
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
+                                                                   message:text
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [host presentViewController:alert animated:YES completion:^{
+        CIRespringSoon();
+    }];
+}
+
+static void CIRunBusyEx(UIViewController *host, NSString *title, void (^work)(void (^done)(NSString *resultTitle, NSString *message, BOOL respring))) {
     UIAlertController *busy = [UIAlertController alertControllerWithTitle:title
                                                                   message:@"Giu app ChengIOS mo. Facebook co the mat vai phut."
                                                            preferredStyle:UIAlertControllerStyleAlert];
     [host presentViewController:busy animated:YES completion:^{
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-            work(^(NSString *resultTitle, NSString *message) {
+            work(^(NSString *resultTitle, NSString *message, BOOL respring) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     [busy dismissViewControllerAnimated:YES completion:^{
-                        CIPresent(host, resultTitle, message);
+                        CIPresentMaybeRespring(host, resultTitle, message, respring);
                     }];
                 });
             });
         });
     }];
+}
+
+static void CIRunBusy(UIViewController *host, NSString *title, void (^work)(void (^done)(NSString *resultTitle, NSString *message))) {
+    CIRunBusyEx(host, title, ^(void (^done)(NSString *resultTitle, NSString *message, BOOL respring)) {
+        work(^(NSString *resultTitle, NSString *message) {
+            done(resultTitle, message, NO);
+        });
+    });
+}
+
+@end
+
+@interface ChengIOSAppPickController : UITableViewController
+@property (nonatomic, copy) NSArray<NSString *> *bundles;
+@property (nonatomic, strong) NSMutableIndexSet *picked;
+@property (nonatomic, copy) NSString *doneTitle;
+@property (nonatomic, copy) void (^onDone)(NSArray<NSString *> *bundles);
+- (instancetype)initWithBundles:(NSArray<NSString *> *)bundles title:(NSString *)title doneTitle:(NSString *)doneTitle;
+@end
+
+@implementation ChengIOSAppPickController
+
+- (instancetype)initWithBundles:(NSArray<NSString *> *)bundles title:(NSString *)title doneTitle:(NSString *)doneTitle {
+    self = [super initWithStyle:UITableViewStyleGrouped];
+    if (self) {
+        _bundles = [bundles copy] ?: @[];
+        _picked = [NSMutableIndexSet indexSetWithIndexesInRange:NSMakeRange(0, _bundles.count)];
+        _doneTitle = doneTitle.length ? [doneTitle copy] : @"OK";
+        self.title = title.length ? title : @"Chon app";
+    }
+    return self;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Huy"
+                                                                             style:UIBarButtonItemStylePlain
+                                                                            target:self
+                                                                            action:@selector(cancelPick)];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:self.doneTitle
+                                                                              style:UIBarButtonItemStyleDone
+                                                                             target:self
+                                                                             action:@selector(confirmPick)];
+}
+
+- (void)cancelPick {
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (NSArray<NSString *> *)pickedBundles {
+    NSMutableArray *out = [NSMutableArray array];
+    [self.picked enumerateIndexesUsingBlock:^(NSUInteger idx, BOOL *stop) {
+        (void)stop;
+        if (idx < self.bundles.count) {
+            [out addObject:self.bundles[idx]];
+        }
+    }];
+    return out;
+}
+
+- (void)confirmPick {
+    NSArray *picked = [self pickedBundles];
+    if (picked.count == 0) {
+        CIPresent(self, @"Chua tick app", @"Tick 1, 2, 3 app hoac tat ca. Danh sach lay tu Change Apps.");
+        return;
+    }
+    void (^cb)(NSArray *) = self.onDone;
+    [self dismissViewControllerAnimated:YES completion:^{
+        if (cb) {
+            cb(picked);
+        }
+    }];
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
+    (void)tableView;
+    return 2;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    (void)tableView;
+    return section == 0 ? 2 : (NSInteger)self.bundles.count;
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    (void)tableView;
+    return section == 0 ? @"Lua chon" : @"App da tick";
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    (void)tableView;
+    if (section == 0) {
+        return nil;
+    }
+    return @"Tick 1, 2, 3 hoac tat ca. Ten backup se gom ten app.";
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"p"];
+    if (!cell) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"p"];
+        cell.detailTextLabel.numberOfLines = 2;
+        cell.detailTextLabel.adjustsFontSizeToFitWidth = YES;
+    }
+    if (indexPath.section == 0) {
+        if (indexPath.row == 0) {
+            cell.textLabel.text = @"Chon tat ca";
+            cell.detailTextLabel.text = [NSString stringWithFormat:@"%lu app", (unsigned long)self.bundles.count];
+            cell.accessoryType = (self.picked.count == self.bundles.count && self.bundles.count > 0) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+        } else {
+            cell.textLabel.text = @"Bo chon tat ca";
+            cell.detailTextLabel.text = @"Phai tick lai app muon backup";
+            cell.accessoryType = UITableViewCellAccessoryNone;
+        }
+        return cell;
+    }
+    NSString *bid = self.bundles[indexPath.row];
+    cell.textLabel.text = ChengIOSBundleDisplayName(bid);
+    cell.detailTextLabel.text = bid;
+    cell.accessoryType = [self.picked containsIndex:(NSUInteger)indexPath.row] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+    return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    if (indexPath.section == 0) {
+        if (indexPath.row == 0) {
+            self.picked = [NSMutableIndexSet indexSetWithIndexesInRange:NSMakeRange(0, self.bundles.count)];
+        } else {
+            self.picked = [NSMutableIndexSet indexSet];
+        }
+        [tableView reloadData];
+        return;
+    }
+    NSUInteger idx = (NSUInteger)indexPath.row;
+    if ([self.picked containsIndex:idx]) {
+        [self.picked removeIndex:idx];
+    } else {
+        [self.picked addIndex:idx];
+    }
+    [tableView reloadRowsAtIndexPaths:@[indexPath, [NSIndexPath indexPathForRow:0 inSection:0]] withRowAnimation:UITableViewRowAnimationNone];
+}
+
+@end
+
+@implementation BackupListViewController
+
+static void CIPresentAppPicker(UIViewController *host, NSString *title, NSString *doneTitle, NSArray<NSString *> *bundles, void (^onDone)(NSArray<NSString *> *picked)) {
+    if (!host) {
+        return;
+    }
+    if (bundles.count == 0) {
+        CIPresent(host, @"Chua chon app", @"Mo Change Apps, tick TikTok / Facebook / Shopee / Safari, roi bam lai.");
+        return;
+    }
+    ChengIOSAppPickController *pick = [[ChengIOSAppPickController alloc] initWithBundles:bundles title:title doneTitle:doneTitle];
+    pick.onDone = onDone;
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:pick];
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        nav.modalPresentationStyle = UIModalPresentationFormSheet;
+    }
+    [host presentViewController:nav animated:YES completion:nil];
+}
+
+static NSString *CIFormatEraseRandomText(NSDictionary *result, NSError *error) {
+    NSMutableString *msg = [NSMutableString string];
+    NSArray *ok = result[@"ok"];
+    NSArray *failed = result[@"failed"];
+    NSArray *skipped = result[@"skipped"];
+    if (ok.count) {
+        [msg appendFormat:@"Da xoa: %@\n", CIJoinTitles(ok)];
+    }
+    if (failed.count) {
+        [msg appendFormat:@"Loi: %@\n", CIJoinTitles(failed)];
+    }
+    if (skipped.count) {
+        [msg appendFormat:@"Bo qua: %@\n", CIJoinTitles(skipped)];
+    }
+    if ([result[@"profileSummary"] length]) {
+        [msg appendFormat:@"\n%@\n", result[@"profileSummary"]];
+    }
+    if (error && (msg.length == 0 || ok.count == 0)) {
+        if (msg.length) {
+            [msg appendString:@"\n"];
+        }
+        [msg appendString:ChengIOSBackupErrorMessage(error)];
+    }
+    if (msg.length == 0 && [result[@"error"] isKindOfClass:[NSString class]]) {
+        [msg appendString:result[@"error"]];
+    }
+    if (msg.length == 0) {
+        [msg appendString:@"Force-quit app roi mo lai."];
+    }
+    if (ok.count) {
+        [msg appendString:@"\nForce-quit Shopee/TikTok/Facebook roi mo lai."];
+    }
+    return msg;
 }
 
 void ChengIOSRunCreateBackup(UIViewController *host, NSString *name, BOOL includeAppData, NSArray<NSString *> *bundleIDs, BOOL silent) {
@@ -217,14 +441,15 @@ void ChengIOSRunCreateBackup(UIViewController *host, NSString *name, BOOL includ
         go();
         return;
     }
+    NSArray *nameBundles = includeAppData ? (bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs()) : @[];
     NSString *message = includeAppData
-        ? @"Luu ho so + Documents/Library/tmp/SystemData/StoreKit + group/plugin + keychain SQL (root/daemon). App se bi kill. Can dang nhap san. Can ldid. Facebook data co the mat vai phut."
+        ? [NSString stringWithFormat:@"Luu ho so + data + keychain cua %lu app. App se bi kill. Can dang nhap san. Ten backup se gom ten app.", (unsigned long)nameBundles.count]
         : @"Luu ho so gia lap hien tai (model/iOS/GPS/Wi-Fi...).";
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:includeAppData ? @"Backup ho so + data" : @"Backup ho so"
                                                                    message:message
                                                             preferredStyle:UIAlertControllerStyleAlert];
     [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
-        field.text = name.length ? name : ChengIOSSuggestedBackupName();
+        field.text = name.length ? name : ChengIOSSuggestedBackupNameForBundles(nameBundles);
         field.placeholder = @"Ten backup";
         field.clearButtonMode = UITextFieldViewModeWhileEditing;
     }];
@@ -237,6 +462,81 @@ void ChengIOSRunCreateBackup(UIViewController *host, NSString *name, BOOL includ
         });
     }]];
     [host presentViewController:alert animated:YES completion:nil];
+}
+
+static void ChengIOSRunPickBackup(UIViewController *host, NSString *name, BOOL silent) {
+    NSArray *all = ChengIOSUserSelectedBundleIDs();
+    if (all.count == 0) {
+        CIPresent(host, @"Chua chon app", @"Mo Change Apps, tick TikTok / Facebook / Shopee / Safari, roi bam Backup lai.");
+        return;
+    }
+    if (silent) {
+        ChengIOSRunCreateBackup(host, name, YES, all, YES);
+        return;
+    }
+    CIPresentAppPicker(host, @"Backup ho so + data", @"Backup", all, ^(NSArray<NSString *> *picked) {
+        ChengIOSRunCreateBackup(host, name, YES, picked, NO);
+    });
+}
+
+static void ChengIOSRunBackupEraseRandom(UIViewController *host, NSString *name, NSArray<NSString *> *bundleIDs, BOOL silent, BOOL respring) {
+    NSArray *fallback = ChengIOSUserSelectedBundleIDs();
+    void (^go)(NSString *, NSArray *) = ^(NSString *useName, NSArray *list) {
+        CIRunBusyEx(host, @"Backup + xoa + random", ^(void (^done)(NSString *, NSString *, BOOL)) {
+            NSError *error = nil;
+            NSDictionary *meta = ChengIOSCreateBackup(useName, list, YES, &error);
+            if (!meta || error) {
+                done(@"Backup loi", ChengIOSBackupErrorMessage(error), NO);
+                return;
+            }
+            NSError *eraseError = nil;
+            NSDictionary *result = ChengIOSEraseThenRandom(list, NO, YES, nil, &eraseError);
+            NSMutableString *msg = [NSMutableString string];
+            [msg appendString:CIResultText(meta, nil, @"Da backup ho so + data.")];
+            [msg appendString:@"\n\n"];
+            [msg appendString:CIFormatEraseRandomText(result, eraseError)];
+            BOOL didChange = [result[@"profileSummary"] length] > 0;
+            done(@"Da backup + xoa + random", msg, respring && didChange);
+        });
+    };
+    void (^afterPick)(NSArray *) = ^(NSArray *list) {
+        if (list.count == 0) {
+            CIPresent(host, @"Chua chon app", @"Mo Change Apps, tick TikTok / Facebook / Shopee / Safari, roi bam lai.");
+            return;
+        }
+        if (silent) {
+            go(name.length ? name : ChengIOSSuggestedBackupNameForBundles(list), list);
+            return;
+        }
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Backup + Xoa + Random + Respring"
+                                                                       message:[NSString stringWithFormat:@"Backup ho so + data %lu app, xoa data app do, Random Toan Bo theo IP, roi Respring. Khong undo.", (unsigned long)list.count]
+                                                                preferredStyle:UIAlertControllerStyleAlert];
+        [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+            field.text = name.length ? name : ChengIOSSuggestedBackupNameForBundles(list);
+            field.placeholder = @"Ten backup";
+            field.clearButtonMode = UITextFieldViewModeWhileEditing;
+        }];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Huy" style:UIAlertActionStyleCancel handler:nil]];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Chay" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+            (void)action;
+            NSString *typed = alert.textFields.firstObject.text;
+            NSArray *captured = list;
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                go(typed, captured);
+            });
+        }]];
+        [host presentViewController:alert animated:YES completion:nil];
+    };
+    if (silent) {
+        NSArray *list = bundleIDs.count ? bundleIDs : fallback;
+        afterPick(list);
+        return;
+    }
+    if (bundleIDs.count > 0) {
+        afterPick(bundleIDs);
+        return;
+    }
+    CIPresentAppPicker(host, @"Backup + Xoa + Random", @"Tiep", fallback, afterPick);
 }
 
 void ChengIOSRunRestore(UIViewController *host, NSString *backupID, BOOL restoreProfile, BOOL restoreAppData, BOOL silent) {
@@ -463,48 +763,20 @@ void ChengIOSRunEraseDevice(UIViewController *host, BOOL silent) {
     [host presentViewController:alert animated:YES completion:nil];
 }
 
-void ChengIOSRunEraseThenRandom(UIViewController *host, NSArray<NSString *> *bundleIDs, BOOL allDevice, BOOL randomAll, NSString *region, BOOL silent) {
+void ChengIOSRunEraseThenRandom(UIViewController *host, NSArray<NSString *> *bundleIDs, BOOL allDevice, BOOL randomAll, NSString *region, BOOL silent, BOOL respring) {
     NSArray *list = bundleIDs.count ? bundleIDs : (allDevice ? @[] : ChengIOSUserSelectedBundleIDs());
     if (!allDevice && list.count == 0) {
         CIPresent(host, @"Chua chon app", @"Mo Change Apps, tick TikTok / Facebook / Shopee / Safari, roi bam Xoa + Random lai.");
         return;
     }
     void (^go)(void) = ^{
-        CIRunBusy(host, allDevice ? @"Xoa toan bo + random" : @"Xoa app + random", ^(void (^done)(NSString *, NSString *)) {
+        CIRunBusyEx(host, allDevice ? @"Xoa toan bo + random" : @"Xoa app + random", ^(void (^done)(NSString *, NSString *, BOOL)) {
             NSError *error = nil;
             NSDictionary *result = ChengIOSEraseThenRandom(list, allDevice, randomAll, region, &error);
-            NSMutableString *msg = [NSMutableString string];
             NSArray *ok = result[@"ok"];
-            NSArray *failed = result[@"failed"];
-            NSArray *skipped = result[@"skipped"];
-            if (ok.count) {
-                [msg appendFormat:@"Da xoa: %@\n", CIJoinTitles(ok)];
-            }
-            if (failed.count) {
-                [msg appendFormat:@"Loi: %@\n", CIJoinTitles(failed)];
-            }
-            if (skipped.count) {
-                [msg appendFormat:@"Bo qua: %@\n", CIJoinTitles(skipped)];
-            }
-            if ([result[@"profileSummary"] length]) {
-                [msg appendFormat:@"\n%@\n", result[@"profileSummary"]];
-            }
-            if (error && (msg.length == 0 || ok.count == 0)) {
-                if (msg.length) {
-                    [msg appendString:@"\n"];
-                }
-                [msg appendString:ChengIOSBackupErrorMessage(error)];
-            }
-            if (msg.length == 0 && [result[@"error"] isKindOfClass:[NSString class]]) {
-                [msg appendString:result[@"error"]];
-            }
-            if (msg.length == 0) {
-                [msg appendString:@"Force-quit app roi mo lai."];
-            }
-            if (ok.count) {
-                [msg appendString:@"\nForce-quit Shopee/TikTok/Facebook roi mo lai."];
-            }
-            done(ok.count ? @"Da xoa + doi info" : @"Xoa + random", msg);
+            NSString *msg = CIFormatEraseRandomText(result, error);
+            BOOL didChange = [result[@"profileSummary"] length] > 0;
+            done(ok.count ? @"Da xoa + doi info" : @"Xoa + random", msg, respring && didChange);
         });
     };
     if (silent) {
@@ -513,8 +785,8 @@ void ChengIOSRunEraseThenRandom(UIViewController *host, NSArray<NSString *> *bun
     }
     NSString *title = allDevice ? @"Xoa toan bo + Random" : @"Xoa app da chon + Random";
     NSString *msg = allDevice
-        ? @"Xoa data MOI app user + Safari, roi Random Toan Bo. Shopee/TikTok xoa them 1 lan sau random. KHONG phai factory reset iOS. Khong undo."
-        : [NSString stringWithFormat:@"Xoa sandbox/keychain %lu app da chon, roi random info. Shopee/TikTok xoa them 1 lan sau random. Khong undo.", (unsigned long)list.count];
+        ? @"Xoa data MOI app user + Safari, roi Random Toan Bo, roi Respring. Shopee/TikTok xoa them 1 lan sau random. KHONG phai factory reset iOS. Khong undo."
+        : [NSString stringWithFormat:@"Xoa sandbox/keychain %lu app da chon, roi random info, roi Respring. Shopee/TikTok xoa them 1 lan sau random. Khong undo.", (unsigned long)list.count];
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
                                                                    message:msg
                                                             preferredStyle:UIAlertControllerStyleAlert];
@@ -534,21 +806,26 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
     }
     NSString *token = CIToken(url);
     BOOL silent = CIFlag(url, @[@"silent", @"quiet", @"x-silent"]);
+    BOOL respring = !CIFlag(url, @[@"norespring", @"skip-respring"]);
     NSString *name = CIQuery(url, @"name") ?: CIQuery(url, @"title") ?: CIQuery(url, @"label");
     BOOL wantData = CIFlag(url, @[@"data", @"appdata", @"apps", @"full"]);
     NSString *backupID = CIQuery(url, @"id") ?: CIQuery(url, @"backup") ?: CIQuery(url, @"backup-id");
 
     NSString *region = CIQuery(url, @"region") ?: CIQuery(url, @"iso");
+    if ([token containsString:@"backup-erase-random"] || [token containsString:@"backup-wipe-random"] || [token containsString:@"backup-random-erase"] || [token containsString:@"backup-xoa-random"]) {
+        ChengIOSRunBackupEraseRandom(host, name, CIBundlesFromQuery(url), silent, respring);
+        return YES;
+    }
     if ([token containsString:@"erase-device-random"] || [token containsString:@"wipe-device-random"] || [token containsString:@"factory-random"]) {
-        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), YES, YES, region, silent);
+        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), YES, YES, region, silent, respring);
         return YES;
     }
     if ([token containsString:@"erase-random-all"] || [token containsString:@"wipe-random-all"] || [token containsString:@"reset-all"]) {
-        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), NO, YES, region, silent);
+        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), NO, YES, region, silent, respring);
         return YES;
     }
     if ([token containsString:@"erase-random"] || [token containsString:@"wipe-random"] || [token containsString:@"reset-identity"]) {
-        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), NO, NO, region, silent);
+        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), NO, NO, region, silent, respring);
         return YES;
     }
     if ([token containsString:@"erase-device"] || [token containsString:@"wipe-device"] || [token containsString:@"erase-all-apps"]) {
@@ -560,7 +837,12 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
         return YES;
     }
     if ([token containsString:@"backup-apps"] || [token containsString:@"backup-data"] || [token containsString:@"backup-all"] || [token containsString:@"backup-now"]) {
-        ChengIOSRunCreateBackup(host, name, YES, CIBundlesFromQuery(url), silent);
+        NSArray *queryBundles = CIBundlesFromQuery(url);
+        if (queryBundles.count > 0 || silent) {
+            ChengIOSRunCreateBackup(host, name, YES, queryBundles, silent);
+        } else {
+            ChengIOSRunPickBackup(host, name, silent);
+        }
         return YES;
     }
     if ([token containsString:@"backup-profile"] || [token containsString:@"backup-info"] || [token containsString:@"backup-hoso"]) {
@@ -628,6 +910,10 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
 }
 
 - (void)promptBackupIncludingAppData:(BOOL)includeAppData suggestedName:(NSString *)name silent:(BOOL)silent {
+    if (includeAppData) {
+        ChengIOSRunPickBackup(self, name, silent);
+        return;
+    }
     ChengIOSRunCreateBackup(self, name, includeAppData, nil, silent);
 }
 

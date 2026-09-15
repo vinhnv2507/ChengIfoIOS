@@ -2,6 +2,8 @@
 
 NSString *ChengIOSBackupRoot(void);
 NSString *ChengIOSSuggestedBackupName(void);
+NSString *ChengIOSSuggestedBackupNameForBundles(NSArray<NSString *> *bundleIDs);
+void ChengIOSRequestRespring(void);
 NSArray<NSDictionary *> *ChengIOSListBackups(void);
 NSDictionary *ChengIOSBackupInfo(NSString *backupID);
 NSString *ChengIOSLatestBackupID(void);

@@ -208,6 +208,16 @@
 			<key>action</key>
 			<string>copyURL:</string>
 			<key>label</key>
+			<string>Backup + Xoa + Random + Respring</string>
+			<key>url</key>
+			<string>chengios://backup-erase-random</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
 			<string>Backup 1 app (Facebook)</string>
 			<key>url</key>
 			<string>chengios://backup-apps?bundle=com.facebook.Facebook</string>
@@ -301,6 +311,16 @@
 			<string>Random silent</string>
 			<key>url</key>
 			<string>chengios://random-all?silent=1</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>copyURL:</string>
+			<key>label</key>
+			<string>Random silent no respring</string>
+			<key>url</key>
+			<string>chengios://random-all?silent=1&amp;norespring=1</string>
 		</dict>
 	</array>
 	<key>title</key>
