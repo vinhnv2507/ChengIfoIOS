@@ -888,15 +888,15 @@ NSString *OVSSpoofedModel(void) {
 }
 
 BOOL OVSShouldSpoofDeviceName(void) {
-    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && OVSSpoofedDeviceName().length > 0;
+    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && !OVSIsShopeeFamily() && OVSSpoofedDeviceName().length > 0;
 }
 
 BOOL OVSShouldSpoofHostName(void) {
-    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && OVSSpoofedHostName().length > 0;
+    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && !OVSIsShopeeFamily() && OVSSpoofedHostName().length > 0;
 }
 
 BOOL OVSShouldSpoofModel(void) {
-    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && OVSSpoofedModel().length > 0;
+    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && !OVSIsShopeeFamily() && OVSSpoofedModel().length > 0;
 }
 
 static NSDictionary *OVSHardwareInfoForModel(NSString *model) {

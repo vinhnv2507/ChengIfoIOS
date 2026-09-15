@@ -32,6 +32,11 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.47
+
+- Shopee captcha: **khong** spoof model/ten/hostname/uname/sysctl (1.2.46 lam lech DeviceCheck). Chi xoay IDFV/IDFA + wipe. DeviceCheck native, khong iOS/WK/Gestalt
+- Bo nut/deeplink **Xoa toan bo app + Safari**. Giu **Xoa toan bo + Random Toan Bo**
+
 ## 1.2.46
 
 - Shopee change kieu Facebook: spoof model (UIDevice/uname/sysctl) + IDFV/IDFA. Van khong iOS/WK/Gestalt/DeviceCheck hook
