@@ -848,6 +848,217 @@ static NSString *CIRadioForModel(NSString *model) {
     return @"CTRadioAccessTechnologyNR";
 }
 
+
+static NSDictionary *CIHTTPGetJSON(NSString *url, NSTimeInterval timeout) {
+    if (url.length == 0) {
+        return nil;
+    }
+    NSURLRequest *req = [NSURLRequest requestWithURL:[NSURL URLWithString:url]
+                                         cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
+                                     timeoutInterval:timeout];
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    __block NSData *data = nil;
+    [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d, NSURLResponse *resp, NSError *err) {
+        NSHTTPURLResponse *http = (NSHTTPURLResponse *)resp;
+        if (!err && [http isKindOfClass:[NSHTTPURLResponse class]] && http.statusCode == 200) {
+            data = d;
+        } else if (!err && d.length > 0) {
+            data = d;
+        }
+        dispatch_semaphore_signal(sem);
+    }] resume];
+    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)((timeout + 0.5) * NSEC_PER_SEC)));
+    if (data.length == 0) {
+        return nil;
+    }
+    id json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+    return [json isKindOfClass:[NSDictionary class]] ? json : nil;
+}
+
+static NSString *CIDictString(NSDictionary *dict, NSArray<NSString *> *keys) {
+    for (NSString *key in keys) {
+        id value = dict[key];
+        if ([value isKindOfClass:[NSString class]]) {
+            NSString *text = [value stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if (text.length > 0 && ![text isEqualToString:@"-"] && ![text.lowercaseString isEqualToString:@"null"]) {
+                return text;
+            }
+        } else if ([value isKindOfClass:[NSNumber class]]) {
+            return [value stringValue];
+        } else if ([value isKindOfClass:[NSDictionary class]]) {
+            NSString *inner = CIDictString(value, @[@"id", @"name", @"isp", @"org"]);
+            if (inner.length > 0) {
+                return inner;
+            }
+        }
+    }
+    return @"";
+}
+
+static NSNumber *CIDictNumber(NSDictionary *dict, NSArray<NSString *> *keys) {
+    for (NSString *key in keys) {
+        id value = dict[key];
+        if ([value isKindOfClass:[NSNumber class]]) {
+            return value;
+        }
+        if ([value isKindOfClass:[NSString class]] && [value length] > 0) {
+            return @([value doubleValue]);
+        }
+    }
+    return nil;
+}
+
+static NSDictionary *CIParsePublicIPGeo(NSDictionary *json) {
+    if (![json isKindOfClass:[NSDictionary class]]) {
+        return nil;
+    }
+    if (json[@"success"] && [json[@"success"] isKindOfClass:[NSNumber class]] && ![json[@"success"] boolValue]) {
+        return nil;
+    }
+    if (json[@"error"] && ![json[@"ip"] length] && ![json[@"query"] length]) {
+        return nil;
+    }
+    NSString *iso = CIDictString(json, @[@"country_code", @"countryCode", @"country"]);
+    if (iso.length == 2) {
+        iso = iso.lowercaseString;
+    } else if (iso.length > 2) {
+        iso = [[iso substringToIndex:2] lowercaseString];
+    } else {
+        return nil;
+    }
+    NSString *ip = CIDictString(json, @[@"ip", @"query"]);
+    NSString *city = CIDictString(json, @[@"city", @"regionName", @"region"]);
+    NSString *isp = CIDictString(json, @[@"isp", @"org"]);
+    if (isp.length == 0 && [json[@"connection"] isKindOfClass:[NSDictionary class]]) {
+        isp = CIDictString(json[@"connection"], @[@"isp", @"org", @"asn"]);
+    }
+    NSString *tz = CIDictString(json, @[@"timezone"]);
+    if (tz.length == 0 && [json[@"timezone"] isKindOfClass:[NSDictionary class]]) {
+        tz = CIDictString(json[@"timezone"], @[@"id", @"name"]);
+    }
+    NSNumber *lat = CIDictNumber(json, @[@"latitude", @"lat"]);
+    NSNumber *lon = CIDictNumber(json, @[@"longitude", @"lon", @"lng"]);
+    if ((!lat || !lon) && [json[@"loc"] isKindOfClass:[NSString class]]) {
+        NSArray *parts = [json[@"loc"] componentsSeparatedByString:@","];
+        if (parts.count >= 2) {
+            lat = @([parts[0] doubleValue]);
+            lon = @([parts[1] doubleValue]);
+        }
+    }
+    NSMutableDictionary *out = [NSMutableDictionary dictionary];
+    out[@"iso"] = iso;
+    if (ip.length) out[@"ip"] = ip;
+    if (city.length) out[@"city"] = city;
+    if (isp.length) out[@"isp"] = isp;
+    if (tz.length) out[@"tz"] = tz;
+    if (lat) out[@"lat"] = lat;
+    if (lon) out[@"lon"] = lon;
+    return out;
+}
+
+static NSDictionary *CILookupPublicIPGeo(void) {
+    static NSDictionary *cache;
+    static NSTimeInterval cacheAt;
+    static NSLock *lock;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        lock = [[NSLock alloc] init];
+    });
+    NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
+    [lock lock];
+    if (cache[@"iso"] && (now - cacheAt) < 300) {
+        NSDictionary *hit = cache;
+        [lock unlock];
+        return hit;
+    }
+    [lock unlock];
+
+    NSArray<NSString *> *urls = @[
+        @"https://ipwho.is/",
+        @"https://ipapi.co/json/"
+    ];
+    NSDictionary *parsed = nil;
+    for (NSString *url in urls) {
+        parsed = CIParsePublicIPGeo(CIHTTPGetJSON(url, 2.2));
+        if (parsed[@"iso"]) {
+            break;
+        }
+    }
+    if (parsed[@"iso"]) {
+        [lock lock];
+        cache = parsed;
+        cacheAt = [[NSDate date] timeIntervalSince1970];
+        [lock unlock];
+    }
+    return parsed;
+}
+
+static NSDictionary *CIMatchCarrier(NSDictionary *region, NSString *isp) {
+    NSArray *carriers = region[@"carriers"];
+    if (![carriers isKindOfClass:[NSArray class]] || carriers.count == 0) {
+        return nil;
+    }
+    NSString *blob = isp.lowercaseString ?: @"";
+    if (blob.length == 0) {
+        return nil;
+    }
+    NSArray *rules = @[
+        @[@"viettel", @"Viettel"],
+        @[@"vinaphone", @"Vinaphone"],
+        @[@"vnpt", @"Vinaphone"],
+        @[@"mobifone", @"Mobifone"],
+        @[@"vietnamobile", @"Vietnamobile"],
+        @[@"fpt", @"FPT"],
+        @[@"t-mobile", @"T-Mobile"],
+        @[@"tmobile", @"T-Mobile"],
+        @[@"verizon", @"Verizon"],
+        @[@"at&t", @"AT&T"],
+        @[@" att", @"AT&T"],
+        @[@"docomo", @"NTT Docomo"],
+        @[@"softbank", @"SoftBank"],
+        @[@"kddi", @"KDDI"],
+        @[@" au ", @"KDDI"],
+        @[@"sk telecom", @"SKT"],
+        @[@"skt", @"SKT"],
+        @[@"kt ", @"KT"],
+        @[@"lg u", @"LG U+"],
+        @[@"ais", @"AIS"],
+        @[@"dtac", @"dtac"],
+        @[@"true move", @"TrueMove"],
+        @[@"singtel", @"Singtel"],
+        @[@"starhub", @"StarHub"],
+        @[@"chunghwa", @"Chunghwa"],
+        @[@"hinet", @"Chunghwa"],
+        @[@"bt ", @"EE"],
+        @[@"ee ", @"EE"],
+        @[@"vodafone", @"Vodafone"],
+        @[@"o2", @"O2"],
+        @[@"telstra", @"Telstra"],
+        @[@"optus", @"Optus"]
+    ];
+    NSString *want = nil;
+    for (NSArray *rule in rules) {
+        if ([blob containsString:rule[0]]) {
+            want = rule[1];
+            break;
+        }
+    }
+    if (want.length == 0) {
+        return nil;
+    }
+    for (NSDictionary *carrier in carriers) {
+        NSString *name = [carrier[@"name"] lowercaseString] ?: @"";
+        if ([name isEqualToString:want.lowercaseString] || [name containsString:want.lowercaseString] || [want.lowercaseString containsString:name]) {
+            return carrier;
+        }
+    }
+    NSDictionary *first = carriers.firstObject;
+    if ([region[@"iso"] isEqualToString:@"vn"] && [want isEqualToString:@"FPT"]) {
+        return @{@"name": @"FPT", @"mcc": first[@"mcc"] ?: @"452", @"mnc": @"08"};
+    }
+    return @{@"name": want, @"mcc": first[@"mcc"] ?: @"", @"mnc": first[@"mnc"] ?: @""};
+}
+
 static NSDictionary *CIBuildProfile(BOOL full, NSString *iso) {
     NSDictionary *device = CIPickWeighted(CIDevices(), @"weight");
     NSDictionary *os = CIPick(CIBiasRecent(device[@"os"]));
@@ -856,12 +1067,29 @@ static NSDictionary *CIBuildProfile(BOOL full, NSString *iso) {
     if (osMajor >= 19 && ([pickModel hasPrefix:@"iPhone12,"] || [pickModel hasPrefix:@"iPhone13,"])) {
         os = @{@"version": @"18.7", @"build": @"22H20"};
     }
+    NSDictionary *geo = nil;
+    if (iso.length == 0) {
+        geo = CILookupPublicIPGeo();
+        iso = geo[@"iso"];
+    }
     NSDictionary *region = CIRegionForISO(iso);
     if (!region) {
         region = CIPickWeighted(CIRegions(), @"weight");
     }
-    NSDictionary *carrier = CIPick(region[@"carriers"]);
+    NSDictionary *carrier = CIMatchCarrier(region, geo[@"isp"]);
+    if (!carrier) {
+        carrier = CIPick(region[@"carriers"]);
+    }
     NSDictionary *city = CIPick(region[@"cities"]);
+    if (geo[@"lat"] && geo[@"lon"]) {
+        NSMutableDictionary *geoCity = [NSMutableDictionary dictionary];
+        geoCity[@"name"] = geo[@"city"] ?: (city[@"name"] ?: @"");
+        geoCity[@"lat"] = geo[@"lat"];
+        geoCity[@"lon"] = geo[@"lon"];
+        geoCity[@"alt"] = city[@"alt"] ?: @12.0;
+        geoCity[@"tz"] = geo[@"tz"] ?: (city[@"tz"] ?: region[@"timeZone"]);
+        city = geoCity;
+    }
     NSString *product = device[@"product"];
     NSString *name = CIPick(region[@"names"]);
     if ([name isEqualToString:@"iPhone"] && arc4random_uniform(5) == 0) {
@@ -947,6 +1175,12 @@ static NSDictionary *CIBuildProfile(BOOL full, NSString *iso) {
     profile[@"wifiRSSI"] = CIRandomRSSI();
     profile[@"appVersionEnabled"] = @NO;
     profile[@"customAppVersion"] = CIRandomAppVersion();
+    if ([geo[@"ip"] length]) {
+        profile[@"publicIP"] = geo[@"ip"];
+    }
+    if ([geo[@"isp"] length]) {
+        profile[@"publicISP"] = geo[@"isp"];
+    }
     return profile;
 }
 
@@ -964,7 +1198,7 @@ NSDictionary *ChengIOSRandomFullProfileInRegion(NSString *iso) {
 
 NSArray<NSDictionary *> *ChengIOSRegionChoices(void) {
     return @[
-        @{@"iso": @"", @"title": @"Tu dong (theo ti le)"},
+        @{@"iso": @"", @"title": @"Theo IP public"},
         @{@"iso": @"vn", @"title": @"Viet Nam"},
         @{@"iso": @"us", @"title": @"United States"},
         @{@"iso": @"kr", @"title": @"Korea"},
@@ -991,6 +1225,9 @@ NSString *ChengIOSProfileSummary(NSDictionary *profile) {
     }
     if ([profile[@"isoCountryCode"] length] || [profile[@"profileRegion"] length]) {
         [text appendFormat:@"Vung: %@ (%@)\n", [profile[@"isoCountryCode"] uppercaseString] ?: @"-", profile[@"profileRegion"] ?: @"-"];
+    }
+    if ([profile[@"publicIP"] length] || [profile[@"publicISP"] length]) {
+        [text appendFormat:@"IP: %@ (%@)\n", profile[@"publicIP"] ?: @"-", profile[@"publicISP"] ?: @"-"];
     }
     [text appendFormat:@"Tên: %@\n", profile[@"spoofedName"]];
     [text appendFormat:@"Host: %@", profile[@"spoofedHostname"]];

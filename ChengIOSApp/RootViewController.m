@@ -35,14 +35,6 @@ extern char **environ;
 - (NSArray<NSArray<NSDictionary *> *> *)buildSchema {
     return @[
         @[
-            @{@"kind": @"switch", @"title": @"B\u1eadt ChengIOS", @"key": @"masterEnabled", @"defaultOn": @YES},
-            @{@"kind": @"switch", @"title": @"Spoof s\u00e2u (Gestalt / Darwin)", @"key": @"gestaltEnabled", @"defaultOn": @NO, @"detail": @"FB/Shopee b\u1ecf qua Gestalt; app th\u01b0\u1eddng m\u1edbi d\u00f9ng Darwin. Force-quit app \u0111\u00edch"},
-            @{@"kind": @"switch", @"title": @"An jailbreak / bypass", @"key": @"hideJailbreakEnabled", @"defaultOn": @NO, @"detail": @"An Cydia/Sileo/ElleKit. Shopee khong inject tweak. FB chi an file/URL. Force-quit"}
-        ],
-        @[
-            @{@"kind": @"nav", @"title": @"Change Apps", @"detail": @"Shopee chi xoa data. App khac can Respring sau khi tick"}
-        ],
-        @[
             @{@"kind": @"button", @"title": @"Random Info M\u00e1y", @"action": @"identity"},
             @{@"kind": @"button", @"title": @"Random To\u00e0n B\u1ed9", @"action": @"full"},
             @{@"kind": @"button", @"title": @"Xem h\u1ed3 s\u01a1", @"action": @"profile"},
@@ -57,6 +49,14 @@ extern char **environ;
             @{@"kind": @"button", @"title": @"Xoa sach data app da chon", @"action": @"eraseApps"},
             @{@"kind": @"button", @"title": @"Xoa app da chon + Random Toan Bo", @"action": @"eraseRandomAll"},
             @{@"kind": @"button", @"title": @"Xoa toan bo + Random Toan Bo", @"action": @"eraseDeviceRandom"}
+        ],
+        @[
+            @{@"kind": @"switch", @"title": @"B\u1eadt ChengIOS", @"key": @"masterEnabled", @"defaultOn": @YES},
+            @{@"kind": @"switch", @"title": @"Spoof s\u00e2u (Gestalt / Darwin)", @"key": @"gestaltEnabled", @"defaultOn": @NO, @"detail": @"FB/Shopee b\u1ecf qua Gestalt; app th\u01b0\u1eddng m\u1edbi d\u00f9ng Darwin. Force-quit app \u0111\u00edch"},
+            @{@"kind": @"switch", @"title": @"An jailbreak / bypass", @"key": @"hideJailbreakEnabled", @"defaultOn": @NO, @"detail": @"An Cydia/Sileo/ElleKit. Shopee khong inject tweak. FB chi an file/URL. Force-quit"}
+        ],
+        @[
+            @{@"kind": @"nav", @"title": @"Change Apps", @"detail": @"Shopee chi xoa data. App khac can Respring sau khi tick"}
         ],
         @[
             @{@"kind": @"text", @"title": @"Model", @"keys": @[@"spoofedModel", @"customDeviceModel"], @"placeholder": @"iPhone16,2"},
@@ -119,7 +119,6 @@ extern char **environ;
             @{@"kind": @"text", @"title": @"Wi-Fi MAC", @"keys": @[@"wifiAddress"], @"placeholder": @"02:00:00:00:00:01"},
             @{@"kind": @"text", @"title": @"BT MAC", @"keys": @[@"bluetoothAddress"], @"placeholder": @"02:00:00:00:00:02"}
         ],
-
         @[
             @{@"kind": @"button", @"title": @"M\u1edf C\u00e0i \u0111\u1eb7t ChengIOS", @"action": @"settings"},
         ]
@@ -186,7 +185,7 @@ extern char **environ;
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     (void)tableView;
     NSArray *titles = @[
-        @"Chung", @"Apps", @"Random", @"Backup / Data", @"Change Info", @"Phi\u00ean b\u1ea3n iOS", @"Phi\u00ean b\u1ea3n App",
+        @"Random", @"Backup / Data", @"Chung", @"Apps", @"Change Info", @"Phi\u00ean b\u1ea3n iOS", @"Phi\u00ean b\u1ea3n App",
         @"\u0110\u1ecbnh danh", @"Locale", @"Nh\u00e0 m\u1ea1ng", @"V\u1ecb tr\u00ed", @"M\u1ea1ng / Wi-Fi",
         @"Gestalt / ID", @"Kh\u00e1c"
     ];
@@ -196,16 +195,16 @@ extern char **environ;
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     (void)tableView;
     if (section == 0) {
-        return @"Safari: tick Safari, vuot tat han roi mo lai tab. Facebook/Shopee van che do an toan. An jailbreak: force-quit app da chon; neu Shopee vang thi tat.";
+        return @"Mac dinh theo IP public: quoc gia, nha mang, GPS, locale, Wi-Fi. Web van thay IP that (can VPN neu muon US/KR). Random theo vung de ep tay.";
+    }
+    if (section == 1) {
+        return @"Shopee: khong inject tweak (tranh captcha), chi wipe data. Facebook/TikTok van spoof.";
     }
     if (section == 2) {
-        return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";
-    }
-    if (section == 3) {
-        return @"Shopee: khong hook trong app (UA/IDFV/model) de tranh captcha. Chi wipe data. Facebook/TikTok van spoof.";
+        return @"Safari: tick Safari, vuot tat han roi mo lai tab. Facebook/Shopee van che do an toan. An jailbreak: force-quit app da chon.";
     }
     if (section == 10) {
-        return @"deviceinfo.me Region/City/ISP la IP cong cong that (Viettel/Hung Yen). Bam nut Detect de dung GPS gia lap.";
+        return @"GPS mac dinh lay theo IP public khi Random Toan Bo. Web/deviceinfo.me van hien IP that cua nha mang.";
     }
     if (section == 12) {
         return self.summary;
@@ -371,13 +370,19 @@ extern char **environ;
 }
 
 - (void)runRandom:(BOOL)full silent:(BOOL)silent {
-    NSDictionary *profile = full ? ChengIOSRandomFullProfile() : ChengIOSRandomIdentity();
-    ChengIOSApplyProfile(profile);
-    [self reloadProfile];
-    if (silent) {
-        return;
-    }
-    [self showSummaryTitle:(full ? @"Random To\u00e0n B\u1ed9" : @"Random Info M\u00e1y") profile:profile];
+    void (^apply)(NSDictionary *) = ^(NSDictionary *profile) {
+        ChengIOSApplyProfile(profile);
+        [self reloadProfile];
+        if (!silent) {
+            [self showSummaryTitle:(full ? @"Random To\u00e0n B\u1ed9" : @"Random Info M\u00e1y") profile:profile];
+        }
+    };
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSDictionary *profile = full ? ChengIOSRandomFullProfile() : ChengIOSRandomIdentity();
+        dispatch_async(dispatch_get_main_queue(), ^{
+            apply(profile);
+        });
+    });
 }
 
 - (void)showSummaryTitle:(NSString *)title profile:(NSDictionary *)profile {

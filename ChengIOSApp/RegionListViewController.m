@@ -15,7 +15,7 @@
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     (void)tableView; (void)section;
-    return @"Chon vung de Random Toan Bo: locale, nha mang, GPS, Wi-Fi, IPv6/LAN theo vung do. Web van thay IP cong cong that (can VPN neu muon IP US/KR).";
+    return @"Mac dinh theo IP public. Chon vung de ep tay locale/nha mang/GPS/Wi-Fi. Web van thay IP that (can VPN neu muon US/KR).";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -35,18 +35,23 @@
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     NSDictionary *item = ChengIOSRegionChoices()[indexPath.row];
     NSString *iso = item[@"iso"];
-    NSDictionary *profile = iso.length ? ChengIOSRandomFullProfileInRegion(iso) : ChengIOSRandomFullProfile();
-    ChengIOSApplyProfile(profile);
-    NSString *text = ChengIOSProfileSummary(profile);
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:item[@"title"]
-                                                                   message:text
-                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Sao chep" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        (void)action;
-        [UIPasteboard generalPasteboard].string = text;
-    }]];
-    [self presentViewController:alert animated:YES completion:nil];
+    NSString *title = item[@"title"] ?: @"Random";
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSDictionary *profile = iso.length ? ChengIOSRandomFullProfileInRegion(iso) : ChengIOSRandomFullProfile();
+        NSString *text = ChengIOSProfileSummary(profile);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            ChengIOSApplyProfile(profile);
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
+                                                                           message:text
+                                                                    preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+            [alert addAction:[UIAlertAction actionWithTitle:@"Sao chep" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+                (void)action;
+                [UIPasteboard generalPasteboard].string = text;
+            }]];
+            [self presentViewController:alert animated:YES completion:nil];
+        });
+    });
 }
 
 @end

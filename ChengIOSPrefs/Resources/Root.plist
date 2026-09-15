@@ -32,6 +32,86 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
+			<string>Random Info</string>
+			<key>footerText</key>
+			<string>Mac dinh theo IP public: quoc gia, nha mang, GPS, locale, Wi-Fi. Web van thay IP that (can VPN neu muon US/KR). Random theo vung de ep tay.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeIdentity</string>
+			<key>label</key>
+			<string>Random Info Máy</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>randomizeAll</string>
+			<key>label</key>
+			<string>Random Toàn Bộ</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>detail</key>
+			<string>ChengIOSRegionController</string>
+			<key>isController</key>
+			<true/>
+			<key>label</key>
+			<string>Random theo vung</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>detail</key>
+			<string>ChengIOSDeeplinksController</string>
+			<key>isController</key>
+			<true/>
+			<key>label</key>
+			<string>Deeplink / Shortcuts</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Backup / Data app</string>
+			<key>footerText</key>
+			<string>Backup ho so ChengIOS (nho). Backup data app luu Documents/Preferences/Cookies, bo Caches. Xoa data: kill app roi xoa sandbox. Khong xoa Safari/keychain iCloud. Nen dung app ChengIOS.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>detail</key>
+			<string>ChengIOSBackupController</string>
+			<key>isController</key>
+			<true/>
+			<key>label</key>
+			<string>Quan ly Backup</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>showCurrentInfo</string>
+			<key>label</key>
+			<string>Xem Info Hiện Tại</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>detail</key>
+			<string>ChengIOSCurrentInfoController</string>
+			<key>isController</key>
+			<true/>
+			<key>label</key>
+			<string>Hồ sơ hiện tại</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
 			<string>Chung</string>
 			<key>footerText</key>
 			<string>Chỉ app được chọn mới bị giả lập. App không nằm trong Change Apps hoặc Spoofed Apps sẽ không bị sửa.</string>
@@ -150,86 +230,6 @@
 			<true/>
 			<key>label</key>
 			<string>Change Info</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>Random Info</string>
-			<key>footerText</key>
-			<string>Random chọn 1 hồ sơ máy thật, không trộn thông số lẻ. Info Máy: model/tên/hostname/iOS/build khớp nhau. Toàn Bộ: thêm locale, nhà mạng, GPS, LAN, Wi-Fi SSID/BSSID/gateway và version app của cùng vùng. App ChengIOS trên màn hình chính và URL scheme chengios:// (Shortcuts).</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>action</key>
-			<string>randomizeIdentity</string>
-			<key>label</key>
-			<string>Random Info Máy</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>action</key>
-			<string>randomizeAll</string>
-			<key>label</key>
-			<string>Random Toàn Bộ</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSLinkCell</string>
-			<key>detail</key>
-			<string>ChengIOSRegionController</string>
-			<key>isController</key>
-			<true/>
-			<key>label</key>
-			<string>Random theo vung</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSLinkCell</string>
-			<key>detail</key>
-			<string>ChengIOSDeeplinksController</string>
-			<key>isController</key>
-			<true/>
-			<key>label</key>
-			<string>Deeplink / Shortcuts</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>Backup / Data app</string>
-			<key>footerText</key>
-			<string>Backup ho so ChengIOS (nho). Backup data app luu Documents/Preferences/Cookies, bo Caches. Xoa data: kill app roi xoa sandbox. Khong xoa Safari/keychain iCloud. Nen dung app ChengIOS.</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSLinkCell</string>
-			<key>detail</key>
-			<string>ChengIOSBackupController</string>
-			<key>isController</key>
-			<true/>
-			<key>label</key>
-			<string>Quan ly Backup</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>action</key>
-			<string>showCurrentInfo</string>
-			<key>label</key>
-			<string>Xem Info Hiện Tại</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSLinkCell</string>
-			<key>detail</key>
-			<string>ChengIOSCurrentInfoController</string>
-			<key>isController</key>
-			<true/>
-			<key>label</key>
-			<string>Hồ sơ hiện tại</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -783,7 +783,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>ChengIOS 1.2.49
+			<string>ChengIOS 1.2.50
 by vinhnv2507</string>
 			<key>isStaticText</key>
 			<true/>

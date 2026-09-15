@@ -18,7 +18,7 @@
 			<key>action</key>
 			<string>randomizeRegionAuto</string>
 			<key>label</key>
-			<string>Tu dong (theo ti le)</string>
+			<string>Theo IP public</string>
 		</dict>
 		<dict>
 			<key>cell</key>
