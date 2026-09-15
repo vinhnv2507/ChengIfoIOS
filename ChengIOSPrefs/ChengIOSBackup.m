@@ -62,7 +62,10 @@ static void CISettleAfterDisk(NSString *bundleID);
 static NSDictionary<NSString *, NSString *> *CIAllGroupPaths(NSString *bundleID);
 static NSDictionary<NSString *, NSString *> *CIPluginPaths(NSString *bundleID);
 static BOOL CIBundleIsTikTokFamily(NSString *bundleID);
+static BOOL CIBundleIsShopeeFamily(NSString *bundleID);
 static BOOL CIBundleIsSticky(NSString *bundleID);
+static void CIKillShopeeHard(void);
+static NSArray<NSString *> *CIKnownShopeeBundles(void);
 static BOOL CIBundleLooksDirty(NSString *bundleID);
 static void CIKillTikTokHard(void);
 static void CIKillEraseTargets(NSArray<NSString *> *targets);
@@ -514,6 +517,26 @@ static NSString *CIResolveBundleID(NSString *bundleID) {
         }
         return @"com.ss.iphone.ugc.Aweme";
     }
+    BOOL shopeeish = CIBundleIsShopeeFamily(bundleID) ||
+                     [low hasPrefix:@"com.beeasy."] ||
+                     [low hasPrefix:@"com.shopee."] ||
+                     [low containsString:@"shopee"];
+    if (shopeeish) {
+        for (NSString *cand in CIKnownShopeeBundles()) {
+            if (CIBundleHasContainer(cand)) {
+                return cand;
+            }
+        }
+        for (NSString *root in CIDataContainerRoots()) {
+            NSDictionary<NSString *, NSString *> *index = CIContainerIndexForRoot(root);
+            for (NSString *ident in index) {
+                if (CIBundleIsShopeeFamily(ident)) {
+                    return ident;
+                }
+            }
+        }
+        return @"com.beeasy.shopee.vn";
+    }
     if (prefixHits.count > 0) {
         return prefixHits.firstObject;
     }
@@ -783,6 +806,8 @@ static BOOL CIPathSafeToMutate(NSString *path) {
         [low containsString:@"/library/application support/facebook"] ||
         [low containsString:@"/library/application support/com.shopee"] ||
         [low containsString:@"/library/application support/com.beeasy"] ||
+        [low containsString:@"/library/application support/tongdun"] ||
+        [low containsString:@"/library/application support/trustdecision"] ||
         [low containsString:@"/library/application support/tiktok"] ||
         [low containsString:@"/library/application support/musically"] ||
         [low containsString:@"/library/application support/aweme"] ||
@@ -1208,10 +1233,8 @@ static void CISettleForDisk(NSString *bundleID) {
         CIRunKillall(@"Messenger");
         CIRunKillall(@"MessengerLite");
     }
-    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."]) {
-        CIRunKillall(@"Shopee");
-        CIRunKillall(@"ShopeeApp");
-        CIRunKillall(@"ShopeeVN");
+    if (CIBundleIsShopeeFamily(bundleID) || [low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."]) {
+        CIKillShopeeHard();
     }
     if ([low containsString:@"tiktok"] || [low hasPrefix:@"com.zhiliaoapp."] ||
         [low hasPrefix:@"com.ss.iphone."] || [low containsString:@"musically"] ||
@@ -1885,7 +1908,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.45, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.46, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -2541,12 +2564,8 @@ static NSArray<NSString *> *CICompanionBundleIDs(NSString *bundleID) {
             @"com.facebook.Video"
         ];
     }
-    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."]) {
-        return @[
-            @"com.shopee.vn",
-            @"com.shopee.SG",
-            @"com.beeasy.marketplace.vn"
-        ];
+    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."]) {
+        return CIKnownShopeeBundles();
     }
     if ([low hasPrefix:@"com.zhiliaoapp."] || [low containsString:@"tiktok"] ||
         [low hasPrefix:@"com.ss.iphone."] || [low containsString:@"aweme"] ||
@@ -3574,7 +3593,7 @@ static NSArray<NSString *> *CISupportPathsForBundle(NSString *bundleID) {
         [names addObjectsFromArray:@[@"Facebook", @"com.facebook.Facebook", @"com.facebook.Messenger"]];
     }
     if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."]) {
-        [names addObjectsFromArray:@[@"Shopee", @"AppsFlyer", @"Adjust", @"Firebase", @"Tongdun", bundleID]];
+        [names addObjectsFromArray:@[@"Shopee", @"AppsFlyer", @"Adjust", @"Firebase", @"Tongdun", @"TrustDecision", @"FMDevice", bundleID]];
     }
     if ([low containsString:@"tiktok"] || [low hasPrefix:@"com.zhiliaoapp."] ||
         [low hasPrefix:@"com.ss.iphone."] || [low containsString:@"aweme"] ||
@@ -4201,7 +4220,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.45",
+        @"version": @"1.2.46",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -4745,6 +4764,41 @@ static BOOL CIBundleIsTikTokFamily(NSString *bundleID) {
            [low containsString:@"musically"] || [low containsString:@"bytedance"];
 }
 
+static BOOL CIBundleIsShopeeFamily(NSString *bundleID) {
+    NSString *low = bundleID.lowercaseString ?: @"";
+    return [low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] ||
+           [low hasPrefix:@"com.shopee."] || [low containsString:@"shopeepay"];
+}
+
+static NSArray<NSString *> *CIKnownShopeeBundles(void) {
+    return @[
+        @"com.beeasy.shopee.vn",
+        @"com.shopee.vn",
+        @"com.beeasy.marketplace.vn",
+        @"com.shopee.SG",
+        @"com.shopee.id",
+        @"com.shopee.my",
+        @"com.shopee.th",
+        @"com.shopee.tw",
+        @"com.shopee.ph",
+        @"com.shopeepay.vn"
+    ];
+}
+
+static void CIKillShopeeHard(void) {
+    NSArray<NSString *> *names = @[
+        @"Shopee", @"ShopeeApp", @"ShopeeVN", @"ShopeeLite", @"ShopeePay",
+        @"SGShopping", @"Marketplace", @"beeasy", @"ShopeeWidget",
+        @"ShopeeNotification", @"ShopeeShare"
+    ];
+    for (NSString *name in names) {
+        CIRunKillall(name);
+    }
+    for (NSString *bid in CIKnownShopeeBundles()) {
+        CITerminateBundle(bid);
+    }
+}
+
 static BOOL CIBundleIsSticky(NSString *bundleID) {
     NSString *low = bundleID.lowercaseString ?: @"";
     if (low.length == 0) {
@@ -4753,7 +4807,7 @@ static BOOL CIBundleIsSticky(NSString *bundleID) {
     if ([low hasPrefix:@"com.facebook."] || [low hasPrefix:@"com.meta."] || [low containsString:@"facebook"]) {
         return YES;
     }
-    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."]) {
+    if (CIBundleIsShopeeFamily(bundleID)) {
         return YES;
     }
     return CIBundleIsTikTokFamily(bundleID);
@@ -4821,6 +4875,7 @@ static NSArray<NSString *> *CIExpandEraseTargets(NSArray<NSString *> *bundleIDs)
         [out addObject:bid];
     };
     BOOL wantTikTok = NO;
+    BOOL wantShopee = NO;
     for (NSString *raw in bundleIDs) {
         if (![raw isKindOfClass:[NSString class]] || raw.length == 0) {
             continue;
@@ -4831,6 +4886,12 @@ static NSArray<NSString *> *CIExpandEraseTargets(NSArray<NSString *> *bundleIDs)
             [raw.lowercaseString hasPrefix:@"com.ss.iphone."] ||
             [raw.lowercaseString hasPrefix:@"com.zhiliaoapp."]) {
             wantTikTok = YES;
+        }
+        if (CIBundleIsShopeeFamily(raw) || CIBundleIsShopeeFamily(resolved) ||
+            [raw.lowercaseString hasPrefix:@"com.beeasy."] ||
+            [raw.lowercaseString hasPrefix:@"com.shopee."] ||
+            [raw.lowercaseString containsString:@"shopee"]) {
+            wantShopee = YES;
         }
         for (NSString *other in CICompanionBundleIDs(resolved)) {
             if (CIBundleHasContainer(other)) {
@@ -4848,6 +4909,21 @@ static NSArray<NSString *> *CIExpandEraseTargets(NSArray<NSString *> *bundleIDs)
             NSDictionary<NSString *, NSString *> *index = CIContainerIndexForRoot(root);
             for (NSString *ident in index) {
                 if (CIBundleIsTikTokFamily(ident)) {
+                    add(ident);
+                }
+            }
+        }
+    }
+    if (wantShopee) {
+        for (NSString *cand in CIKnownShopeeBundles()) {
+            if (CIBundleHasContainer(cand)) {
+                add(cand);
+            }
+        }
+        for (NSString *root in CIDataContainerRoots()) {
+            NSDictionary<NSString *, NSString *> *index = CIContainerIndexForRoot(root);
+            for (NSString *ident in index) {
+                if (CIBundleIsShopeeFamily(ident)) {
                     add(ident);
                 }
             }
@@ -4880,6 +4956,7 @@ static NSArray<NSString *> *CIEraseOrder(NSArray<NSString *> *targets) {
 
 static void CIKillEraseTargets(NSArray<NSString *> *targets) {
     BOOL killedTikTok = NO;
+    BOOL killedShopee = NO;
     for (NSString *bid in targets) {
         if (![bid isKindOfClass:[NSString class]] || bid.length == 0) {
             continue;
@@ -4892,6 +4969,10 @@ static void CIKillEraseTargets(NSArray<NSString *> *targets) {
         if (CIBundleIsTikTokFamily(bid) && !killedTikTok) {
             CIKillTikTokHard();
             killedTikTok = YES;
+        }
+        if (CIBundleIsShopeeFamily(bid) && !killedShopee) {
+            CIKillShopeeHard();
+            killedShopee = YES;
         }
     }
 }
@@ -5005,8 +5086,12 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
                 CIWipeLoginResidueInTree(plugins[pluginID], bundleID);
             }
         }
-        if (CIBundleIsTikTokFamily(bundleID) && CIBundleLooksDirty(bundleID)) {
-            CIKillTikTokHard();
+        if ((CIBundleIsTikTokFamily(bundleID) || CIBundleIsShopeeFamily(bundleID)) && CIBundleLooksDirty(bundleID)) {
+            if (CIBundleIsTikTokFamily(bundleID)) {
+                CIKillTikTokHard();
+            } else {
+                CIKillShopeeHard();
+            }
             CISettleForDisk(bundleID);
             if (dataPath.length > 0) {
                 ok = CIEmptyContainer(dataPath) || ok;
@@ -5029,6 +5114,10 @@ static BOOL CIEraseOne(NSString *bundleID, NSArray<NSString *> *together) {
     CISettleAfterDisk(bundleID);
     if (CIBundleIsTikTokFamily(bundleID)) {
         CIKillTikTokHard();
+        CISettleForDisk(bundleID);
+    }
+    if (CIBundleIsShopeeFamily(bundleID)) {
+        CIKillShopeeHard();
         CISettleForDisk(bundleID);
     }
     return ok;
@@ -5270,9 +5359,24 @@ NSDictionary *ChengIOSEraseDeviceApps(BOOL includeSafari, NSError **error) {
 }
 
 NSDictionary *ChengIOSEraseThenRandom(NSArray<NSString *> *bundleIDs, BOOL allDevice, BOOL randomAll, NSString *region, NSError **error) {
-    (void)allDevice;
-    NSArray<NSString *> *targets = CIExpandEraseTargets(bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs());
-    NSDictionary *erase = ChengIOSEraseBundles(targets, error);
+    NSArray<NSString *> *targets = nil;
+    NSDictionary *erase = nil;
+    if (allDevice) {
+        erase = ChengIOSEraseDeviceApps(YES, error);
+        NSMutableArray<NSString *> *mix = [NSMutableArray array];
+        for (NSString *bid in (erase[@"ok"] ?: @[])) {
+            [mix addObject:bid];
+        }
+        for (NSString *bid in (erase[@"failed"] ?: @[])) {
+            if (![mix containsObject:bid]) {
+                [mix addObject:bid];
+            }
+        }
+        targets = CIExpandEraseTargets(mix.count ? mix : ChengIOSInstalledUserBundleIDs());
+    } else {
+        targets = CIExpandEraseTargets(bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs());
+        erase = ChengIOSEraseBundles(targets, error);
+    }
     CIKillEraseTargets(targets);
     NSDictionary *profile = nil;
     if (region.length > 0) {
@@ -5286,17 +5390,28 @@ NSDictionary *ChengIOSEraseThenRandom(NSArray<NSString *> *bundleIDs, BOOL allDe
         ChengIOSApplyProfile(profile);
     }
     CIKillEraseTargets(targets);
-    NSMutableArray<NSString *> *tiktoks = [NSMutableArray array];
-    for (NSString *bid in targets) {
-        if (CIBundleIsTikTokFamily(bid) && !ChengIOSBundleIsProtected(bid)) {
-            [tiktoks addObject:bid];
+    NSMutableArray<NSString *> *rewipe = [NSMutableArray array];
+    NSMutableSet<NSString *> *seen = [NSMutableSet set];
+    void (^addRewipe)(NSString *) = ^(NSString *bid) {
+        if (bid.length == 0 || [seen containsObject:bid] || ChengIOSBundleIsProtected(bid)) {
+            return;
         }
+        if (CIBundleIsTikTokFamily(bid) || CIBundleIsShopeeFamily(bid)) {
+            [seen addObject:bid];
+            [rewipe addObject:bid];
+        }
+    };
+    for (NSString *bid in targets) {
+        addRewipe(bid);
+    }
+    for (NSString *bid in (erase[@"ok"] ?: @[])) {
+        addRewipe(bid);
     }
     NSMutableArray *ok = [erase[@"ok"] mutableCopy] ?: [NSMutableArray array];
     NSMutableArray *failed = [erase[@"failed"] mutableCopy] ?: [NSMutableArray array];
     NSArray *skipped = erase[@"skipped"] ?: @[];
-    if (tiktoks.count > 0) {
-        NSDictionary *again = ChengIOSEraseBundles(tiktoks, error);
+    if (rewipe.count > 0) {
+        NSDictionary *again = ChengIOSEraseBundles(rewipe, error);
         for (NSString *bid in again[@"ok"] ?: @[]) {
             if (![ok containsObject:bid]) {
                 [ok addObject:bid];
@@ -5308,7 +5423,7 @@ NSDictionary *ChengIOSEraseThenRandom(NSArray<NSString *> *bundleIDs, BOOL allDe
                 [failed addObject:bid];
             }
         }
-        CIKillEraseTargets(tiktoks);
+        CIKillEraseTargets(rewipe);
     }
     return @{
         @"ok": ok,

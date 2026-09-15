@@ -896,7 +896,7 @@ BOOL OVSShouldSpoofHostName(void) {
 }
 
 BOOL OVSShouldSpoofModel(void) {
-    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && !OVSIsShopeeFamily() && OVSSpoofedModel().length > 0;
+    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && OVSSpoofedModel().length > 0;
 }
 
 static NSDictionary *OVSHardwareInfoForModel(NSString *model) {
@@ -1135,6 +1135,14 @@ id OVSTikTokLightGestaltValue(NSString *key) {
     }
     if (OVSShouldSpoofModel() && (OVSGestaltKeyIs(key, @"DeviceName") || OVSGestaltKeyIs(key, @"marketing-name") || OVSGestaltKeyIs(key, @"MarketingProductName"))) {
         return OVSSpoofedMarketingName();
+    }
+    if (OVSGestaltKeyIs(key, @"UniqueDeviceID")) {
+        NSString *udid = OVSSpoofedUniqueDeviceID();
+        return udid.length ? udid : nil;
+    }
+    if (OVSGestaltKeyIs(key, @"SerialNumber")) {
+        NSString *serial = OVSSpoofedSerialNumber();
+        return serial.length ? serial : nil;
     }
     return nil;
 }

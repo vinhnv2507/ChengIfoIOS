@@ -464,16 +464,15 @@ void ChengIOSRunEraseDevice(UIViewController *host, BOOL silent) {
 }
 
 void ChengIOSRunEraseThenRandom(UIViewController *host, NSArray<NSString *> *bundleIDs, BOOL allDevice, BOOL randomAll, NSString *region, BOOL silent) {
-    (void)allDevice;
-    NSArray *list = bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs();
-    if (list.count == 0) {
+    NSArray *list = bundleIDs.count ? bundleIDs : (allDevice ? @[] : ChengIOSUserSelectedBundleIDs());
+    if (!allDevice && list.count == 0) {
         CIPresent(host, @"Chua chon app", @"Mo Change Apps, tick TikTok / Facebook / Shopee / Safari, roi bam Xoa + Random lai.");
         return;
     }
     void (^go)(void) = ^{
-        CIRunBusy(host, @"Xoa app + random", ^(void (^done)(NSString *, NSString *)) {
+        CIRunBusy(host, allDevice ? @"Xoa toan bo + random" : @"Xoa app + random", ^(void (^done)(NSString *, NSString *)) {
             NSError *error = nil;
-            NSDictionary *result = ChengIOSEraseThenRandom(list, NO, randomAll, region, &error);
+            NSDictionary *result = ChengIOSEraseThenRandom(list, allDevice, randomAll, region, &error);
             NSMutableString *msg = [NSMutableString string];
             NSArray *ok = result[@"ok"];
             NSArray *failed = result[@"failed"];
@@ -503,7 +502,7 @@ void ChengIOSRunEraseThenRandom(UIViewController *host, NSArray<NSString *> *bun
                 [msg appendString:@"Force-quit app roi mo lai."];
             }
             if (ok.count) {
-                [msg appendString:@"\nTikTok: force-quit roi mo lai. Neu van con acc thi xoa rieng TikTok trong sheet."];
+                [msg appendString:@"\nForce-quit Shopee/TikTok/Facebook roi mo lai."];
             }
             done(ok.count ? @"Da xoa + doi info" : @"Xoa + random", msg);
         });
@@ -512,8 +511,10 @@ void ChengIOSRunEraseThenRandom(UIViewController *host, NSArray<NSString *> *bun
         go();
         return;
     }
-    NSString *title = @"Xoa app da chon + Random";
-    NSString *msg = [NSString stringWithFormat:@"Xoa sandbox/keychain %lu app da chon (ke ca Safari neu dang tick), roi random info. TikTok xoa them 1 lan sau random. Khong undo.", (unsigned long)list.count];
+    NSString *title = allDevice ? @"Xoa toan bo + Random" : @"Xoa app da chon + Random";
+    NSString *msg = allDevice
+        ? @"Xoa data MOI app user + Safari, roi Random Toan Bo. Shopee/TikTok xoa them 1 lan sau random. KHONG phai factory reset iOS. Khong undo."
+        : [NSString stringWithFormat:@"Xoa sandbox/keychain %lu app da chon, roi random info. Shopee/TikTok xoa them 1 lan sau random. Khong undo.", (unsigned long)list.count];
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
                                                                    message:msg
                                                             preferredStyle:UIAlertControllerStyleAlert];
@@ -539,7 +540,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
 
     NSString *region = CIQuery(url, @"region") ?: CIQuery(url, @"iso");
     if ([token containsString:@"erase-device-random"] || [token containsString:@"wipe-device-random"] || [token containsString:@"factory-random"]) {
-        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), NO, YES, region, silent);
+        ChengIOSRunEraseThenRandom(host, CIBundlesFromQuery(url), YES, YES, region, silent);
         return YES;
     }
     if ([token containsString:@"erase-random-all"] || [token containsString:@"wipe-random-all"] || [token containsString:@"reset-all"]) {
@@ -551,7 +552,7 @@ BOOL ChengIOSHandleBackupURL(NSURL *url, UIViewController *host) {
         return YES;
     }
     if ([token containsString:@"erase-device"] || [token containsString:@"wipe-device"] || [token containsString:@"erase-all-apps"]) {
-        ChengIOSRunErase(host, CIBundlesFromQuery(url), silent);
+        ChengIOSRunEraseDevice(host, silent);
         return YES;
     }
     if ([token containsString:@"erase-safari"] || [token containsString:@"wipe-safari"]) {
