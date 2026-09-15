@@ -612,8 +612,18 @@ BOOL OVSGestaltEnabled(void) {
     return OVSBoolForKey(@"gestaltEnabled", NO);
 }
 
+BOOL OVSShouldSpoofHardwareStats(void) {
+    if (!OVSSpoofingEnabled() || OVSIsSafariFamily() || OVSIsFragileApp()) {
+        return NO;
+    }
+    if (!OVSDeviceIdentityEnabled() && !OVSShouldSpoofModel()) {
+        return NO;
+    }
+    return OVSSpoofedMemorySize() > 0 || OVSSpoofedNCPU() > 0;
+}
+
 BOOL OVSLowLevelHooksEnabled(void) {
-    return OVSGestaltEnabled();
+    return OVSGestaltEnabled() || OVSShouldSpoofHardwareStats();
 }
 
 BOOL OVSMachineHooksEnabled(void) {

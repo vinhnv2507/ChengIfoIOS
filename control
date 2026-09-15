@@ -1,8 +1,8 @@
 Package: com.vinhnv2507.chengios
 Name: ChengIOS
-Version: 1.2.44
+Version: 1.2.45
 Architecture: iphoneos-arm
-Description: Spoofs iOS version, app version, and optional device/location/network/Wi-Fi signals per selected app. Fix TikTok wipe: resolve truncated Aweme ID, expand family, show name+bundle. Facebook 1.2.14, Shopee captcha-safe.
+Description: Spoofs iOS version, app version, and optional device/location/network/Wi-Fi signals per selected app. Deeper identity: Facebook IDFV/IDFA, TikTok RAM/CPU, Shopee native DeviceCheck.
 Maintainer: vinhnv2507 <vinhnv2507@users.noreply.github.com>
 Author: vinhnv2507 <vinhnv2507@users.noreply.github.com>
 Section: Tweaks

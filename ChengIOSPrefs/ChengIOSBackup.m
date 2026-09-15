@@ -1477,7 +1477,8 @@ static BOOL CIKeychainTextMatchesBundle(NSString *text, NSString *bundleID) {
             @"dbl", @"devicebasedlogin", @"device_based_login", @"savedaccount",
             @"saved_account", @"accountswitcher", @"account_switcher", @"fbsaved",
             @"fbsaveduser", @"fbaccountstore", @"msysstorage", @"metaplatforms",
-            @"continueas", @"lastloggedin", @"last_user"
+            @"continueas", @"lastloggedin", @"last_user",
+            @"family_device", @"machine_id", @"fb_device_id", @"anonymousid"
         ];
         for (NSString *needle in needles) {
             if ([blob containsString:needle]) {
@@ -1502,7 +1503,7 @@ static BOOL CIKeychainTextMatchesBundle(NSString *text, NSString *bundleID) {
             @"tiktok", @"musically", @"zhiliao", @"aweme", @"bytedance",
             @"musical.ly", @"ttaccount", @"tt_token", @"tt_passport",
             @"aweme_passport", @"com.zhiliaoapp", @"com.ss.iphone",
-            @"group.com.zhiliaoapp"
+            @"group.com.zhiliaoapp", @"odin_tt", @"openudid", @"krypton"
         ];
         for (NSString *needle in needles) {
             if ([blob containsString:needle]) {
@@ -1884,7 +1885,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.44, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.45, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -2286,10 +2287,17 @@ static NSUInteger CIKeychainSQLWipeForBundle(NSString *bundleID) {
         [likes addObjectsFromArray:@[@"%shopee%", @"%beeasy%", @"%shopeepay%"]];
     }
     if ([low hasPrefix:@"com.facebook."] || [low containsString:@"facebook"]) {
-        [likes addObjectsFromArray:@[@"%facebook%", @"%fbsdk%", @"%43aqtk3442.com.facebook%"]];
+        [likes addObjectsFromArray:@[
+            @"%facebook%", @"%fbsdk%", @"%43aqtk3442.com.facebook%",
+            @"%family_device_id%", @"%fb_device_id%", @"%anonymousid%"
+        ]];
     }
     if ([low containsString:@"tiktok"] || [low hasPrefix:@"com.zhiliaoapp."] || [low containsString:@"aweme"]) {
-        [likes addObjectsFromArray:@[@"%tiktok%", @"%zhiliao%", @"%musically%", @"%aweme%", @"%bytedance%", @"%com.ss.iphone%", @"%passport%"]];
+        [likes addObjectsFromArray:@[
+            @"%tiktok%", @"%zhiliao%", @"%musically%", @"%aweme%", @"%bytedance%",
+            @"%com.ss.iphone%", @"%passport%", @"%odin_tt%", @"%openudid%",
+            @"%krypton%", @"%msdk_guid%"
+        ]];
     }
     for (NSString *table in tables) {
         for (NSString *agrp in agrps) {
@@ -3614,7 +3622,17 @@ static NSArray<NSString *> *CIKnownKeychainServices(NSString *bundleID) {
             @"FBSavedAccounts",
             @"com.facebook.accountswitcher",
             @"FBDeviceBasedLogin",
-            @"saved_accounts"
+            @"saved_accounts",
+            @"com.facebook.sdk.UUID",
+            @"com.facebook.sdk:UUID",
+            @"family_device_id",
+            @"machine_id",
+            @"fb_device_id",
+            @"analytics_device_id",
+            @"com.facebook.device_id",
+            @"FBSDKAppEventsDeviceID",
+            @"com.facebook.sdk.advertiserID",
+            @"com.facebook.sdk:deviceID"
         ];
     }
     if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."]) {
@@ -3680,7 +3698,20 @@ static NSArray<NSString *> *CIKnownKeychainServices(NSString *bundleID) {
             @"aweme",
             @"BDAccount",
             @"tt_passport",
-            @"AwemeUserDefaults"
+            @"AwemeUserDefaults",
+            @"device_id",
+            @"install_id",
+            @"odin_tt",
+            @"openudid",
+            @"cdid",
+            @"google_aid",
+            @"tt_device_id",
+            @"krypton_device_id",
+            @"msdk_guid",
+            @"appsflyer",
+            @"adjust",
+            @"idfv",
+            @"idfa"
         ];
     }
     return bundleID.length ? @[ bundleID ] : @[];
@@ -4170,7 +4201,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.44",
+        @"version": @"1.2.45",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -4503,7 +4534,10 @@ static BOOL CINameLooksLikeLoginResidue(NSString *name, NSString *bundleID) {
             @"fbsaved", @"continueas", @"continue_as", @"login_account",
             @"logged_in_user", @"current_user", @"tokeninformation",
             @"fbaccesstoken", @"fbsdkaccesstoken", @"authenticationtoken",
-            @"accountswitcher", @"account_switcher"
+            @"accountswitcher", @"account_switcher",
+            @"family_device_id", @"machine_id", @"fb_device_id",
+            @"analytics_device_id", @"anonymousid", @"anonymous_id",
+            @"com.facebook.sdk.uuid", @"fbsdksettings"
         ];
     } else if ([blow containsString:@"shopee"] || [blow hasPrefix:@"com.beeasy."] || [blow hasPrefix:@"com.shopee."]) {
         needles = @[
@@ -4515,7 +4549,9 @@ static BOOL CINameLooksLikeLoginResidue(NSString *name, NSString *bundleID) {
                [blow containsString:@"musically"]) {
         needles = @[
             @"tt_token", @"ttaccount", @"passport", @"session", @"login_info",
-            @"user_session", @"auth_token", @"saved_account"
+            @"user_session", @"auth_token", @"saved_account",
+            @"device_id", @"install_id", @"odin_tt", @"openudid", @"cdid",
+            @"tt_device", @"krypton", @"google_aid", @"msdk_guid"
         ];
     }
     if (needles.count == 0) {

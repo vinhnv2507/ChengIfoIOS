@@ -32,6 +32,14 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.45
+
+- Facebook: spoof IDFV + IDFA (truoc giu IDFV that nen "Dang nhap gan day" gom cung 1 thiet bi). Khong Gestalt/WK/Darwin
+- Facebook wipe: them family_device_id / machine_id / sdk UUID
+- TikTok: spoof RAM/ncpu (sysctl + NSProcessInfo) cho khop model, khong spoof Darwin
+- TikTok wipe: odin/openudid/krypton/msdk
+- Shopee: **khong** tat DeviceCheck/App Attest (1.2.40 lam "thiet bi bat thuong"). Van khong spoof model/iOS/WK/gestalt. IDFV/IDFA van doi neu bat identity
+
 ## 1.2.44
 
 - TikTok `com.ss.iphone.ugc.Ame` (bundle cat) map sang Aweme/Musically that, helper khong con bo TikTok khi xoa rieng

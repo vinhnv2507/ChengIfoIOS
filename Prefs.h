@@ -32,6 +32,7 @@ BOOL OVSShouldSpoofOSCapability(void);
 BOOL OVSHideJailbreakEnabled(void);
 BOOL OVSGestaltEnabled(void);
 BOOL OVSLowLevelHooksEnabled(void);
+BOOL OVSShouldSpoofHardwareStats(void);
 BOOL OVSMachineHooksEnabled(void);
 BOOL OVSBeginLowLevelHook(void);
 void OVSEndLowLevelHook(void);
