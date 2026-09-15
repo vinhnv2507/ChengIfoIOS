@@ -217,7 +217,7 @@
 %end
 
 %ctor {
-    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess()) {
+    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess() || OVSIsShopeeFamily()) {
         return;
     }
     %init;

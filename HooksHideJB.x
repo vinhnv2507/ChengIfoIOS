@@ -253,7 +253,7 @@ static void CIHookSym(const char *name, void *replacement, void **original) {
 %end
 
 %ctor {
-    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess()) {
+    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess() || OVSIsShopeeFamily()) {
         return;
     }
     OVSRegisterPreferenceListener();
