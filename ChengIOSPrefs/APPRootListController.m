@@ -117,15 +117,23 @@ extern char **environ;
 }
 
 - (void)randomizeIdentity {
-    NSDictionary *profile = ChengIOSRandomIdentity();
-    [self chengApplyProfile:profile];
-    [self chengShowProfile:profile title:@"Random Info Máy" full:NO];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSDictionary *profile = ChengIOSRandomIdentity();
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self chengApplyProfile:profile];
+            [self chengShowProfile:profile title:@"Random Info May" full:NO];
+        });
+    });
 }
 
 - (void)randomizeAll {
-    NSDictionary *profile = ChengIOSRandomFullProfile();
-    [self chengApplyProfile:profile];
-    [self chengShowProfile:profile title:@"Random Toàn Bộ" full:YES];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSDictionary *profile = ChengIOSRandomFullProfile();
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self chengApplyProfile:profile];
+            [self chengShowProfile:profile title:@"Random Toan Bo" full:YES];
+        });
+    });
 }
 
 

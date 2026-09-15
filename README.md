@@ -32,6 +32,11 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.50
+
+- App: dua Random va Backup len dau
+- Random Toan Bo mac dinh theo IP public: quoc gia, nha mang, GPS, locale, Wi-Fi. Random theo vung van ep tay. Web van thay IP that (can VPN)
+
 ## 1.2.49
 
 - Shopee captcha: **khong inject** ChengIOS.dylib vao Shopee (bo Filter UIKit). 1.2.48 van load dylib roi return som; Tongdun van thay tweak. Shopee chi wipe + vendor ID that. Facebook/TikTok/Safari/AIDA64 van inject theo app da chon. Respring sau khi tick app.

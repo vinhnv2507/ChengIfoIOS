@@ -13,15 +13,17 @@
 }
 
 - (void)randomizeISO:(NSString *)iso title:(NSString *)title {
-    NSDictionary *profile = iso.length ? ChengIOSRandomFullProfileInRegion(iso) : ChengIOSRandomFullProfile();
-    [self chengApplyProfile:profile];
-    NSString *summary = ChengIOSProfileSummary(profile);
-    if (![UIAlertController class]) {
-        return;
-    }
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
-                                                                   message:summary
-                                                            preferredStyle:UIAlertControllerStyleAlert];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSDictionary *profile = iso.length ? ChengIOSRandomFullProfileInRegion(iso) : ChengIOSRandomFullProfile();
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self chengApplyProfile:profile];
+            NSString *summary = ChengIOSProfileSummary(profile);
+            if (![UIAlertController class]) {
+                return;
+            }
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
+                                                                           message:summary
+                                                                    preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Random lai" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         (void)action;
@@ -31,10 +33,12 @@
         (void)action;
         [UIPasteboard generalPasteboard].string = summary;
     }]];
-    [self presentViewController:alert animated:YES completion:nil];
+            [self presentViewController:alert animated:YES completion:nil];
+        });
+    });
 }
 
-- (void)randomizeRegionAuto { [self randomizeISO:nil title:@"Random tu dong"]; }
+- (void)randomizeRegionAuto { [self randomizeISO:nil title:@"Random theo IP"]; }
 - (void)randomizeRegionVN { [self randomizeISO:@"vn" title:@"Random Viet Nam"]; }
 - (void)randomizeRegionUS { [self randomizeISO:@"us" title:@"Random United States"]; }
 - (void)randomizeRegionKR { [self randomizeISO:@"kr" title:@"Random Korea"]; }
