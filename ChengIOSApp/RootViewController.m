@@ -28,7 +28,8 @@ extern char **environ;
         @"chengios://settings",
         @"chengios://random-all?silent=1",
         @"chengios://erase-random-all",
-        @"chengios://erase-device-random"
+        @"chengios://erase-device-random",
+        @"chengios://backup-erase-random"
     ];
 }
 
@@ -46,6 +47,7 @@ extern char **environ;
             @{@"kind": @"nav", @"title": @"Quan ly Backup", @"page": @"backup", @"detail": @"Backup / Restore / Xoa data"},
             @{@"kind": @"button", @"title": @"Backup ho so", @"action": @"backupProfile"},
             @{@"kind": @"button", @"title": @"Backup ho so + data app", @"action": @"backupApps"},
+            @{@"kind": @"button", @"title": @"Backup + Xoa + Random + Respring", @"action": @"backupEraseRandom"},
             @{@"kind": @"button", @"title": @"Xoa sach data app da chon", @"action": @"eraseApps"},
             @{@"kind": @"button", @"title": @"Xoa app da chon + Random Toan Bo", @"action": @"eraseRandomAll"},
             @{@"kind": @"button", @"title": @"Xoa toan bo + Random Toan Bo", @"action": @"eraseDeviceRandom"}
@@ -360,6 +362,8 @@ extern char **environ;
         ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://backup-profile"], self);
     } else if ([action isEqualToString:@"backupApps"]) {
         ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://backup-apps"], self);
+    } else if ([action isEqualToString:@"backupEraseRandom"]) {
+        ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://backup-erase-random"], self);
     } else if ([action isEqualToString:@"eraseApps"]) {
         ChengIOSHandleBackupURL([NSURL URLWithString:@"chengios://erase-apps"], self);
     } else if ([action isEqualToString:@"eraseRandomAll"]) {
@@ -369,18 +373,45 @@ extern char **environ;
     }
 }
 
-- (void)runRandom:(BOOL)full silent:(BOOL)silent {
-    void (^apply)(NSDictionary *) = ^(NSDictionary *profile) {
-        ChengIOSApplyProfile(profile);
-        [self reloadProfile];
+- (void)finishChangeInfo:(NSDictionary *)profile title:(NSString *)title silent:(BOOL)silent respring:(BOOL)respring {
+    ChengIOSApplyProfile(profile);
+    [self reloadProfile];
+    NSString *text = ChengIOSProfileSummary(profile);
+    if (text.length > 0) {
+        [UIPasteboard generalPasteboard].string = text;
+    }
+    if (respring) {
         if (!silent) {
-            [self showSummaryTitle:(full ? @"Random To\u00e0n B\u1ed9" : @"Random Info M\u00e1y") profile:profile];
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
+                                                                           message:@"Da copy ho so. Dang Respring..."
+                                                                    preferredStyle:UIAlertControllerStyleAlert];
+            [self presentViewController:alert animated:YES completion:^{
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.9 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    [self respring];
+                });
+            }];
+        } else {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                [self respring];
+            });
         }
-    };
+        return;
+    }
+    if (!silent) {
+        [self showSummaryTitle:title profile:profile];
+    }
+}
+
+- (void)runRandom:(BOOL)full silent:(BOOL)silent {
+    [self runRandom:full silent:silent respring:YES];
+}
+
+- (void)runRandom:(BOOL)full silent:(BOOL)silent respring:(BOOL)respring {
+    NSString *title = full ? @"Random Toan Bo" : @"Random Info May";
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSDictionary *profile = full ? ChengIOSRandomFullProfile() : ChengIOSRandomIdentity();
         dispatch_async(dispatch_get_main_queue(), ^{
-            apply(profile);
+            [self finishChangeInfo:profile title:title silent:silent respring:respring];
         });
     });
 }
@@ -508,6 +539,7 @@ extern char **environ;
     NSString *token = [self tokenFromURL:url];
     NSString *mode = [self queryValue:url name:@"mode"];
     BOOL silent = [self queryFlag:url names:@[@"silent", @"quiet", @"x-silent"]];
+    BOOL noRespring = [self queryFlag:url names:@[@"norespring", @"skip-respring"]];
     BOOL did = NO;
     if (ChengIOSHandleBackupURL(url, self.navigationController.topViewController ?: self)) {
         did = YES;
@@ -518,19 +550,15 @@ extern char **environ;
         NSString *region = [self queryValue:url name:@"region"] ?: [self queryValue:url name:@"iso"];
         if (region.length > 0) {
             NSDictionary *profile = ChengIOSRandomFullProfileInRegion(region);
-            ChengIOSApplyProfile(profile);
-            [self reloadProfile];
-            if (!silent) {
-                [self showSummaryTitle:[NSString stringWithFormat:@"Random %@", region.uppercaseString] profile:profile];
-            }
+            [self finishChangeInfo:profile title:[NSString stringWithFormat:@"Random %@", region.uppercaseString] silent:silent respring:!noRespring];
         } else {
-            [self runRandom:YES silent:silent];
+            [self runRandom:YES silent:silent respring:!noRespring];
         }
         did = YES;
     } else if ([token isEqualToString:@"random"] && !modeIdentity) {
-        [self runRandom:YES silent:silent]; did = YES;
+        [self runRandom:YES silent:silent respring:!noRespring]; did = YES;
     } else if (modeIdentity || [self token:token hasAny:@[@"random-identity", @"random-info", @"identity", @"info-may", @"infomay", @"machine"]]) {
-        [self runRandom:NO silent:silent]; did = YES;
+        [self runRandom:NO silent:silent respring:!noRespring]; did = YES;
     } else if ([self token:token hasAny:@[@"copy"]]) {
         [self copySummary]; did = YES;
     } else if ([self token:token hasAny:@[@"profile", @"current", @"hoso", @"ho-so", @"info"]]) {

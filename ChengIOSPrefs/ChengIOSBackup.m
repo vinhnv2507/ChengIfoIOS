@@ -194,7 +194,7 @@ static NSString *CISanitizeName(NSString *name) {
     NSMutableString *out = [NSMutableString string];
     for (NSUInteger i = 0; i < raw.length && out.length < 64; i++) {
         unichar c = [raw characterAtIndex:i];
-        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == ' ') {
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == ' ' || c == '+') {
             [out appendFormat:@"%C", c];
         } else if (c == '/' || c == '\\' || c == ':') {
             [out appendString:@"-"];
@@ -381,6 +381,83 @@ NSString *ChengIOSBundleDisplayTitle(NSString *bundleID) {
     }
     return [NSString stringWithFormat:@"%@ (%@)", name, resolved];
 }
+
+static NSString *CIShortAppTag(NSString *bundleID) {
+    if (bundleID.length == 0) {
+        return @"";
+    }
+    NSString *low = bundleID.lowercaseString;
+    if ([low containsString:@"facebook"]) return @"FB";
+    if ([low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."]) return @"Shopee";
+    if ([low containsString:@"tiktok"] || [low containsString:@"musically"] || [low containsString:@"aweme"] || [low hasPrefix:@"com.ss.iphone."] || [low hasPrefix:@"com.zhiliaoapp."]) return @"TT";
+    if ([low containsString:@"safari"]) return @"Safari";
+    if ([low containsString:@"aida64"] || [low containsString:@"finalwire"]) return @"AIDA";
+    if ([low containsString:@"instagram"]) return @"IG";
+    NSString *name = ChengIOSBundleDisplayName(bundleID);
+    name = [name stringByReplacingOccurrencesOfString:@" " withString:@""];
+    if (name.length > 8) {
+        name = [name substringToIndex:8];
+    }
+    return name.length ? name : @"App";
+}
+
+NSString *ChengIOSSuggestedBackupNameForBundles(NSArray<NSString *> *bundleIDs) {
+    NSString *base = ChengIOSSuggestedBackupName();
+    if (bundleIDs.count == 0) {
+        return base;
+    }
+    NSMutableArray *tags = [NSMutableArray array];
+    NSMutableSet *seen = [NSMutableSet set];
+    for (NSString *bid in bundleIDs) {
+        if (![bid isKindOfClass:[NSString class]] || bid.length == 0) {
+            continue;
+        }
+        NSString *tag = CIShortAppTag(bid);
+        if (tag.length == 0 || [seen containsObject:tag]) {
+            continue;
+        }
+        [seen addObject:tag];
+        [tags addObject:tag];
+    }
+    if (tags.count == 0) {
+        return base;
+    }
+    if (tags.count > 4) {
+        NSUInteger extra = tags.count - 3;
+        NSArray *head = [tags subarrayWithRange:NSMakeRange(0, 3)];
+        tags = [head mutableCopy];
+        [tags addObject:[NSString stringWithFormat:@"%lu", (unsigned long)extra]];
+    }
+    return [NSString stringWithFormat:@"%@ %@", base, [tags componentsJoinedByString:@"+"]];
+}
+
+void ChengIOSRequestRespring(void) {
+    pid_t pid = 0;
+    const char *candidates[] = {
+        "/var/jb/usr/bin/sbreload",
+        "/usr/bin/sbreload",
+        "/var/jb/usr/bin/killall",
+        "/usr/bin/killall",
+        NULL
+    };
+    for (int i = 0; candidates[i] != NULL; i++) {
+        if (access(candidates[i], X_OK) != 0) {
+            continue;
+        }
+        if (strstr(candidates[i], "sbreload") != NULL) {
+            const char *args[] = {candidates[i], NULL};
+            if (posix_spawn(&pid, candidates[i], NULL, NULL, (char *const *)args, environ) == 0) {
+                return;
+            }
+        } else {
+            const char *args[] = {candidates[i], "-9", "SpringBoard", NULL};
+            if (posix_spawn(&pid, candidates[i], NULL, NULL, (char *const *)args, environ) == 0) {
+                return;
+            }
+        }
+    }
+}
+
 
 static LSApplicationProxy *CIProxy(NSString *bundleID) {
     if (bundleID.length == 0) {
@@ -1908,7 +1985,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.50, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.51, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -4124,7 +4201,8 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
     gCIKCSignedOK = NO;
     NSString *label = CISanitizeName(name);
     if (label.length == 0) {
-        label = ChengIOSSuggestedBackupName();
+        NSArray *nameBundles = includeAppData ? (bundleIDs.count ? bundleIDs : ChengIOSUserSelectedBundleIDs()) : @[];
+        label = ChengIOSSuggestedBackupNameForBundles(nameBundles);
     }
 
     NSDictionary *prefs = ChengIOSLoadRawPrefs() ?: @{};
@@ -4220,7 +4298,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.50",
+        @"version": @"1.2.51",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,

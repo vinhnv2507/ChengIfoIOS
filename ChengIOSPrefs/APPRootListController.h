@@ -11,5 +11,6 @@
 - (void)showCurrentInfo;
 - (void)copyCurrentInfo;
 - (void)chengApplyProfile:(NSDictionary *)profile;
+- (void)chengApplyAndRespring:(NSDictionary *)profile title:(NSString *)title;
 - (void)chengShowProfile:(NSDictionary *)profile title:(NSString *)title full:(BOOL)full;
 @end

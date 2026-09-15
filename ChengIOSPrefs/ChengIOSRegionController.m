@@ -16,24 +16,7 @@
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSDictionary *profile = iso.length ? ChengIOSRandomFullProfileInRegion(iso) : ChengIOSRandomFullProfile();
         dispatch_async(dispatch_get_main_queue(), ^{
-            [self chengApplyProfile:profile];
-            NSString *summary = ChengIOSProfileSummary(profile);
-            if (![UIAlertController class]) {
-                return;
-            }
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
-                                                                           message:summary
-                                                                    preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Random lai" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        (void)action;
-        [self randomizeISO:iso title:title];
-    }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Sao chep" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        (void)action;
-        [UIPasteboard generalPasteboard].string = summary;
-    }]];
-            [self presentViewController:alert animated:YES completion:nil];
+            [self chengApplyAndRespring:profile title:title];
         });
     });
 }

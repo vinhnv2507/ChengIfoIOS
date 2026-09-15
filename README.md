@@ -32,6 +32,12 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.51
+
+- Backup ho so + data: chon 1/2/3 hoac tat ca app da tick; ten backup gom ten app
+- Sau moi lan change info: Respring tu dong (silent van respring, tru norespring=1)
+- Combo Backup + Xoa + Random + Respring / chengios://backup-erase-random
+
 ## 1.2.50
 
 - App: dua Random va Backup len dau
