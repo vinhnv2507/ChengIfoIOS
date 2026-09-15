@@ -1,1 +1,10 @@
-{ Filter = { Bundles = ( "com.apple.UIKit" ); }; }
+{ Filter = { Bundles = (
+  "com.apple.mobilesafari",
+  "com.facebook.Facebook",
+  "com.facebook.Messenger",
+  "com.ss.iphone.ugc.Aweme",
+  "com.zhiliaoapp.musically",
+  "com.zhiliaoapp.musically.go",
+  "com.finalwire.aida64",
+  "com.ksauxiliary.AIDA64"
+); }; }

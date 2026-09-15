@@ -37,10 +37,10 @@ extern char **environ;
         @[
             @{@"kind": @"switch", @"title": @"B\u1eadt ChengIOS", @"key": @"masterEnabled", @"defaultOn": @YES},
             @{@"kind": @"switch", @"title": @"Spoof s\u00e2u (Gestalt / Darwin)", @"key": @"gestaltEnabled", @"defaultOn": @NO, @"detail": @"FB/Shopee b\u1ecf qua Gestalt; app th\u01b0\u1eddng m\u1edbi d\u00f9ng Darwin. Force-quit app \u0111\u00edch"},
-            @{@"kind": @"switch", @"title": @"An jailbreak / bypass", @"key": @"hideJailbreakEnabled", @"defaultOn": @NO, @"detail": @"An Cydia/Sileo/ElleKit. FB/Shopee chi an file/URL. Force-quit; neu Shopee vang thi tat"}
+            @{@"kind": @"switch", @"title": @"An jailbreak / bypass", @"key": @"hideJailbreakEnabled", @"defaultOn": @NO, @"detail": @"An Cydia/Sileo/ElleKit. Shopee khong inject tweak. FB chi an file/URL. Force-quit"}
         ],
         @[
-            @{@"kind": @"nav", @"title": @"Change Apps", @"detail": @"C\u00f3 Safari \u1edf \u0111\u1ea7u danh s\u00e1ch"}
+            @{@"kind": @"nav", @"title": @"Change Apps", @"detail": @"Shopee chi xoa data. App khac can Respring sau khi tick"}
         ],
         @[
             @{@"kind": @"button", @"title": @"Random Info M\u00e1y", @"action": @"identity"},

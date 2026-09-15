@@ -49,6 +49,15 @@ static NSDictionary *CIExecuteOp(NSString *op, NSDictionary *input) {
         NSDictionary *erase = ChengIOSEraseSafari(&error);
         result[@"ok"] = @YES;
         result[@"result"] = erase ?: @{};
+    } else if ([op isEqualToString:@"sync-filter"]) {
+        NSDictionary *sync = ChengIOSSyncInjectionFilter(&error);
+        result[@"ok"] = @YES;
+        if ([sync isKindOfClass:[NSDictionary class]]) {
+            result[@"result"] = sync;
+            if (sync[@"ok"] != nil) {
+                result[@"ok"] = sync[@"ok"];
+            }
+        }
     } else {
         result[@"error"] = @"bad op";
     }
@@ -138,12 +147,17 @@ static void CIProcessInbox(void) {
 static int CIRunDaemon(void) {
     setenv("CHENG_ROOT_HELPER", "1", 1);
     setenv("CHENG_DAEMON", "1", 1);
+    BOOL syncedFilter = NO;
     while (1) {
         @autoreleasepool {
             setuid(0);
             setgid(0);
             if (geteuid() == 0) {
                 CIWriteHeartbeat();
+                if (!syncedFilter) {
+                    ChengIOSSyncInjectionFilter(NULL);
+                    syncedFilter = YES;
+                }
                 CIProcessInbox();
             }
         }

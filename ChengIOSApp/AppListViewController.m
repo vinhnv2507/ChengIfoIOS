@@ -183,7 +183,7 @@ static NSString * const kSafariBundleID = @"com.apple.mobilesafari";
     if (section == 0) {
         return @"Safari lu\u00f4n \u1edf \u0111\u1ea7u danh s\u00e1ch, k\u1ec3 c\u1ea3 khi h\u1ec7 th\u1ed1ng \u1ea9n app.";
     }
-    return @"Ch\u1ecdn app r\u1ed3i Random. Force-quit app \u0111\u00edch. Kh\u00f4ng ch\u1ecdn SpringBoard.";
+    return @"Shopee chi xoa data, khong inject tweak (tranh captcha). App khac: Respring sau khi tick.";
 }
 
 - (NSString *)bundleIdForIndexPath:(NSIndexPath *)indexPath {

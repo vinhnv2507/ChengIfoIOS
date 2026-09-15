@@ -32,6 +32,11 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
+## 1.2.49
+
+- Shopee captcha: **khong inject** ChengIOS.dylib vao Shopee (bo Filter UIKit). 1.2.48 van load dylib roi return som; Tongdun van thay tweak. Shopee chi wipe + vendor ID that. Facebook/TikTok/Safari/AIDA64 van inject theo app da chon. Respring sau khi tick app.
+- Shopee van khong spoof model/iOS/UA/IDFV/DeviceCheck (DeviceCheck native de tranh thiet bi bat thuong)
+
 ## 1.2.48
 
 - Shopee captcha: **khong hook** UIDevice/UA/IDFV/IDFA/uname trong process Shopee (1.2.47 van rewrite User-Agent sang iOS gia). Chi wipe + reset vendor ID that. Facebook/TikTok giu nguyen

@@ -88,7 +88,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>Spoof sâu: Gestalt/Darwin/RAM trên app thường. Facebook/Shopee bỏ qua Gestalt (tránh văng) nhưng vẫn đổi model qua hw.machine. Safari chỉ đổi User-Agent; vuốt tắt hẳn Safari sau khi đổi. Ẩn jailbreak: chỉ app đã chọn, force-quit app. Facebook/Shopee chỉ ẩn file/URL (không hook fork/dyld). Nếu Shopee văng thì tắt.</string>
+			<string>Spoof sâu: Gestalt/Darwin/RAM trên app thường. Facebook bỏ qua Gestalt (tránh văng) nhưng vẫn đổi model. Shopee không inject tweak (tránh captcha), chỉ xóa data + IDFV thật. Safari chỉ đổi User-Agent; vuốt tắt hẳn Safari. Ẩn jailbreak: chỉ app đã chọn. Respring sau khi đổi Change Apps.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -783,7 +783,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>ChengIOS 1.2.48
+			<string>ChengIOS 1.2.49
 by vinhnv2507</string>
 			<key>isStaticText</key>
 			<true/>

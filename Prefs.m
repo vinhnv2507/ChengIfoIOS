@@ -9,6 +9,7 @@
 #import <string.h>
 #import <unistd.h>
 #import <dlfcn.h>
+#import <mach-o/dyld.h>
 #import <sys/sysctl.h>
 #import <sys/types.h>
 
@@ -558,8 +559,25 @@ static BOOL OVSStringLooksShopee(NSString *value) {
     }
     return [text containsString:@"shopee"] ||
            [text containsString:@"beeasy"] ||
+           [text containsString:@"shopeepay"] ||
            [text hasPrefix:@"com.shopee."] ||
            [text hasPrefix:@"com.beeasy."];
+}
+
+static BOOL OVSExecutableLooksShopee(void) {
+    char path[1024];
+    uint32_t size = sizeof(path);
+    if (_NSGetExecutablePath(path, &size) == 0) {
+        if (OVSStringLooksShopee([NSString stringWithUTF8String:path])) {
+            return YES;
+        }
+    }
+    for (NSString *arg in [[NSProcessInfo processInfo] arguments]) {
+        if (OVSStringLooksShopee(arg)) {
+            return YES;
+        }
+    }
+    return NO;
 }
 
 BOOL OVSIsShopeeFamily(void) {
@@ -572,7 +590,8 @@ BOOL OVSIsShopeeFamily(void) {
                  OVSStringLooksShopee(OVSParentProcessName()) ||
                  OVSStringLooksShopee(NSHomeDirectory()) ||
                  OVSStringLooksShopee(OVSContainerBundleIdentifier()) ||
-                 OVSStringLooksShopee(OVSResponsibleBundleIdentifier());
+                 OVSStringLooksShopee(OVSResponsibleBundleIdentifier()) ||
+                 OVSExecutableLooksShopee();
     });
     return shopee;
 }
@@ -1544,7 +1563,7 @@ NSString *OVSRewriteUserAgent(NSString *userAgent, BOOL rewriteAppVersion) {
 
 __attribute__((constructor))
 static void OVSPrefsConstructor(void) {
-    if (OVSIsProtectedProcess()) {
+    if (OVSIsProtectedProcess() || OVSIsShopeeFamily()) {
         return;
     }
     OVSRegisterPreferenceListener();

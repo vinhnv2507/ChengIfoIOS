@@ -26,3 +26,5 @@ NSDictionary *ChengIOSEraseThenRandom(NSArray<NSString *> *bundleIDs, BOOL allDe
 
 NSString *ChengIOSBackupErrorMessage(NSError *error);
 NSDictionary *ChengIOSLastRestoreStats(void);
+NSDictionary *ChengIOSSyncInjectionFilter(NSError **error);
+void ChengIOSRequestInjectionFilterSync(void);
