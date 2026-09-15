@@ -26,14 +26,14 @@ static NSDictionary *OVSSpoofedInfoDictionary(NSDictionary *original) {
 }
 
 static NSString *OVSRewriteIfNeeded(NSString *userAgent) {
-    if (!OVSSpoofingEnabled() || userAgent.length == 0) {
+    if (!OVSSpoofingEnabled() || OVSIsShopeeFamily() || userAgent.length == 0) {
         return userAgent;
     }
     return OVSRewriteUserAgent(userAgent, OVSAppVersionEnabled());
 }
 
 static NSDictionary *OVSRewriteHeaderDictionary(NSDictionary *headers) {
-    if (!OVSSpoofingEnabled() || headers.count == 0) {
+    if (!OVSSpoofingEnabled() || OVSIsShopeeFamily() || headers.count == 0) {
         return headers;
     }
     NSString *userAgent = nil;
@@ -491,7 +491,7 @@ static void OVSApplyWebViewUserAgent(id webView) {
 %end
 
 %ctor {
-    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess()) {
+    if (OVSIsProtectedProcess() || OVSIsWebKitHelperProcess() || OVSIsShopeeFamily()) {
         return;
     }
     OVSRegisterPreferenceListener();

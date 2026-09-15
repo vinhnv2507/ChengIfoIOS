@@ -202,7 +202,7 @@ extern char **environ;
         return @"Info May: model/ten/iOS. Toan Bo + Random theo vung: locale/GPS/Wi-Fi/IPv6 theo US/KR/JP...";
     }
     if (section == 3) {
-        return @"Shopee: giu model/iOS that (tranh captcha), chi xoay IDFV/IDFA + wipe. Xoa toan bo + Random van con. Force-quit sau khi xoa.";
+        return @"Shopee: khong hook trong app (UA/IDFV/model) de tranh captcha. Chi wipe data. Facebook/TikTok van spoof.";
     }
     if (section == 10) {
         return @"deviceinfo.me Region/City/ISP la IP cong cong that (Viettel/Hung Yen). Bam nut Detect de dung GPS gia lap.";

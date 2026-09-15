@@ -864,7 +864,7 @@ NSString *OVSSpoofedAppVersion(void) {
 }
 
 BOOL OVSDeviceIdentityEnabled(void) {
-    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && OVSBoolForKey(@"deviceIdentityEnabled", NO);
+    return OVSSpoofingEnabled() && !OVSIsSafariFamily() && !OVSIsShopeeFamily() && OVSBoolForKey(@"deviceIdentityEnabled", NO);
 }
 
 NSString *OVSSpoofedDeviceName(void) {
@@ -1518,6 +1518,9 @@ NSString *OVSSpoofedSafariUserAgent(void) {
 }
 
 NSString *OVSRewriteUserAgent(NSString *userAgent, BOOL rewriteAppVersion) {
+    if (OVSIsShopeeFamily()) {
+        return userAgent;
+    }
     if (userAgent.length == 0) {
         return OVSSpoofingEnabled() ? OVSSpoofedSafariUserAgent() : userAgent;
     }

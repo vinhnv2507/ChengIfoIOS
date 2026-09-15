@@ -1,8 +1,8 @@
 Package: com.vinhnv2507.chengios
 Name: ChengIOS
-Version: 1.2.47
+Version: 1.2.48
 Architecture: iphoneos-arm
-Description: Spoofs iOS version, app version, and optional device/location/network/Wi-Fi signals per selected app. Shopee captcha-safe: real model/iOS, IDFV only. Drop wipe-all-apps button.
+Description: Spoofs iOS version, app version, and optional device/location/network/Wi-Fi signals per selected app. Shopee: no in-app hooks (UA/IDFV) to stop captcha; wipe only.
 Maintainer: vinhnv2507 <vinhnv2507@users.noreply.github.com>
 Author: vinhnv2507 <vinhnv2507@users.noreply.github.com>
 Section: Tweaks
