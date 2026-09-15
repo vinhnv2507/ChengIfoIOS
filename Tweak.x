@@ -200,9 +200,6 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
     if (!OVSDeviceIdentityEnabled()) {
         return %orig;
     }
-    if (OVSIsFragileApp() && !OVSIsShopeeFamily()) {
-        return %orig;
-    }
     return OVSSpoofedVendorUUID();
 }
 %end
@@ -425,19 +422,19 @@ static void OVSApplyWebViewUserAgent(id webView) {
     } else if (OVSGestaltEnabled() && strcmp(name, "kern.version") == 0) {
         result = OVSSysctlCopyString(oldp, oldlenp, OVSDarwinVersionString().UTF8String);
         handled = YES;
-    } else if (OVSGestaltEnabled() && strcmp(name, "hw.model") == 0) {
+    } else if ((OVSGestaltEnabled() || OVSShouldSpoofModel()) && strcmp(name, "hw.model") == 0) {
         NSString *hw = OVSSpoofedHwModel();
         if (hw.length > 0) {
             result = OVSSysctlCopyString(oldp, oldlenp, hw.UTF8String);
             handled = YES;
         }
-    } else if (OVSGestaltEnabled() && (strcmp(name, "hw.ncpu") == 0 || strcmp(name, "hw.physicalcpu") == 0 || strcmp(name, "hw.logicalcpu") == 0)) {
+    } else if ((OVSGestaltEnabled() || OVSShouldSpoofHardwareStats()) && (strcmp(name, "hw.ncpu") == 0 || strcmp(name, "hw.physicalcpu") == 0 || strcmp(name, "hw.logicalcpu") == 0)) {
         int ncpu = (int)OVSSpoofedNCPU();
         if (ncpu > 0) {
             result = OVSSysctlCopyBytes(oldp, oldlenp, &ncpu, sizeof(ncpu));
             handled = YES;
         }
-    } else if (OVSGestaltEnabled() && strcmp(name, "hw.memsize") == 0) {
+    } else if ((OVSGestaltEnabled() || OVSShouldSpoofHardwareStats()) && strcmp(name, "hw.memsize") == 0) {
         uint64_t mem = (uint64_t)OVSSpoofedMemorySize();
         if (mem > 0) {
             result = OVSSysctlCopyBytes(oldp, oldlenp, &mem, sizeof(mem));
@@ -470,10 +467,17 @@ static void OVSApplyWebViewUserAgent(id webView) {
             handled = YES;
         }
 #endif
-        else if (OVSGestaltEnabled() && name[1] == HW_MODEL) {
+        else if ((OVSGestaltEnabled() || OVSShouldSpoofModel()) && name[1] == HW_MODEL) {
             NSString *hw = OVSSpoofedHwModel();
             if (hw.length > 0) {
                 result = OVSSysctlCopyString(oldp, oldlenp, hw.UTF8String);
+                handled = YES;
+            }
+        }
+        else if ((OVSGestaltEnabled() || OVSShouldSpoofHardwareStats()) && name[1] == HW_NCPU) {
+            int ncpu = (int)OVSSpoofedNCPU();
+            if (ncpu > 0) {
+                result = OVSSysctlCopyBytes(oldp, oldlenp, &ncpu, sizeof(ncpu));
                 handled = YES;
             }
         }
