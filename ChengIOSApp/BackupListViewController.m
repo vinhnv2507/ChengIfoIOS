@@ -7,6 +7,141 @@
 @property (nonatomic, strong) UIAlertController *busyAlert;
 @end
 
+static void CIPresent(UIViewController *host, NSString *title, NSString *message);
+
+@interface ChengIOSAppPickController : UITableViewController
+@property (nonatomic, copy) NSArray<NSString *> *bundles;
+@property (nonatomic, strong) NSMutableIndexSet *picked;
+@property (nonatomic, copy) NSString *doneTitle;
+@property (nonatomic, copy) void (^onDone)(NSArray<NSString *> *bundles);
+- (instancetype)initWithBundles:(NSArray<NSString *> *)bundles title:(NSString *)title doneTitle:(NSString *)doneTitle;
+@end
+
+@implementation ChengIOSAppPickController
+
+- (instancetype)initWithBundles:(NSArray<NSString *> *)bundles title:(NSString *)title doneTitle:(NSString *)doneTitle {
+    self = [super initWithStyle:UITableViewStyleGrouped];
+    if (self) {
+        _bundles = [bundles copy] ?: @[];
+        _picked = [NSMutableIndexSet indexSetWithIndexesInRange:NSMakeRange(0, _bundles.count)];
+        _doneTitle = doneTitle.length ? [doneTitle copy] : @"OK";
+        self.title = title.length ? title : @"Chon app";
+    }
+    return self;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Huy"
+                                                                             style:UIBarButtonItemStylePlain
+                                                                            target:self
+                                                                            action:@selector(cancelPick)];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:self.doneTitle
+                                                                              style:UIBarButtonItemStyleDone
+                                                                             target:self
+                                                                             action:@selector(confirmPick)];
+}
+
+- (void)cancelPick {
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (NSArray<NSString *> *)pickedBundles {
+    NSMutableArray *out = [NSMutableArray array];
+    [self.picked enumerateIndexesUsingBlock:^(NSUInteger idx, BOOL *stop) {
+        (void)stop;
+        if (idx < self.bundles.count) {
+            [out addObject:self.bundles[idx]];
+        }
+    }];
+    return out;
+}
+
+- (void)confirmPick {
+    NSArray *picked = [self pickedBundles];
+    if (picked.count == 0) {
+        CIPresent(self, @"Chua tick app", @"Tick 1, 2, 3 app hoac tat ca. Danh sach lay tu Change Apps.");
+        return;
+    }
+    void (^cb)(NSArray *) = self.onDone;
+    [self dismissViewControllerAnimated:YES completion:^{
+        if (cb) {
+            cb(picked);
+        }
+    }];
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
+    (void)tableView;
+    return 2;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    (void)tableView;
+    return section == 0 ? 2 : (NSInteger)self.bundles.count;
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    (void)tableView;
+    return section == 0 ? @"Lua chon" : @"App da tick";
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    (void)tableView;
+    if (section == 0) {
+        return nil;
+    }
+    return @"Tick 1, 2, 3 hoac tat ca. Ten backup se gom ten app.";
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"p"];
+    if (!cell) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"p"];
+        cell.detailTextLabel.numberOfLines = 2;
+        cell.detailTextLabel.adjustsFontSizeToFitWidth = YES;
+    }
+    if (indexPath.section == 0) {
+        if (indexPath.row == 0) {
+            cell.textLabel.text = @"Chon tat ca";
+            cell.detailTextLabel.text = [NSString stringWithFormat:@"%lu app", (unsigned long)self.bundles.count];
+            cell.accessoryType = (self.picked.count == self.bundles.count && self.bundles.count > 0) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+        } else {
+            cell.textLabel.text = @"Bo chon tat ca";
+            cell.detailTextLabel.text = @"Phai tick lai app muon backup";
+            cell.accessoryType = UITableViewCellAccessoryNone;
+        }
+        return cell;
+    }
+    NSString *bid = self.bundles[indexPath.row];
+    cell.textLabel.text = ChengIOSBundleDisplayName(bid);
+    cell.detailTextLabel.text = bid;
+    cell.accessoryType = [self.picked containsIndex:(NSUInteger)indexPath.row] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+    return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    if (indexPath.section == 0) {
+        if (indexPath.row == 0) {
+            self.picked = [NSMutableIndexSet indexSetWithIndexesInRange:NSMakeRange(0, self.bundles.count)];
+        } else {
+            self.picked = [NSMutableIndexSet indexSet];
+        }
+        [tableView reloadData];
+        return;
+    }
+    NSUInteger idx = (NSUInteger)indexPath.row;
+    if ([self.picked containsIndex:idx]) {
+        [self.picked removeIndex:idx];
+    } else {
+        [self.picked addIndex:idx];
+    }
+    [tableView reloadRowsAtIndexPaths:@[indexPath, [NSIndexPath indexPathForRow:0 inSection:0]] withRowAnimation:UITableViewRowAnimationNone];
+}
+
+@end
+
 @implementation BackupListViewController
 
 static NSString *CIQuery(NSURL *url, NSString *name) {
@@ -238,142 +373,6 @@ static void CIRunBusy(UIViewController *host, NSString *title, void (^work)(void
     });
 }
 
-@end
-
-@interface ChengIOSAppPickController : UITableViewController
-@property (nonatomic, copy) NSArray<NSString *> *bundles;
-@property (nonatomic, strong) NSMutableIndexSet *picked;
-@property (nonatomic, copy) NSString *doneTitle;
-@property (nonatomic, copy) void (^onDone)(NSArray<NSString *> *bundles);
-- (instancetype)initWithBundles:(NSArray<NSString *> *)bundles title:(NSString *)title doneTitle:(NSString *)doneTitle;
-@end
-
-@implementation ChengIOSAppPickController
-
-- (instancetype)initWithBundles:(NSArray<NSString *> *)bundles title:(NSString *)title doneTitle:(NSString *)doneTitle {
-    self = [super initWithStyle:UITableViewStyleGrouped];
-    if (self) {
-        _bundles = [bundles copy] ?: @[];
-        _picked = [NSMutableIndexSet indexSetWithIndexesInRange:NSMakeRange(0, _bundles.count)];
-        _doneTitle = doneTitle.length ? [doneTitle copy] : @"OK";
-        self.title = title.length ? title : @"Chon app";
-    }
-    return self;
-}
-
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Huy"
-                                                                             style:UIBarButtonItemStylePlain
-                                                                            target:self
-                                                                            action:@selector(cancelPick)];
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:self.doneTitle
-                                                                              style:UIBarButtonItemStyleDone
-                                                                             target:self
-                                                                             action:@selector(confirmPick)];
-}
-
-- (void)cancelPick {
-    [self dismissViewControllerAnimated:YES completion:nil];
-}
-
-- (NSArray<NSString *> *)pickedBundles {
-    NSMutableArray *out = [NSMutableArray array];
-    [self.picked enumerateIndexesUsingBlock:^(NSUInteger idx, BOOL *stop) {
-        (void)stop;
-        if (idx < self.bundles.count) {
-            [out addObject:self.bundles[idx]];
-        }
-    }];
-    return out;
-}
-
-- (void)confirmPick {
-    NSArray *picked = [self pickedBundles];
-    if (picked.count == 0) {
-        CIPresent(self, @"Chua tick app", @"Tick 1, 2, 3 app hoac tat ca. Danh sach lay tu Change Apps.");
-        return;
-    }
-    void (^cb)(NSArray *) = self.onDone;
-    [self dismissViewControllerAnimated:YES completion:^{
-        if (cb) {
-            cb(picked);
-        }
-    }];
-}
-
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    (void)tableView;
-    return 2;
-}
-
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    (void)tableView;
-    return section == 0 ? 2 : (NSInteger)self.bundles.count;
-}
-
-- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    (void)tableView;
-    return section == 0 ? @"Lua chon" : @"App da tick";
-}
-
-- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    (void)tableView;
-    if (section == 0) {
-        return nil;
-    }
-    return @"Tick 1, 2, 3 hoac tat ca. Ten backup se gom ten app.";
-}
-
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"p"];
-    if (!cell) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"p"];
-        cell.detailTextLabel.numberOfLines = 2;
-        cell.detailTextLabel.adjustsFontSizeToFitWidth = YES;
-    }
-    if (indexPath.section == 0) {
-        if (indexPath.row == 0) {
-            cell.textLabel.text = @"Chon tat ca";
-            cell.detailTextLabel.text = [NSString stringWithFormat:@"%lu app", (unsigned long)self.bundles.count];
-            cell.accessoryType = (self.picked.count == self.bundles.count && self.bundles.count > 0) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
-        } else {
-            cell.textLabel.text = @"Bo chon tat ca";
-            cell.detailTextLabel.text = @"Phai tick lai app muon backup";
-            cell.accessoryType = UITableViewCellAccessoryNone;
-        }
-        return cell;
-    }
-    NSString *bid = self.bundles[indexPath.row];
-    cell.textLabel.text = ChengIOSBundleDisplayName(bid);
-    cell.detailTextLabel.text = bid;
-    cell.accessoryType = [self.picked containsIndex:(NSUInteger)indexPath.row] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
-    return cell;
-}
-
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    if (indexPath.section == 0) {
-        if (indexPath.row == 0) {
-            self.picked = [NSMutableIndexSet indexSetWithIndexesInRange:NSMakeRange(0, self.bundles.count)];
-        } else {
-            self.picked = [NSMutableIndexSet indexSet];
-        }
-        [tableView reloadData];
-        return;
-    }
-    NSUInteger idx = (NSUInteger)indexPath.row;
-    if ([self.picked containsIndex:idx]) {
-        [self.picked removeIndex:idx];
-    } else {
-        [self.picked addIndex:idx];
-    }
-    [tableView reloadRowsAtIndexPaths:@[indexPath, [NSIndexPath indexPathForRow:0 inSection:0]] withRowAnimation:UITableViewRowAnimationNone];
-}
-
-@end
-
-@implementation BackupListViewController
 
 static void CIPresentAppPicker(UIViewController *host, NSString *title, NSString *doneTitle, NSArray<NSString *> *bundles, void (^onDone)(NSArray<NSString *> *picked)) {
     if (!host) {
