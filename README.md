@@ -32,8 +32,11 @@ Rồi tìm **ChengIOS** (`com.vinhnv2507.chengios`). Có hai gói:
 
 Kích thước màn hình không bị đổi.
 
-## 1.2.51
+## 1.2.52
 
+- Restore backup: luon doc va khoi phuc ca SecItem va `keychain-sql.plist`; khong bo qua SQL khi signed restore da thanh cong
+- Fallback keychain chay khi signed helper tra ve danh sach rong; UI hien thi rieng signed/SQL restore
+- Backup van ghi nhan backup hop le ngay ca khi app chi co du lieu trong keychain SQLite
 - Backup ho so + data: chon 1/2/3 hoac tat ca app da tick; ten backup gom ten app
 - Sau moi lan change info: Respring tu dong (silent van respring, tru norespring=1)
 - Combo Backup + Xoa + Random + Respring / chengios://backup-erase-random
