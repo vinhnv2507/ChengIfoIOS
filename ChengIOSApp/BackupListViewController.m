@@ -551,12 +551,14 @@ void ChengIOSRunRestore(UIViewController *host, NSString *backupID, BOOL restore
             NSString *msg = error ? ChengIOSBackupErrorMessage(error) : (ok ? @"Da restore sandbox + keychain. Force-quit Facebook/Shopee/TikTok roi mo lai. Neu FB van logout: backup lai bang 1.2.26 khi dang login, can Data>0, Keychain withData>0, kcUid 501." : @"Restore that bai.");
             NSDictionary *stats = ChengIOSLastRestoreStats();
             if (stats.count > 0) {
-                msg = [NSString stringWithFormat:@"%@\nFiles %@  fail %@  bytes %@\nKeychain restored %@  fail %@  skip %@  kcUid %@",
+                msg = [NSString stringWithFormat:@"%@\nFiles %@  fail %@  bytes %@\nKeychain restored %@  signed %@  SQL %@  fail %@  skip %@  kcUid %@",
                        msg,
                        stats[@"copiedFiles"] ?: @0,
                        stats[@"copyFailed"] ?: @0,
                        stats[@"copiedBytes"] ?: @0,
                        stats[@"keychainRestored"] ?: @0,
+                       stats[@"keychainSignedRestored"] ?: @0,
+                       stats[@"keychainSQLRestored"] ?: @0,
                        stats[@"keychainFailed"] ?: @0,
                        stats[@"keychainSkipped"] ?: @0,
                        stats[@"kcUid"] ?: @"?"];

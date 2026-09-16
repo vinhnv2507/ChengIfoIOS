@@ -1985,7 +1985,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.51, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.52, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -2473,6 +2473,48 @@ static NSUInteger CIKeychainSQLWipeForBundle(NSString *bundleID) {
         CIKeychainSQLSettle();
     }
     return removed;
+}
+
+static NSString *CIKeychainSQLRowSignature(NSDictionary *row) {
+    if (![row isKindOfClass:[NSDictionary class]]) {
+        return @"";
+    }
+    NSString *table = [row[@"table"] isKindOfClass:[NSString class]] ? row[@"table"] : @"";
+    NSDictionary *cols = [row[@"cols"] isKindOfClass:[NSDictionary class]] ? row[@"cols"] : @{};
+    NSString *agrp = [cols[@"agrp"] isKindOfClass:[NSString class]] ? cols[@"agrp"] : @"";
+    if ([table isEqualToString:@"keys"] || [table isEqualToString:@"cert"]) {
+        NSString *labl = [cols[@"labl"] isKindOfClass:[NSString class]] ? cols[@"labl"] : @"";
+        return [NSString stringWithFormat:@"%@|%@|%@", table, agrp, labl];
+    }
+    NSString *svce = [cols[@"svce"] isKindOfClass:[NSString class]] ? cols[@"svce"] : @"";
+    NSString *acct = [cols[@"acct"] isKindOfClass:[NSString class]] ? cols[@"acct"] : @"";
+    return [NSString stringWithFormat:@"%@|%@|%@|%@", table, agrp, svce, acct];
+}
+
+static BOOL CIKeychainSQLRowHasData(NSDictionary *row) {
+    NSDictionary *cols = [row[@"cols"] isKindOfClass:[NSDictionary class]] ? row[@"cols"] : nil;
+    id data = cols[@"data"];
+    return ([data isKindOfClass:[NSData class]] && [data length] > 0) ||
+           ([data isKindOfClass:[NSString class]] && [data length] > 0);
+}
+
+static void CIKeychainSQLAddUniqueRow(NSMutableArray<NSDictionary *> *out, NSDictionary *row) {
+    if (![row isKindOfClass:[NSDictionary class]] || ![out isKindOfClass:[NSMutableArray class]]) {
+        return;
+    }
+    NSString *sig = CIKeychainSQLRowSignature(row);
+    if (sig.length == 0) {
+        return;
+    }
+    for (NSUInteger i = 0; i < out.count; i++) {
+        if ([CIKeychainSQLRowSignature(out[i]) isEqualToString:sig]) {
+            if (CIKeychainSQLRowHasData(row) && !CIKeychainSQLRowHasData(out[i])) {
+                out[i] = row;
+            }
+            return;
+        }
+    }
+    [out addObject:row];
 }
 
 static NSUInteger CIKeychainSQLRestoreRows(NSArray *rows) {
@@ -3501,7 +3543,11 @@ static NSArray<NSDictionary *> *CIKeychainDumpForBundle(NSString *bundleID) {
     for (NSDictionary *row in signedItems) {
         CIKeychainAddUniqueRow(out, row);
     }
-    if (gCIKCSignedOK) {
+    // The signed helper can report success with an empty/incomplete result
+    // (for example when its entitlement list is incomplete or no row contains
+    // data).  Do not treat that result as authoritative; let the
+    // Security.framework fallback fill the missing token-bearing items.
+    if (gCIKCSignedOK && out.count > 0 && gCIKCWithData > 0) {
         return out;
     }
     NSArray *classes = @[
@@ -4254,7 +4300,12 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
             if (![keychain isKindOfClass:[NSArray class]]) {
                 keychain = @[];
             }
-            if (dataPath.length == 0 && groups.count == 0 && plugins.count == 0 && keychain.count == 0) {
+            NSArray *sqlItems = sqlByBundle[bundleID];
+            if (![sqlItems isKindOfClass:[NSArray class]]) {
+                sqlItems = @[];
+            }
+            if (dataPath.length == 0 && groups.count == 0 && plugins.count == 0 &&
+                keychain.count == 0 && sqlItems.count == 0) {
                 [failedBundles addObject:bundleID];
                 continue;
             }
@@ -4298,7 +4349,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.51",
+        @"version": @"1.2.52",
         @"includeAppData": @(includeAppData),
         @"bundles": savedBundles,
         @"failedBundles": failedBundles,
@@ -4398,6 +4449,8 @@ BOOL ChengIOSRestoreBackup(NSString *backupID, BOOL restoreProfile, BOOL restore
             @"copiedFiles": @0,
             @"copyFailed": @0,
             @"keychainRestored": @0,
+            @"keychainSignedRestored": @0,
+            @"keychainSQLRestored": @0,
             @"kcUid": @-1
         } mutableCopy];
         NSString *appsDir = [dir stringByAppendingPathComponent:@"apps"];
@@ -4477,19 +4530,33 @@ BOOL ChengIOSRestoreBackup(NSString *backupID, BOOL restoreProfile, BOOL restore
                     CIChownMobileR(dest);
                 }];
             }
-            NSArray *keychain = [NSArray arrayWithContentsOfFile:[appDir stringByAppendingPathComponent:@"keychain.plist"]];
-            if (keychain.count > 0) {
+            // Security.framework rows and the raw keychain SQLite rows are stored
+            // separately.  Facebook/TikTok often keep the actual session in the
+            // SQLite table, while the signed helper may restore only metadata.
+            // Always load both files and restore both stores independently.
+            NSArray *keychainFile = [NSArray arrayWithContentsOfFile:[appDir stringByAppendingPathComponent:@"keychain.plist"]];
+            NSArray *sqlFile = [NSArray arrayWithContentsOfFile:[appDir stringByAppendingPathComponent:@"keychain-sql.plist"]];
+            if (![keychainFile isKindOfClass:[NSArray class]]) {
+                keychainFile = @[];
+            }
+            if (![sqlFile isKindOfClass:[NSArray class]]) {
+                sqlFile = @[];
+            }
+            if (keychainFile.count > 0 || sqlFile.count > 0) {
                 NSMutableArray *sqlRows = [NSMutableArray array];
                 NSMutableArray *secRows = [NSMutableArray array];
-                for (NSDictionary *row in keychain) {
+                for (NSDictionary *row in keychainFile) {
                     if (![row isKindOfClass:[NSDictionary class]]) {
                         continue;
                     }
                     if ([row[@"source"] isEqualToString:@"sqlite"] || row[@"cols"]) {
-                        [sqlRows addObject:row];
+                        CIKeychainSQLAddUniqueRow(sqlRows, row);
                     } else {
                         [secRows addObject:row];
                     }
+                }
+                for (NSDictionary *row in sqlFile) {
+                    CIKeychainSQLAddUniqueRow(sqlRows, row);
                 }
                 CIKeychainSignedWipe(bundleID);
                 CIWipeKeychainForProxy(CIProxy(bundleID), bundleID);
@@ -4497,23 +4564,26 @@ BOOL ChengIOSRestoreBackup(NSString *backupID, BOOL restoreProfile, BOOL restore
                 CIRunKillall(@"securityd");
                 CIRunKillall(@"secd");
                 [NSThread sleepForTimeInterval:0.2];
-                NSArray *sqlFile = [NSArray arrayWithContentsOfFile:[appDir stringByAppendingPathComponent:@"keychain-sql.plist"]];
-                if ([sqlFile isKindOfClass:[NSArray class]]) {
-                    [sqlRows addObjectsFromArray:sqlFile];
-                }
                 gCIKCFailed = 0;
                 gCIKCSkipped = 0;
-                NSUInteger restored = 0;
+                NSUInteger signedRestored = 0;
+                NSUInteger sqlRestored = 0;
                 if (secRows.count > 0) {
-                    restored = CIKeychainSignedRestore(bundleID, secRows);
+                    signedRestored = CIKeychainSignedRestore(bundleID, secRows);
                 }
-                if (restored == 0 && sqlRows.count > 0) {
-                    restored = CIKeychainSQLRestoreRows(sqlRows);
+                // Do not gate SQL restore on signedRestored.  The login/session
+                // records can be in the SQLite keychain even when signed restore
+                // successfully restored unrelated rows.
+                if (sqlRows.count > 0) {
+                    sqlRestored = CIKeychainSQLRestoreRows(sqlRows);
                 }
+                NSUInteger restored = signedRestored + sqlRestored;
                 if (!gCILastRestoreStats) {
                     gCILastRestoreStats = [NSMutableDictionary dictionary];
                 }
                 gCILastRestoreStats[@"keychainRestored"] = @([gCILastRestoreStats[@"keychainRestored"] unsignedIntegerValue] + restored);
+                gCILastRestoreStats[@"keychainSignedRestored"] = @([gCILastRestoreStats[@"keychainSignedRestored"] unsignedIntegerValue] + signedRestored);
+                gCILastRestoreStats[@"keychainSQLRestored"] = @([gCILastRestoreStats[@"keychainSQLRestored"] unsignedIntegerValue] + sqlRestored);
                 gCILastRestoreStats[@"keychainFailed"] = @([gCILastRestoreStats[@"keychainFailed"] unsignedIntegerValue] + gCIKCFailed);
                 gCILastRestoreStats[@"keychainSkipped"] = @([gCILastRestoreStats[@"keychainSkipped"] unsignedIntegerValue] + gCIKCSkipped);
                 gCILastRestoreStats[@"kcUid"] = @(gCIKCSignedUID);
