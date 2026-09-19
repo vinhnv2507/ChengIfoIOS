@@ -78,7 +78,7 @@
 			<key>label</key>
 			<string>Backup / Data app</string>
 			<key>footerText</key>
-			<string>Backup ho so ChengIOS (nho). Backup data app luu Documents/Preferences/Cookies, bo Caches. Xoa data: kill app roi xoa sandbox. Khong xoa Safari/keychain iCloud. Nen dung app ChengIOS.</string>
+			<string>Backup ho so ChengIOS (nho). Backup data app luu Documents/Library/Caches/tmp/SystemData + keychain; Facebook/TikTok tu gom companion da cai. Xoa data: kill app roi xoa sandbox. Khong xoa Safari/keychain iCloud. Nen dung app ChengIOS.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -783,7 +783,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>ChengIOS 1.2.52
+			<string>ChengIOS 1.2.53
 by vinhnv2507</string>
 			<key>isStaticText</key>
 			<true/>
