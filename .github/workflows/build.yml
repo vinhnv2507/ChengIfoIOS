@@ -21,9 +21,19 @@ jobs:
       - name: Build rootful package
         run: |
           set -uo pipefail
+          # The repository used to track an old 1.0.0 package. Start from a clean
+          # output directory so validation/publishing can never pick up stale DEBs.
+          rm -rf packages built-packages
+          make clean
           if make package FINALPACKAGE=1 2>&1 | tee /tmp/build-rootful.log; then
             mkdir -p built-packages
-            cp packages/*_iphoneos-arm.deb built-packages/
+            mapfile -t packages_found < <(find packages -maxdepth 1 -type f -name '*_iphoneos-arm.deb' -print)
+            if [ "${#packages_found[@]}" -ne 1 ]; then
+              echo "::error::Expected exactly one rootful package, found ${#packages_found[@]}"
+              printf '%s\n' "${packages_found[@]}"
+              exit 1
+            fi
+            cp "${packages_found[0]}" built-packages/
           else
             echo "==== compile errors ===="
             grep -E "error:|fatal error:|undefined reference|clang: error|make: \*\*\*" /tmp/build-rootful.log | tail -n 60 | while IFS= read -r line; do
@@ -40,7 +50,13 @@ jobs:
           make clean
           sed -i "s/^Architecture:.*/Architecture: iphoneos-arm64/" control
           if make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless 2>&1 | tee /tmp/build-rootless.log; then
-            cp packages/*_iphoneos-arm64.deb built-packages/
+            mapfile -t packages_found < <(find packages -maxdepth 1 -type f -name '*_iphoneos-arm64.deb' -print)
+            if [ "${#packages_found[@]}" -ne 1 ]; then
+              echo "::error::Expected exactly one rootless package, found ${#packages_found[@]}"
+              printf '%s\n' "${packages_found[@]}"
+              exit 1
+            fi
+            cp "${packages_found[0]}" built-packages/
           else
             echo "==== compile errors ===="
             grep -E "error:|fatal error:|undefined reference|clang: error|make: \*\*\*" /tmp/build-rootless.log | tail -n 60 | while IFS= read -r line; do
