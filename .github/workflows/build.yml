@@ -62,11 +62,12 @@ jobs:
             echo "Validating $package"
             dpkg-deb --info "$package"
             contents="$(dpkg-deb --contents "$package")"
-            echo "$contents" | grep 'ChengIOS.dylib'
-            echo "$contents" | grep 'ChengIOSPrefs.bundle'
-            echo "$contents" | grep 'ChengIOSApp.app'
-            echo "$contents" | grep 'chengiosroot'
-            echo "$contents" | grep 'chengioskc'
+            for required in ChengIOS.dylib ChengIOSPrefs.bundle ChengIOSApp.app chengiosroot chengioskc; do
+              if ! grep -Fq "$required" <<<"$contents"; then
+                echo "::error::Missing $required in $package"
+                exit 1
+              fi
+            done
           done
 
       - name: Build APT repository
