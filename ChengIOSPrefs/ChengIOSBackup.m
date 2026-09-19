@@ -70,6 +70,7 @@ static BOOL CIBundleLooksDirty(NSString *bundleID);
 static void CIKillTikTokHard(void);
 static void CIKillEraseTargets(NSArray<NSString *> *targets);
 static NSArray<NSString *> *CIExpandEraseTargets(NSArray<NSString *> *bundleIDs);
+static NSArray<NSString *> *CITikTokFamilyTargetsIfRequested(NSArray<NSString *> *bundleIDs);
 static NSArray<NSString *> *CIExpandBackupTargets(NSArray<NSString *> *bundleIDs);
 static NSString *CIKeychainRestoreFamilyKey(NSString *bundleID);
 static NSArray<NSString *> *CIEraseOrder(NSArray<NSString *> *targets);
@@ -2006,7 +2007,7 @@ static NSDictionary *CIRunDaemonOp(NSDictionary *input, NSError **error) {
     }
     if (!CIDaemonIsAlive()) {
         if (error) {
-            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.53, Respring, mo app ChengIOS.");
+            *error = CIError(2, @"chengiosroot daemon chua chay. Cai 1.2.54, Respring, mo app ChengIOS.");
         }
         return @{@"ok": @NO, @"uid": @(geteuid()), @"daemon": @NO, @"error": @"daemon not running"};
     }
@@ -4608,7 +4609,7 @@ NSDictionary *ChengIOSCreateBackup(NSString *name, NSArray<NSString *> *bundleID
         @"id": backupID,
         @"name": label,
         @"created": [fmt stringFromDate:[NSDate date]],
-        @"version": @"1.2.53",
+        @"version": @"1.2.54",
         @"includeAppData": @(includeAppData),
         @"requestedBundles": includeAppData ? (requestedTargets ?: @[]) : @[],
         @"expandedBundles": includeAppData ? (targets ?: @[]) : @[],
@@ -5489,6 +5490,52 @@ static NSArray<NSString *> *CIExpandBackupTargets(NSArray<NSString *> *bundleIDs
     return out;
 }
 
+static NSArray<NSString *> *CITikTokFamilyTargetsIfRequested(NSArray<NSString *> *bundleIDs) {
+    BOOL requested = NO;
+    for (NSString *raw in bundleIDs) {
+        if (![raw isKindOfClass:[NSString class]] || raw.length == 0) {
+            continue;
+        }
+        NSString *resolved = CIResolveBundleID(raw) ?: raw;
+        if (CIBundleIsTikTokFamily(raw) || CIBundleIsTikTokFamily(resolved)) {
+            requested = YES;
+            break;
+        }
+    }
+    if (!requested) {
+        return @[];
+    }
+
+    // The combined erase + random flow may receive an alias from the picker,
+    // while the installed app uses another TikTok-family bundle identifier.
+    // Re-enumerate actual installed family containers for the final wipe.
+    NSMutableArray<NSString *> *seeds = [NSMutableArray arrayWithArray:@[
+        @"com.ss.iphone.ugc.Aweme",
+        @"com.zhiliaoapp.musically",
+        @"com.zhiliaoapp.musically.go"
+    ]];
+    for (NSString *root in CIDataContainerRoots()) {
+        NSDictionary<NSString *, NSString *> *index = CIContainerIndexForRoot(root);
+        for (NSString *ident in index) {
+            if (CIBundleIsTikTokFamily(ident)) {
+                [seeds addObject:ident];
+            }
+        }
+    }
+
+    NSArray<NSString *> *expanded = CIExpandEraseTargets(seeds);
+    NSMutableArray<NSString *> *out = [NSMutableArray array];
+    NSMutableSet<NSString *> *seen = [NSMutableSet set];
+    for (NSString *ident in expanded) {
+        NSString *resolved = CIResolveBundleID(ident) ?: ident;
+        if (resolved.length == 0 || [seen containsObject:resolved] || !CIBundleHasContainer(resolved)) {
+            continue;
+        }
+        [seen addObject:resolved];
+        [out addObject:resolved];
+    }
+    return out;
+}
 static NSArray<NSString *> *CIExpandEraseTargets(NSArray<NSString *> *bundleIDs) {
     NSMutableArray<NSString *> *out = [NSMutableArray array];
     NSMutableSet<NSString *> *seen = [NSMutableSet set];
@@ -6036,7 +6083,8 @@ NSDictionary *ChengIOSEraseThenRandom(NSArray<NSString *> *bundleIDs, BOOL allDe
     NSMutableArray *failed = [erase[@"failed"] mutableCopy] ?: [NSMutableArray array];
     NSArray *skipped = erase[@"skipped"] ?: @[];
     if (rewipe.count > 0) {
-        NSDictionary *again = ChengIOSEraseBundles(rewipe, error);
+        NSError *rewipeError = nil;
+        NSDictionary *again = ChengIOSEraseBundles(rewipe, &rewipeError);
         for (NSString *bid in again[@"ok"] ?: @[]) {
             if (![ok containsObject:bid]) {
                 [ok addObject:bid];
@@ -6048,9 +6096,37 @@ NSDictionary *ChengIOSEraseThenRandom(NSArray<NSString *> *bundleIDs, BOOL allDe
                 [failed addObject:bid];
             }
         }
+        if (rewipeError && error && !*error) {
+            *error = rewipeError;
+        }
         CIKillEraseTargets(rewipe);
     }
-    return @{
+
+    // A profile change can remount a TikTok extension/container after the
+    // initial erase. Run a final family pass against the identifiers that are
+    // actually installed, not only the picker alias.
+    NSArray<NSString *> *tiktokFinalTargets = CITikTokFamilyTargetsIfRequested(bundleIDs.count ? bundleIDs : targets);
+    if (tiktokFinalTargets.count > 0) {
+        usleep(250000);
+        CIKillEraseTargets(tiktokFinalTargets);
+        NSError *tiktokError = nil;
+        NSDictionary *tiktokPass = ChengIOSEraseBundles(tiktokFinalTargets, &tiktokError);
+        for (NSString *bid in tiktokPass[@"ok"] ?: @[]) {
+            if (![ok containsObject:bid]) {
+                [ok addObject:bid];
+            }
+            [failed removeObject:bid];
+        }
+        for (NSString *bid in tiktokPass[@"failed"] ?: @[]) {
+            if (![ok containsObject:bid] && ![failed containsObject:bid]) {
+                [failed addObject:bid];
+            }
+        }
+        if (tiktokError && error && !*error) {
+            *error = tiktokError;
+        }
+        CIKillEraseTargets(tiktokFinalTargets);
+    }    return @{
         @"ok": ok,
         @"failed": failed,
         @"skipped": skipped,
