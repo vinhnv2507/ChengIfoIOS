@@ -102,7 +102,7 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (NSUInteger)processorCount {
-    if (!OVSLowLevelHooksEnabled() || !OVSDeviceIdentityEnabled()) {
+    if (!OVSShouldSpoofHardwareStats()) {
         NSUInteger original = %orig;
         return original;
     }
@@ -115,7 +115,7 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (NSUInteger)activeProcessorCount {
-    if (!OVSLowLevelHooksEnabled() || !OVSDeviceIdentityEnabled()) {
+    if (!OVSShouldSpoofHardwareStats()) {
         NSUInteger original = %orig;
         return original;
     }
@@ -128,7 +128,7 @@ static int OVSSysctlCopyString(void *oldp, size_t *oldlenp, const char *value) {
 }
 
 - (unsigned long long)physicalMemory {
-    if (!OVSLowLevelHooksEnabled() || !OVSDeviceIdentityEnabled()) {
+    if (!OVSShouldSpoofHardwareStats()) {
         unsigned long long original = %orig;
         return original;
     }
@@ -413,13 +413,13 @@ static void OVSApplyWebViewUserAgent(id webView) {
             result = OVSSysctlCopyString(oldp, oldlenp, hw.UTF8String);
             handled = YES;
         }
-    } else if ((OVSGestaltEnabled() || OVSShouldSpoofHardwareStats()) && (strcmp(name, "hw.ncpu") == 0 || strcmp(name, "hw.physicalcpu") == 0 || strcmp(name, "hw.logicalcpu") == 0)) {
+    } else if (OVSShouldSpoofHardwareStats() && (strcmp(name, "hw.ncpu") == 0 || strcmp(name, "hw.physicalcpu") == 0 || strcmp(name, "hw.logicalcpu") == 0)) {
         int ncpu = (int)OVSSpoofedNCPU();
         if (ncpu > 0) {
             result = OVSSysctlCopyBytes(oldp, oldlenp, &ncpu, sizeof(ncpu));
             handled = YES;
         }
-    } else if ((OVSGestaltEnabled() || OVSShouldSpoofHardwareStats()) && strcmp(name, "hw.memsize") == 0) {
+    } else if (OVSShouldSpoofHardwareStats() && strcmp(name, "hw.memsize") == 0) {
         uint64_t mem = (uint64_t)OVSSpoofedMemorySize();
         if (mem > 0) {
             result = OVSSysctlCopyBytes(oldp, oldlenp, &mem, sizeof(mem));
@@ -459,7 +459,7 @@ static void OVSApplyWebViewUserAgent(id webView) {
                 handled = YES;
             }
         }
-        else if ((OVSGestaltEnabled() || OVSShouldSpoofHardwareStats()) && name[1] == HW_NCPU) {
+        else if (OVSShouldSpoofHardwareStats() && name[1] == HW_NCPU) {
             int ncpu = (int)OVSSpoofedNCPU();
             if (ncpu > 0) {
                 result = OVSSysctlCopyBytes(oldp, oldlenp, &ncpu, sizeof(ncpu));

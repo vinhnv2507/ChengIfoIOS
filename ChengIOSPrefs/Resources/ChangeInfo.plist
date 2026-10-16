@@ -10,7 +10,7 @@
 			<key>label</key>
 			<string>Random</string>
 			<key>footerText</key>
-			<string>Random chọn 1 hồ sơ máy thật: model, tên, hostname, iOS và build khớp nhau. Toàn bộ còn điền locale/nhà mạng/GPS/mạng/app theo đúng vùng đó.</string>
+			<string>Random chọn 1 hồ sơ máy thật: model, tên, hostname, iOS và build khớp nhau. Toàn bộ còn điền locale/nhà mạng/GPS/app theo đúng vùng đó.</string>
 		</dict>
 		<dict>
 			<key>cell</key>

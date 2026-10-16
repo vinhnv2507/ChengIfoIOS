@@ -95,23 +95,23 @@ extern char **environ;
 }
 
 - (void)chengApplyAndRespring:(NSDictionary *)profile title:(NSString *)title {
-    [self chengApplyProfile:profile];
+    ChengIOSApplyProfileAsync(profile, ^{
+        [self chengDidApplyAndRespring:profile title:title];
+    });
+}
+
+- (void)chengDidApplyAndRespring:(NSDictionary *)profile title:(NSString *)title {
+    [self reloadSpecifiers];
     NSString *summary = ChengIOSProfileSummary(profile);
     if (summary.length > 0) {
         [UIPasteboard generalPasteboard].string = summary;
     }
-    if (![UIAlertController class]) {
-        [self performRespring];
-        return;
-    }
+    if (![UIAlertController class]) return;
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
-                                                                   message:@"Da copy ho so. Dang Respring..."
+                                                                   message:@"Da luu ho so. Dong han va mo lai app da chon de ap dung."
                                                             preferredStyle:UIAlertControllerStyleAlert];
-    [self presentViewController:alert animated:YES completion:^{
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.9 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [self performRespring];
-        });
-    }];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)randomizeIdentity {

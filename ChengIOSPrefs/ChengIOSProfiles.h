@@ -7,6 +7,7 @@ NSArray<NSDictionary *> *ChengIOSRegionChoices(void);
 NSDictionary *ChengIOSLoadSavedProfile(void);
 NSString *ChengIOSProfileSummary(NSDictionary *profile);
 void ChengIOSApplyProfile(NSDictionary *profile);
+void ChengIOSApplyProfileAsync(NSDictionary *profile, void (^completion)(void));
 void ChengIOSReplaceRawPrefs(NSDictionary *prefs);
 NSMutableDictionary *ChengIOSLoadRawPrefs(void);
 void ChengIOSSetPrefValue(NSString *key, id value);

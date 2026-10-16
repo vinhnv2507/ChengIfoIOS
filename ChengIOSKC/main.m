@@ -1,3 +1,4 @@
+#import "../ChengIOSPrefs/ChengIOSKeychainPolicy.h"
 #import <Foundation/Foundation.h>
 #import <Security/Security.h>
 #import <dlfcn.h>
@@ -358,7 +359,7 @@ static NSArray *CIKCDump(NSArray<NSString *> *agrps) {
         }
         for (NSDictionary *item in attrs) {
             NSString *agrp = item[(__bridge id)kSecAttrAccessGroup];
-            if (CIKCSkipApple(agrp)) {
+            if (CIKCSkipApple(agrp) || CIKeychainProtectedItem(item)) {
                 continue;
             }
             // collect(nil) is kept as an iOS compatibility fallback, but do
@@ -374,14 +375,7 @@ static NSArray *CIKCDump(NSArray<NSString *> *agrps) {
 }
 
 static BOOL CIKCSkipApple(NSString *agrp) {
-    NSString *low = agrp.lowercaseString ?: @"";
-    if (![low hasPrefix:@"com.apple."]) {
-        return NO;
-    }
-    if ([low containsString:@"safari"] || [low containsString:@"webkit"] || [low containsString:@"mobilesafari"]) {
-        return NO;
-    }
-    return YES;
+    return CIKeychainProtectedAccessGroup(agrp);
 }
 
 static NSUInteger CIKCWipe(NSArray<NSString *> *agrps) {
@@ -401,16 +395,10 @@ static NSUInteger CIKCWipe(NSArray<NSString *> *agrps) {
                 (__bridge id)kSecAttrAccessGroup: agrp,
                 (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
             };
-            OSStatus status = SecItemDelete((__bridge CFDictionaryRef)query);
-            if (status == errSecSuccess) {
-                n += 1;
-            }
+            n += CIKeychainDeleteUnprotectedItems(query);
             NSMutableDictionary *plain = [query mutableCopy];
             [plain removeObjectForKey:(__bridge id)kSecAttrSynchronizable];
-            status = SecItemDelete((__bridge CFDictionaryRef)plain);
-            if (status == errSecSuccess) {
-                n += 1;
-            }
+            n += CIKeychainDeleteUnprotectedItems(plain);
         }
     }
     return n;
@@ -521,7 +509,7 @@ static NSUInteger CIKCRestore(NSArray *rows) {
             continue;
         }
         NSString *agrp = row[@"accessGroup"];
-        if (CIKCSkipApple(agrp)) {
+        if (CIKCSkipApple(agrp) || CIKeychainProtectedItem(row)) {
             continue;
         }
         NSString *data64 = row[@"data"];

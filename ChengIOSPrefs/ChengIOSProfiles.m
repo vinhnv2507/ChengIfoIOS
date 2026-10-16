@@ -44,24 +44,6 @@ static void CILoadCFPrefsInto(NSMutableDictionary *prefs) {
     CFRelease(dict);
 }
 
-static void CIKillCFPrefsDaemon(void) {
-    const char *bins[] = {
-        "/usr/bin/killall",
-        "/var/jb/usr/bin/killall",
-        "/usr/sbin/killall",
-        NULL
-    };
-    for (int i = 0; bins[i]; i++) {
-        pid_t pid = 0;
-        char *args[] = {(char *)bins[i], "-9", "cfprefsd", NULL};
-        if (posix_spawn(&pid, bins[i], NULL, NULL, args, environ) == 0) {
-            int status = 0;
-            waitpid(pid, &status, 0);
-            break;
-        }
-    }
-}
-
 static void CIFinalizePrefsFiles(void) {
     for (NSString *path in CIPrefsPaths()) {
         const char *raw = path.fileSystemRepresentation;
@@ -70,10 +52,6 @@ static void CIFinalizePrefsFiles(void) {
         }
         lchown(raw, 501, 501);
         chmod(raw, 0644);
-    }
-    if (geteuid() == 0) {
-        CIKillCFPrefsDaemon();
-        usleep(80000);
     }
 }
 
@@ -1111,6 +1089,7 @@ static NSDictionary *CIBuildProfile(BOOL full, NSString *iso) {
         @"customHostName": host,
         @"useCustomOSVersion": @YES,
         @"deviceIdentityEnabled": @YES,
+        @"networkEnabled": @NO,
         @"profileProduct": product,
         @"profileCity": city[@"name"] ?: @"",
         @"_product": product,
@@ -1163,16 +1142,6 @@ static NSDictionary *CIBuildProfile(BOOL full, NSString *iso) {
     profile[@"altitude"] = [NSString stringWithFormat:@"%.0f", alt];
     profile[@"accuracy"] = [NSString stringWithFormat:@"%u", 5 + arc4random_uniform(16)];
     profile[@"gpxPath"] = @"";
-    NSString *ipv4 = CIRandomIPv4ForISO(region[@"iso"]);
-    profile[@"networkEnabled"] = @YES;
-    profile[@"interfaceName"] = @"en0";
-    profile[@"ipv4Address"] = ipv4;
-    profile[@"ipv6Address"] = CIRandomIPv6(region[@"ipv6"]);
-    profile[@"macAddress"] = wifi;
-    profile[@"wifiSSID"] = CIRandomSSID(region, name, ipv4);
-    profile[@"wifiBSSID"] = CIRandomBSSID();
-    profile[@"wifiGateway"] = CIGatewayFromIPv4(ipv4);
-    profile[@"wifiRSSI"] = CIRandomRSSI();
     profile[@"appVersionEnabled"] = @NO;
     profile[@"customAppVersion"] = CIRandomAppVersion();
     if ([geo[@"ip"] length]) {
@@ -1254,6 +1223,21 @@ NSString *ChengIOSProfileSummary(NSDictionary *profile) {
         [text appendFormat:@"\nApp: %@", profile[@"customAppVersion"]];
     }
     return text;
+}
+
+void ChengIOSApplyProfileAsync(NSDictionary *profile, void (^completion)(void)) {
+    static dispatch_queue_t queue;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        queue = dispatch_queue_create("com.vinhnv2507.chengiosprefs.apply", DISPATCH_QUEUE_SERIAL);
+    });
+    NSDictionary *snapshot = [profile copy];
+    dispatch_async(queue, ^{
+        @autoreleasepool {
+            ChengIOSApplyProfile(snapshot);
+            if (completion) dispatch_async(dispatch_get_main_queue(), completion);
+        }
+    });
 }
 
 void ChengIOSApplyProfile(NSDictionary *profile) {

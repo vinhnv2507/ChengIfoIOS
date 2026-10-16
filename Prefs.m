@@ -51,6 +51,7 @@ static NSArray<CLLocation *> *gGPXLocations;
 static NSArray<NSNumber *> *gGPXOffsets;
 static NSString *gLoadedGPXPath;
 static NSTimeInterval gLocationEpoch;
+static dispatch_source_t gPreferenceReloadSource;
 
 static NSArray<NSString *> *OVSCandidatePreferencePaths(void) {
     return @[
@@ -162,7 +163,9 @@ static void OVSDarwinCallback(CFNotificationCenterRef center, void *observer, CF
     (void)name;
     (void)object;
     (void)userInfo;
-    OVSReloadPreferences();
+    // Both notification names are posted for one random operation. Merge
+    // pending reloads and keep plist I/O off the notifying/main thread.
+    if (gPreferenceReloadSource) dispatch_source_merge_data(gPreferenceReloadSource, 1);
 }
 
 static void OVSAddDarwinObserver(CFStringRef name) {
@@ -180,6 +183,14 @@ void OVSRegisterPreferenceListener(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         OVSReloadPreferences();
+        dispatch_queue_t queue = dispatch_queue_create("com.vinhnv2507.chengiosprefs.reload", DISPATCH_QUEUE_SERIAL);
+        gPreferenceReloadSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_DATA_OR, 0, 0, queue);
+        dispatch_source_set_event_handler(gPreferenceReloadSource, ^{
+            @autoreleasepool {
+                OVSReloadPreferences();
+            }
+        });
+        dispatch_resume(gPreferenceReloadSource);
         OVSAddDarwinObserver(CFSTR("com.vinhnv2507.chengiosprefs/changed"));
         OVSAddDarwinObserver(CFSTR("com.vinhnv2507.chengiosprefs/ReloadPrefs"));
     });
@@ -297,7 +308,13 @@ BOOL OVSIsProtectedProcess(void) {
             @"com.apple.preferences",
             @"com.apple.backboardd"
         ];
-        protectedProcess = [blockedNames containsObject:processName] || [blockedIDs containsObject:bundleID];
+        BOOL appleSystemProcess = [bundleID hasPrefix:@"com.apple."] &&
+                                  ![bundleID isEqualToString:@"com.apple.mobilesafari"];
+        BOOL ownProcess = [bundleID hasPrefix:@"com.vinhnv2507.chengios"] ||
+                          [processName hasPrefix:@"chengios"];
+        BOOL applicationBundle = [OVSMainBundlePath().pathExtension.lowercaseString isEqualToString:@"app"];
+        protectedProcess = appleSystemProcess || ownProcess || !applicationBundle ||
+                           [blockedNames containsObject:processName] || [blockedIDs containsObject:bundleID];
     });
     return protectedProcess;
 }
@@ -632,13 +649,7 @@ BOOL OVSGestaltEnabled(void) {
 }
 
 BOOL OVSShouldSpoofHardwareStats(void) {
-    if (!OVSSpoofingEnabled() || OVSIsSafariFamily() || OVSIsFragileApp()) {
-        return NO;
-    }
-    if (!OVSDeviceIdentityEnabled() && !OVSShouldSpoofModel()) {
-        return NO;
-    }
-    return OVSSpoofedMemorySize() > 0 || OVSSpoofedNCPU() > 0;
+    return NO;
 }
 
 BOOL OVSLowLevelHooksEnabled(void) {
@@ -1429,15 +1440,9 @@ CLLocation *OVSSpoofedLocation(void) {
 }
 
 BOOL OVSNetworkEnabled(void) {
-    if (OVSIsFragileApp() || OVSIsSafariFamily() || !OVSSpoofingEnabled() || !OVSBoolForKey(@"networkEnabled", NO)) {
-        return NO;
-    }
-    return OVSSpoofedIPv4().length > 0 ||
-           OVSSpoofedIPv6().length > 0 ||
-           OVSSpoofedMACAddress().length > 0 ||
-           OVSSpoofedWifiSSID().length > 0 ||
-           OVSSpoofedWifiBSSID().length > 0 ||
-           OVSSpoofedWifiGateway().length > 0;
+    // Returning invented local addresses can break framework socket selection.
+    // Keep this disabled even when loading legacy preferences/backups.
+    return NO;
 }
 
 NSString *OVSSpoofedIPv4(void) {

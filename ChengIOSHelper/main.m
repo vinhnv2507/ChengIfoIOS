@@ -37,6 +37,8 @@ static NSDictionary *CIExecuteOp(NSString *op, NSDictionary *input) {
         if (stats.count > 0) {
             result[@"restoreStats"] = stats;
         }
+    } else if ([op isEqualToString:@"delete-backup"]) {
+        result[@"ok"] = @(ChengIOSDeleteBackup(input[@"backupID"], &error));
     } else if ([op isEqualToString:@"erase"]) {
         NSDictionary *erase = ChengIOSEraseBundles(input[@"bundles"], &error);
         NSMutableDictionary *eraseOut = [erase isKindOfClass:[NSDictionary class]] ? [erase mutableCopy] : [NSMutableDictionary dictionary];

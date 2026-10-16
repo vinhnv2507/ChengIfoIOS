@@ -1,4 +1,5 @@
 #import "ChengIOSBackup.h"
+#import "ChengIOSKeychainPolicy.h"
 #import "ChengIOSProfiles.h"
 
 #import <objc/runtime.h>
@@ -142,7 +143,7 @@ static NSArray<NSString *> *CIBackupRootCandidates(void) {
 }
 
 static BOOL CIValidBackupID(NSString *backupID) {
-    if (backupID.length < 4 || backupID.length > 80) {
+    if (![backupID isKindOfClass:[NSString class]] || backupID.length < 4 || backupID.length > 80) {
         return NO;
     }
     if ([backupID hasPrefix:@"."] || [backupID containsString:@".."] ||
@@ -840,7 +841,12 @@ static BOOL CIPathSafeToMutate(NSString *path) {
     if (path.length < 28) {
         return NO;
     }
-    NSString *low = path.lowercaseString;
+    NSString *low = path.stringByStandardizingPath.stringByResolvingSymlinksInPath.lowercaseString;
+    if ([low containsString:@"/systemconfiguration/"] ||
+        [low containsString:@"/preferences/com.apple.wifi"] ||
+        [low containsString:@"/preferences/com.apple.airport"] ||
+        [low containsString:@"/preferences/com.apple.network"] ||
+        [low containsString:@"/preferences/com.apple.eap"]) return NO;
     if ([low containsString:@"/chengios/backups"]) {
         return NO;
     }
@@ -1284,6 +1290,12 @@ static BOOL CIWipeContents(NSString *path) {
 }
 
 static void CIRunKillall(NSString *processName) {
+    // App cleanup must not restart services responsible for credentials/network.
+    NSString *low = processName.lowercaseString ?: @"";
+    if ([@[@"cfprefsd", @"securityd", @"secd", @"accountsd", @"wifid",
+           @"configd", @"networkd", @"symptomsd", @"backboardd", @"springboard",
+           @"launchd", @"watchdogd", @"thermalmonitord"] containsObject:low]) return;
+
     if (processName.length == 0 || [processName containsString:@"/"]) {
         return;
     }
@@ -1649,7 +1661,7 @@ static BOOL CIKeychainAgrpMatchesBundle(NSString *agrp, NSString *bundleID);
 
 static BOOL CIKeychainAgrpMatchesBundle(NSString *agrp, NSString *bundleID) {
     NSString *low = agrp.lowercaseString ?: @"";
-    if (low.length == 0 || CIKeychainAgrpIsForeignMeta(agrp, bundleID)) {
+    if (CIKeychainProtectedAccessGroup(agrp) || CIKeychainAgrpIsForeignMeta(agrp, bundleID)) {
         return NO;
     }
     if ([low containsString:bundleID.lowercaseString]) {
@@ -2144,6 +2156,7 @@ static void CIKeychainSQLChmodAll(void) {
 }
 
 static BOOL CIKeychainSQLAgrpProtected(NSString *agrp, NSString *bundleID) {
+    if (CIKeychainProtectedAccessGroup(agrp)) return YES;
     NSString *low = agrp.lowercaseString ?: @"";
     if (low.length == 0) {
         return NO;
@@ -2176,8 +2189,10 @@ static sqlite3 *CIKeychainSQLOpenPath(NSString *path, BOOL write) {
     if (path.length == 0) {
         return NULL;
     }
+    // securityd owns the live keychain database. Use SecItem APIs for writes.
+    if (write) return NULL;
     sqlite3 *db = NULL;
-    int flags = write ? SQLITE_OPEN_READWRITE : SQLITE_OPEN_READONLY;
+    int flags = SQLITE_OPEN_READONLY;
     if (sqlite3_open_v2(path.fileSystemRepresentation, &db, flags, NULL) != SQLITE_OK) {
         if (db) {
             sqlite3_close(db);
@@ -2185,8 +2200,6 @@ static sqlite3 *CIKeychainSQLOpenPath(NSString *path, BOOL write) {
         return NULL;
     }
     sqlite3_busy_timeout(db, gCIFastErase ? 600 : 15000);
-    sqlite3_exec(db, "PRAGMA cipher_memory_security = OFF;", NULL, NULL, NULL);
-    sqlite3_exec(db, "PRAGMA wal_checkpoint(PASSIVE);", NULL, NULL, NULL);
     gCIKeychainSQLLastOpen = YES;
     gCIKeychainSQLLastPath = path;
     return db;
@@ -2198,7 +2211,6 @@ static sqlite3 *CIKeychainSQLOpen(BOOL write) {
     if (gCIKeychainSQLLastPath.length == 0 || geteuid() != 0) {
         return NULL;
     }
-    CIKeychainSQLChmodAll();
     if (write) {
         if (!gCIFastErase) {
             CIKeychainSQLSettle();
@@ -2273,7 +2285,17 @@ static NSString *CIKeychainSQLRowBlob(NSDictionary *cols) {
     return [parts componentsJoinedByString:@" "];
 }
 
+static BOOL CIKeychainSQLRowProtected(NSDictionary *cols) {
+    if (![cols isKindOfClass:[NSDictionary class]]) return YES;
+    return CIKeychainProtectedItem(@{
+        @"accessGroup": CIKeychainSQLBackupValue(cols, @"agrp") ?: @"",
+        @"service": CIKeychainSQLBackupValue(cols, @"svce") ?: @"",
+        @"desc": cols[@"desc"] ?: @""
+    });
+}
+
 static BOOL CIKeychainSQLRowMatchesBundle(NSDictionary *cols, NSString *bundleID) {
+    if (CIKeychainSQLRowProtected(cols)) return NO;
     if (![cols isKindOfClass:[NSDictionary class]] || bundleID.length == 0) {
         return NO;
     }
@@ -2384,115 +2406,108 @@ static NSArray<NSDictionary *> *CIKeychainSQLDumpForBundle(NSString *bundleID) {
 }
 
 static void CIKeychainSQLSettle(void) {
-    CIRunKillall(@"securityd");
-    CIRunKillall(@"secd");
-    [NSThread sleepForTimeInterval:0.05];
+    // SecItem operations synchronize through securityd without restarting it.
+}
+
+// Preserve the existing app matching rules, but filter every candidate before
+// deleting it. Bulk LIKE deletes can match a Wi-Fi SSID in the account column.
+static NSUInteger CIKeychainSQLDeleteCandidates(sqlite3 *db, NSString *table, NSString *predicate, NSArray<NSString *> *values) {
+    NSString *quoted = CIKeychainSQLQuoteIdentifier(table);
+    NSDictionary *schema = CIKeychainSQLTableColumns(db, table);
+    NSString *groupColumn = CIKeychainSQLActualColumn(schema, @"agrp");
+    if (!groupColumn.length) return 0;
+    // Read only ownership/network metadata, never allocate the encrypted token
+    // payloads just to decide which rows may be deleted.
+    NSMutableArray *columns = [NSMutableArray arrayWithArray:@[@"rowid",
+        [NSString stringWithFormat:@"%@ AS agrp", CIKeychainSQLQuoteIdentifier(groupColumn)]]];
+    NSString *serviceColumn = CIKeychainSQLActualColumn(schema, @"svce");
+    if (serviceColumn.length) [columns addObject:[NSString stringWithFormat:@"%@ AS svce", CIKeychainSQLQuoteIdentifier(serviceColumn)]];
+    if (schema[@"desc"]) [columns addObject:[NSString stringWithFormat:@"%@ AS desc", CIKeychainSQLQuoteIdentifier(schema[@"desc"])]];
+    NSString *sql = [NSString stringWithFormat:@"SELECT %@ FROM %@ WHERE %@", [columns componentsJoinedByString:@", "], quoted, predicate];
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, sql.UTF8String, -1, &stmt, NULL) != SQLITE_OK) return 0;
+    for (NSUInteger i = 0; i < values.count; i++) {
+        sqlite3_bind_text(stmt, (int)i + 1, values[i].UTF8String, -1, SQLITE_TRANSIENT);
+    }
+    NSMutableArray<NSNumber *> *ids = [NSMutableArray array];
+    int step = SQLITE_OK;
+    while ((step = sqlite3_step(stmt)) == SQLITE_ROW) {
+        @autoreleasepool {
+            if (!CIKeychainSQLRowProtected(CIKeychainSQLRowCols(stmt))) {
+                [ids addObject:@(sqlite3_column_int64(stmt, 0))];
+            }
+        }
+    }
+    sqlite3_finalize(stmt);
+    if (step != SQLITE_DONE) return 0;
+    sql = [NSString stringWithFormat:@"DELETE FROM %@ WHERE rowid=?", quoted];
+    if (sqlite3_prepare_v2(db, sql.UTF8String, -1, &stmt, NULL) != SQLITE_OK) return 0;
+    NSUInteger removed = 0;
+    for (NSNumber *rowID in ids) {
+        sqlite3_reset(stmt);
+        sqlite3_clear_bindings(stmt);
+        sqlite3_bind_int64(stmt, 1, rowID.longLongValue);
+        if (sqlite3_step(stmt) == SQLITE_DONE) removed += (NSUInteger)sqlite3_changes(db);
+    }
+    sqlite3_finalize(stmt);
+    return removed;
 }
 
 static NSUInteger CIKeychainSQLWipeForBundle(NSString *bundleID) {
-    if (bundleID.length == 0 || geteuid() != 0) {
-        return 0;
-    }
+    if (bundleID.length == 0 || geteuid() != 0) return 0;
     sqlite3 *db = CIKeychainSQLOpen(YES);
-    if (!db) {
+    if (!db) return 0;
+    NSUInteger removed = 0;
+    if (sqlite3_exec(db, "BEGIN IMMEDIATE;", NULL, NULL, NULL) != SQLITE_OK) {
+        CIKeychainSQLClose(db);
         return 0;
     }
-    NSUInteger removed = 0;
-    sqlite3_exec(db, "BEGIN IMMEDIATE;", NULL, NULL, NULL);
-    NSArray<NSString *> *tables = CIKeychainSQLTables();
     NSArray<NSString *> *agrps = CIKeychainCollectAgrps(bundleID);
     NSString *low = bundleID.lowercaseString;
     NSMutableArray<NSString *> *likes = [NSMutableArray array];
     BOOL shopeeWipe = [low containsString:@"shopee"] || [low hasPrefix:@"com.beeasy."] || [low hasPrefix:@"com.shopee."];
-    if (shopeeWipe) {
-        [likes addObjectsFromArray:@[@"%shopee%", @"%beeasy%", @"%shopeepay%"]];
-    }
+    if (shopeeWipe) [likes addObjectsFromArray:@[@"%shopee%", @"%beeasy%", @"%shopeepay%"]];
     if ([low hasPrefix:@"com.facebook."] || [low containsString:@"facebook"]) {
-        [likes addObjectsFromArray:@[
-            @"%facebook%", @"%fbsdk%", @"%43aqtk3442.com.facebook%",
-            @"%family_device_id%", @"%fb_device_id%", @"%anonymousid%"
-        ]];
+        [likes addObjectsFromArray:@[@"%facebook%", @"%fbsdk%", @"%43aqtk3442.com.facebook%",
+                                   @"%family_device_id%", @"%fb_device_id%", @"%anonymousid%"]];
     }
     if ([low containsString:@"tiktok"] || [low hasPrefix:@"com.zhiliaoapp."] || [low containsString:@"aweme"]) {
-        [likes addObjectsFromArray:@[
-            @"%tiktok%", @"%zhiliao%", @"%musically%", @"%aweme%", @"%bytedance%",
-            @"%com.ss.iphone%", @"%passport%", @"%odin_tt%", @"%openudid%",
-            @"%krypton%", @"%msdk_guid%"
-        ]];
+        [likes addObjectsFromArray:@[@"%tiktok%", @"%zhiliao%", @"%musically%", @"%aweme%", @"%bytedance%",
+                                   @"%com.ss.iphone%", @"%passport%", @"%odin_tt%", @"%openudid%", @"%krypton%", @"%msdk_guid%"]];
     }
-    for (NSString *table in tables) {
+    LSApplicationProxy *proxy = shopeeWipe ? CIProxy(bundleID) : nil;
+    NSDictionary *ents = [proxy respondsToSelector:@selector(entitlements)] ? proxy.entitlements : nil;
+    NSString *appId = [ents[@"application-identifier"] isKindOfClass:[NSString class]] ? ents[@"application-identifier"] : bundleID;
+    NSString *team = CITeamIDFromAppID(appId) ?: @"";
+    NSArray *track = @[@"%appsflyer%", @"%adjust%", @"%firebase%", @"%google.iid%", @"%tongdun%", @"%trustdecision%",
+                       @"%fmdevice%", @"%blackbox%", @"%tdid%", @"%umeng%", @"%talkingdata%", @"%seclink%", @"%device_fingerprint%"];
+    for (NSString *table in CIKeychainSQLTables()) {
         for (NSString *agrp in agrps) {
-            NSString *sql = [NSString stringWithFormat:@"DELETE FROM %@ WHERE agrp=?", table];
-            sqlite3_stmt *stmt = NULL;
-            if (sqlite3_prepare_v2(db, sql.UTF8String, -1, &stmt, NULL) != SQLITE_OK) {
-                continue;
-            }
-            sqlite3_bind_text(stmt, 1, agrp.UTF8String, -1, SQLITE_TRANSIENT);
-            if (sqlite3_step(stmt) == SQLITE_DONE) {
-                removed += (NSUInteger)sqlite3_changes(db);
-            }
-            sqlite3_finalize(stmt);
+            removed += CIKeychainSQLDeleteCandidates(db, table, @"agrp=?", @[agrp]);
         }
         for (NSString *like in likes) {
-            NSString *sql = [NSString stringWithFormat:@"DELETE FROM %@ WHERE agrp LIKE ? OR svce LIKE ? OR acct LIKE ?", table];
-            sqlite3_stmt *stmt = NULL;
-            if (sqlite3_prepare_v2(db, sql.UTF8String, -1, &stmt, NULL) != SQLITE_OK) {
-                continue;
-            }
-            sqlite3_bind_text(stmt, 1, like.UTF8String, -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(stmt, 2, like.UTF8String, -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(stmt, 3, like.UTF8String, -1, SQLITE_TRANSIENT);
-            if (sqlite3_step(stmt) == SQLITE_DONE) {
-                removed += (NSUInteger)sqlite3_changes(db);
-            }
-            sqlite3_finalize(stmt);
+            removed += CIKeychainSQLDeleteCandidates(db, table, @"agrp LIKE ? OR svce LIKE ? OR acct LIKE ?", @[like, like, like]);
         }
         if (shopeeWipe) {
-            LSApplicationProxy *proxy = CIProxy(bundleID);
-            NSDictionary *ents = [proxy respondsToSelector:@selector(entitlements)] ? proxy.entitlements : nil;
-            NSString *appId = [ents[@"application-identifier"] isKindOfClass:[NSString class]] ? ents[@"application-identifier"] : bundleID;
-            NSString *team = CITeamIDFromAppID(appId) ?: @"";
-            NSArray<NSString *> *track = @[
-                @"%appsflyer%", @"%adjust%", @"%firebase%", @"%google.iid%",
-                @"%tongdun%", @"%trustdecision%", @"%fmdevice%", @"%blackbox%",
-                @"%tdid%", @"%umeng%", @"%talkingdata%", @"%seclink%", @"%device_fingerprint%"
-            ];
+            NSDictionary *schema = CIKeychainSQLTableColumns(db, table);
+            BOOL hasLabel = schema[@"labl"] != nil;
+            NSString *fields = hasLabel ? @"svce LIKE ? OR acct LIKE ? OR IFNULL(labl,'') LIKE ?" : @"svce LIKE ? OR acct LIKE ?";
+            NSString *owners = team.length ? @"agrp LIKE ? OR agrp LIKE ? OR agrp LIKE ? OR agrp LIKE ?" : @"agrp LIKE ? OR agrp LIKE ? OR agrp LIKE ?";
+            NSString *predicate = [NSString stringWithFormat:@"(%@) AND (%@)", fields, owners];
             for (NSString *like in track) {
-                NSString *sql = [NSString stringWithFormat:@"DELETE FROM %@ WHERE (svce LIKE ? OR acct LIKE ? OR IFNULL(labl,'') LIKE ?) AND (agrp LIKE ? OR agrp LIKE ? OR agrp LIKE ? OR agrp LIKE ?)", table];
-                sqlite3_stmt *stmt = NULL;
-                if (sqlite3_prepare_v2(db, sql.UTF8String, -1, &stmt, NULL) != SQLITE_OK) {
-                    sql = [NSString stringWithFormat:@"DELETE FROM %@ WHERE (svce LIKE ? OR acct LIKE ?) AND (agrp LIKE ? OR agrp LIKE ? OR agrp LIKE ? OR agrp LIKE ?)", table];
-                    if (sqlite3_prepare_v2(db, sql.UTF8String, -1, &stmt, NULL) != SQLITE_OK) {
-                        continue;
-                    }
-                    sqlite3_bind_text(stmt, 1, like.UTF8String, -1, SQLITE_TRANSIENT);
-                    sqlite3_bind_text(stmt, 2, like.UTF8String, -1, SQLITE_TRANSIENT);
-                    sqlite3_bind_text(stmt, 3, "%shopee%", -1, SQLITE_STATIC);
-                    sqlite3_bind_text(stmt, 4, "%beeasy%", -1, SQLITE_STATIC);
-                    sqlite3_bind_text(stmt, 5, [NSString stringWithFormat:@"%%%@%%", team].UTF8String, -1, SQLITE_TRANSIENT);
-                    sqlite3_bind_text(stmt, 6, [NSString stringWithFormat:@"%%%@%%", bundleID].UTF8String, -1, SQLITE_TRANSIENT);
-                } else {
-                    sqlite3_bind_text(stmt, 1, like.UTF8String, -1, SQLITE_TRANSIENT);
-                    sqlite3_bind_text(stmt, 2, like.UTF8String, -1, SQLITE_TRANSIENT);
-                    sqlite3_bind_text(stmt, 3, like.UTF8String, -1, SQLITE_TRANSIENT);
-                    sqlite3_bind_text(stmt, 4, "%shopee%", -1, SQLITE_STATIC);
-                    sqlite3_bind_text(stmt, 5, "%beeasy%", -1, SQLITE_STATIC);
-                    sqlite3_bind_text(stmt, 6, [NSString stringWithFormat:@"%%%@%%", team].UTF8String, -1, SQLITE_TRANSIENT);
-                    sqlite3_bind_text(stmt, 7, [NSString stringWithFormat:@"%%%@%%", bundleID].UTF8String, -1, SQLITE_TRANSIENT);
-                }
-                if (sqlite3_step(stmt) == SQLITE_DONE) {
-                    removed += (NSUInteger)sqlite3_changes(db);
-                }
-                sqlite3_finalize(stmt);
+                NSMutableArray *values = [NSMutableArray arrayWithArray:@[like, like]];
+                if (hasLabel) [values addObject:like];
+                [values addObjectsFromArray:@[@"%shopee%", @"%beeasy%"]];
+                if (team.length) [values addObject:[NSString stringWithFormat:@"%%%@%%", team]];
+                [values addObject:[NSString stringWithFormat:@"%%%@%%", bundleID]];
+                removed += CIKeychainSQLDeleteCandidates(db, table, predicate, values);
             }
         }
     }
     sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL);
     sqlite3_exec(db, "PRAGMA wal_checkpoint(TRUNCATE);", NULL, NULL, NULL);
     CIKeychainSQLClose(db);
-    if (!gCIFastErase) {
-        CIKeychainSQLSettle();
-    }
+    if (!gCIFastErase) CIKeychainSQLSettle();
     return removed;
 }
 
@@ -2673,7 +2688,7 @@ static NSUInteger CIKeychainSQLRestoreRows(NSArray *rows) {
             ![table isEqualToString:@"keys"] && ![table isEqualToString:@"cert"]) {
             continue;
         }
-        if (cols.count == 0) {
+        if (cols.count == 0 || CIKeychainSQLRowProtected(cols)) {
             continue;
         }
         NSDictionary<NSString *, NSString *> *schema = CIKeychainSQLTableColumns(db, table);
@@ -2804,7 +2819,7 @@ static void CIKeychainDeleteMatching(id secClass, NSString *bundleID) {
                           item[(__bridge id)kSecAttrAccessGroup] ?: @"",
                           item[(__bridge id)kSecAttrLabel] ?: @"",
                           item[(__bridge id)kSecAttrServer] ?: @""];
-        if (!CIKeychainTextMatchesBundle(blob, bundleID)) {
+        if (CIKeychainProtectedItem(item) || !CIKeychainTextMatchesBundle(blob, bundleID)) {
             continue;
         }
         NSMutableDictionary *del = [@{
@@ -2823,7 +2838,7 @@ static void CIKeychainDeleteMatching(id secClass, NSString *bundleID) {
                 del[key] = value;
             }
         }
-        SecItemDelete((__bridge CFDictionaryRef)del);
+        CIKeychainDeleteUnprotectedItems(del);
     }
 }
 
@@ -3174,6 +3189,7 @@ static NSDictionary *CIKeychainRowFromItem(id secClass, NSDictionary *item) {
 }
 
 static BOOL CIKeychainItemMatchesBundle(NSDictionary *item, NSString *bundleID) {
+    if (CIKeychainProtectedItem(item)) return NO;
     if (![item isKindOfClass:[NSDictionary class]] || bundleID.length == 0) {
         return NO;
     }
@@ -3220,6 +3236,7 @@ static NSUInteger CIKeychainCountWithData(NSArray *rows) {
 }
 
 static void CIKeychainAddUniqueRow(NSMutableArray<NSDictionary *> *out, NSDictionary *row) {
+    if (CIKeychainProtectedItem(row)) return;
     if (![row isKindOfClass:[NSDictionary class]]) {
         return;
     }
@@ -3362,7 +3379,7 @@ static NSArray<NSString *> *CIKeychainCollectAgrps(NSString *bundleID) {
         if (![value isKindOfClass:[NSString class]] || value.length == 0) {
             return;
         }
-        if ([value isEqualToString:@"*"] || [value hasSuffix:@".*"]) {
+        if (CIKeychainProtectedAccessGroup(value)) {
             return;
         }
         if ([seen containsObject:value]) {
@@ -3778,7 +3795,7 @@ static NSUInteger CIKeychainSignedRestore(NSString *bundleID, NSArray *items) {
     }
 
     for (NSDictionary *row in items) {
-        if (![row isKindOfClass:[NSDictionary class]]) {
+        if (CIKeychainProtectedItem(row)) {
             continue;
         }
         NSString *agrp = row[@"accessGroup"];
@@ -3867,7 +3884,7 @@ static NSUInteger __attribute__((unused)) CIKeychainRestoreItems(NSArray *rows) 
     }
     NSUInteger added = 0;
     for (NSDictionary *row in rows) {
-        if (![row isKindOfClass:[NSDictionary class]]) {
+        if (CIKeychainProtectedItem(row)) {
             continue;
         }
         id cls = CISecClassFromName(row[@"class"]);
@@ -4131,7 +4148,7 @@ static void CIWipeKnownKeychainServices(NSString *bundleID) {
                 (__bridge id)kSecAttrService: service,
                 (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
             };
-            SecItemDelete((__bridge CFDictionaryRef)query);
+            CIKeychainDeleteUnprotectedItems(query);
         }
     }
     NSString *low = bundleID.lowercaseString;
@@ -4147,7 +4164,7 @@ static void CIWipeKnownKeychainServices(NSString *bundleID) {
                     (__bridge id)kSecAttrServer: server,
                     (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
                 };
-                SecItemDelete((__bridge CFDictionaryRef)query);
+                CIKeychainDeleteUnprotectedItems(query);
             }
         }
     }
@@ -4162,7 +4179,7 @@ static void CIWipeKnownKeychainServices(NSString *bundleID) {
                     (__bridge id)kSecAttrServer: server,
                     (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
                 };
-                SecItemDelete((__bridge CFDictionaryRef)query);
+                CIKeychainDeleteUnprotectedItems(query);
             }
         }
     }
@@ -4267,7 +4284,7 @@ static void CIWipeKeychainForProxy(LSApplicationProxy *proxy, NSString *bundleID
         }
         [seen addObject:group];
         NSString *low = group.lowercaseString;
-        if ([group hasSuffix:@".*"]) {
+        if (CIKeychainProtectedAccessGroup(group)) {
             continue;
         }
         if ([low hasPrefix:@"com.apple."] && ![low containsString:bundleID.lowercaseString] &&
@@ -4280,7 +4297,7 @@ static void CIWipeKeychainForProxy(LSApplicationProxy *proxy, NSString *bundleID
                 (__bridge id)kSecAttrAccessGroup: group,
                 (__bridge id)kSecAttrSynchronizable: (__bridge id)kSecAttrSynchronizableAny
             };
-            SecItemDelete((__bridge CFDictionaryRef)query);
+            CIKeychainDeleteUnprotectedItems(query);
         }
     }
     CIKeychainDeleteMatching((__bridge id)kSecClassGenericPassword, bundleID);
@@ -4903,27 +4920,43 @@ BOOL ChengIOSRestoreBackup(NSString *backupID, BOOL restoreProfile, BOOL restore
 }
 
 BOOL ChengIOSDeleteBackup(NSString *backupID, NSError **error) {
-    NSString *dir = CIBackupDirForID(backupID);
-    if (dir.length == 0) {
-        if (error) {
-            *error = CIError(3, @"Khong tim thay backup.");
-        }
+    if (!CIValidBackupID(backupID)) {
+        if (error) *error = CIError(3, @"Backup ID khong hop le.");
         return NO;
     }
+    NSString *dir = CIBackupDirForID(backupID);
+    if (dir.length == 0) {
+        if (error) *error = CIError(3, @"Khong tim thay backup.");
+        return NO;
+    }
+    NSString *resolved = dir.stringByStandardizingPath.stringByResolvingSymlinksInPath;
     BOOL allowed = NO;
     for (NSString *root in CIBackupRootCandidates()) {
-        if ([dir hasPrefix:root] && ![dir isEqualToString:root]) {
+        NSString *resolvedRoot = root.stringByStandardizingPath.stringByResolvingSymlinksInPath;
+        if ([resolved.stringByDeletingLastPathComponent isEqualToString:resolvedRoot] &&
+            [resolved.lastPathComponent isEqualToString:backupID]) {
             allowed = YES;
             break;
         }
     }
     if (!allowed) {
-        if (error) {
-            *error = CIError(3, @"Backup ID khong hop le.");
-        }
+        if (error) *error = CIError(3, @"Duong dan backup khong hop le.");
         return NO;
     }
-    return [[NSFileManager defaultManager] removeItemAtPath:dir error:error];
+    if (!CIIsRootProcess() && !CIInHelperProcess()) {
+        // Never partially remove a root-owned backup before the helper resolves
+        // its ID (metadata may otherwise disappear and make retries impossible).
+        NSError *rootError = nil;
+        NSDictionary *remote = CIRunRootOp(@{@"op": @"delete-backup", @"backupID": backupID}, &rootError);
+        if ([remote[@"ok"] boolValue]) return YES;
+        if (error) *error = rootError ?: CIError(3, remote[@"error"] ?: @"Khong xoa duoc backup bang root helper.");
+        return NO;
+    }
+    if (!CIIsRootProcess()) {
+        if (error) *error = CIError(2, @"chengiosroot uid != 0");
+        return NO;
+    }
+    return [[NSFileManager defaultManager] removeItemAtPath:resolved error:error];
 }
 
 BOOL ChengIOSRenameBackup(NSString *backupID, NSString *name, NSError **error) {
@@ -5245,6 +5278,8 @@ static BOOL CIBundleBlockedFromInjection(NSString *bundleID) {
     if (low.length == 0) {
         return YES;
     }
+    if (([low hasPrefix:@"com.apple."] && ![low isEqualToString:@"com.apple.mobilesafari"]) ||
+        [low hasPrefix:@"com.vinhnv2507.chengios"]) return YES;
     if (CIBundleIsShopeeFamily(bundleID) ||
         [low containsString:@"shopee"] ||
         [low containsString:@"beeasy"] ||

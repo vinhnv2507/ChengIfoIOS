@@ -459,3 +459,27 @@ Depends: Cydia Substrate / ElleKit (`mobilesubstrate`), PreferenceLoader, AltLis
 ## License
 
 MIT. Phần OS version spoof gốc của Fadexz; ChengIOS do vinhnv2507 phát triển tiếp.
+
+
+## 1.2.57 stability update
+
+Profile changes no longer respring automatically. Fully close and reopen the
+selected app after applying a profile. The manual Respring button is unchanged.
+
+Network hooks are excluded from the build, and old `networkEnabled` preferences
+are ignored. Random profiles keep networking disabled. System apps/services and
+ChengIOS's own helper processes are excluded from spoofing; Safari remains an
+explicit app exception. RAM/CPU queries use the real device values.
+
+Saving or applying a profile does not kill cfprefsd. App cleanup is prevented
+from killing securityd, secd and other network/system services. Keychain cleanup
+protects system groups and AirPort/Wi-Fi records, including records found via
+broad legacy queries. Direct SQL writes to the live keychain database are
+disabled; app keychain changes use SecItem APIs. Backups with only SQL rows may
+therefore restore fewer credentials than before, rather than write into a live
+system database. This release does not restore Wi-Fi passwords already erased
+by an earlier version.
+
+These changes remove identified risky operations; device verification is still
+required on the affected iPhone 7 Plus / iOS 15.8.8 rootless setup. A successful
+CI build alone cannot confirm that reboot or Wi-Fi failures are resolved.

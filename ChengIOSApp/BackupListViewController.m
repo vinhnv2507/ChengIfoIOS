@@ -324,28 +324,10 @@ static NSString *CIResultText(NSDictionary *meta, NSError *error, NSString *fall
 static void CIPresentMaybeRespring(UIViewController *host, NSString *title, NSString *message, BOOL respring);
 static void CIRunBusyEx(UIViewController *host, NSString *title, void (^work)(void (^done)(NSString *resultTitle, NSString *message, BOOL respring)));
 
-static void CIRespringSoon(void) {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.9 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        ChengIOSRequestRespring();
-    });
-}
-
 static void CIPresentMaybeRespring(UIViewController *host, NSString *title, NSString *message, BOOL respring) {
-    if (!respring) {
-        CIPresent(host, title, message);
-        return;
-    }
-    NSString *text = message.length ? [message stringByAppendingString:@"\n\nDang Respring..."] : @"Dang Respring...";
-    if (!host) {
-        CIRespringSoon();
-        return;
-    }
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
-                                                                   message:text
-                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [host presentViewController:alert animated:YES completion:^{
-        CIRespringSoon();
-    }];
+    (void)respring;
+    NSString *text = [(message ?: @"") stringByAppendingString:@"\n\nDong han va mo lai app da chon de ap dung ho so."];
+    CIPresent(host, title, text);
 }
 
 static void CIRunBusyEx(UIViewController *host, NSString *title, void (^work)(void (^done)(NSString *resultTitle, NSString *message, BOOL respring))) {
@@ -507,8 +489,8 @@ static void ChengIOSRunBackupEraseRandom(UIViewController *host, NSString *name,
             go(name.length ? name : ChengIOSSuggestedBackupNameForBundles(list), list);
             return;
         }
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Backup + Xoa + Random + Respring"
-                                                                       message:[NSString stringWithFormat:@"Backup ho so + data %lu app, xoa data app do, Random Toan Bo theo IP, roi Respring. Khong undo.", (unsigned long)list.count]
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Backup + Xoa + Random"
+                                                                       message:[NSString stringWithFormat:@"Backup ho so + data %lu app, xoa data app do, Random Toan Bo theo IP. Dong va mo lai app dich. Khong undo.", (unsigned long)list.count]
                                                                 preferredStyle:UIAlertControllerStyleAlert];
         [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
             field.text = name.length ? name : ChengIOSSuggestedBackupNameForBundles(list);
@@ -786,8 +768,8 @@ void ChengIOSRunEraseThenRandom(UIViewController *host, NSArray<NSString *> *bun
     }
     NSString *title = allDevice ? @"Xoa toan bo + Random" : @"Xoa app da chon + Random";
     NSString *msg = allDevice
-        ? @"Xoa data MOI app user + Safari, roi Random Toan Bo, roi Respring. Shopee/TikTok xoa them 1 lan sau random. KHONG phai factory reset iOS. Khong undo."
-        : [NSString stringWithFormat:@"Xoa sandbox/keychain %lu app da chon, roi random info, roi Respring. Shopee/TikTok xoa them 1 lan sau random. Khong undo.", (unsigned long)list.count];
+        ? @"Xoa data MOI app user + Safari, roi Random Toan Bo. Dong va mo lai app dich. Shopee/TikTok xoa them 1 lan sau random. KHONG phai factory reset iOS. Khong undo."
+        : [NSString stringWithFormat:@"Xoa sandbox/keychain %lu app da chon, roi random info. Dong va mo lai app dich. Shopee/TikTok xoa them 1 lan sau random. Khong undo.", (unsigned long)list.count];
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
                                                                    message:msg
                                                             preferredStyle:UIAlertControllerStyleAlert];

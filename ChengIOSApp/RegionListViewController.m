@@ -16,7 +16,7 @@
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     (void)tableView; (void)section;
-    return @"Mac dinh theo IP public. Chon vung de ep tay locale/nha mang/GPS/Wi-Fi. Web van thay IP that (can VPN neu muon US/KR).";
+    return @"Mac dinh theo IP public. Chon vung de ep tay locale/nha mang/GPS. Gia lap Wi-Fi/IP da tat. Web van thay IP that (can VPN neu muon US/KR).";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -40,19 +40,15 @@
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSDictionary *profile = iso.length ? ChengIOSRandomFullProfileInRegion(iso) : ChengIOSRandomFullProfile();
         NSString *text = ChengIOSProfileSummary(profile);
-        dispatch_async(dispatch_get_main_queue(), ^{
-            ChengIOSApplyProfile(profile);
+        ChengIOSApplyProfileAsync(profile, ^{
             if (text.length > 0) {
                 [UIPasteboard generalPasteboard].string = text;
             }
             UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
-                                                                           message:@"Da copy ho so. Dang Respring..."
+                                                                           message:@"Da luu ho so. Dong han va mo lai app da chon de ap dung."
                                                                     preferredStyle:UIAlertControllerStyleAlert];
-            [self presentViewController:alert animated:YES completion:^{
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.9 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                    ChengIOSRequestRespring();
-                });
-            }];
+            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+            [self presentViewController:alert animated:YES completion:nil];
         });
     });
 }

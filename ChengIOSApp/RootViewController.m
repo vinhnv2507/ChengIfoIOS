@@ -47,7 +47,7 @@ extern char **environ;
             @{@"kind": @"nav", @"title": @"Quan ly Backup", @"page": @"backup", @"detail": @"Backup / Restore / Xoa data"},
             @{@"kind": @"button", @"title": @"Backup ho so", @"action": @"backupProfile"},
             @{@"kind": @"button", @"title": @"Backup ho so + data app", @"action": @"backupApps"},
-            @{@"kind": @"button", @"title": @"Backup + Xoa + Random + Respring", @"action": @"backupEraseRandom"},
+            @{@"kind": @"button", @"title": @"Backup + Xoa + Random", @"action": @"backupEraseRandom"},
             @{@"kind": @"button", @"title": @"Xoa sach data app da chon", @"action": @"eraseApps"},
             @{@"kind": @"button", @"title": @"Xoa app da chon + Random Toan Bo", @"action": @"eraseRandomAll"},
             @{@"kind": @"button", @"title": @"Xoa toan bo + Random Toan Bo", @"action": @"eraseDeviceRandom"}
@@ -101,15 +101,7 @@ extern char **environ;
             @{@"kind": @"text", @"title": @"GPX Path", @"keys": @[@"gpxPath"], @"placeholder": @"/var/mobile/Media/ChengIOS/route.gpx"}
         ],
         @[
-            @{@"kind": @"switch", @"title": @"Gi\u1ea3 l\u1eadp m\u1ea1ng / Wi-Fi", @"key": @"networkEnabled", @"defaultOn": @NO},
-            @{@"kind": @"text", @"title": @"Interface", @"keys": @[@"interfaceName"], @"placeholder": @"en0"},
-            @{@"kind": @"text", @"title": @"IPv4", @"keys": @[@"ipv4Address"], @"placeholder": @"192.168.1.20"},
-            @{@"kind": @"text", @"title": @"IPv6", @"keys": @[@"ipv6Address"], @"placeholder": @"2001:db8::1"},
-            @{@"kind": @"text", @"title": @"MAC", @"keys": @[@"macAddress", @"wifiAddress"], @"placeholder": @"02:00:00:00:00:01"},
-            @{@"kind": @"text", @"title": @"SSID", @"keys": @[@"wifiSSID"], @"placeholder": @"Viettel-5G"},
-            @{@"kind": @"text", @"title": @"BSSID", @"keys": @[@"wifiBSSID"], @"placeholder": @"50:c7:bf:12:34:56"},
-            @{@"kind": @"text", @"title": @"Gateway", @"keys": @[@"wifiGateway"], @"placeholder": @"192.168.1.1"},
-            @{@"kind": @"text", @"title": @"RSSI", @"keys": @[@"wifiRSSI"], @"placeholder": @"-52"}
+            @{@"kind": @"info", @"title": @"Wi-Fi/IP that - da tat gia lap mang", @"keys": @[]}
         ],
         @[
             @{@"kind": @"text", @"title": @"Board", @"keys": @[@"hwModelStr"], @"placeholder": @"D84AP"},
@@ -197,7 +189,7 @@ extern char **environ;
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     (void)tableView;
     if (section == 0) {
-        return @"Mac dinh theo IP public: quoc gia, nha mang, GPS, locale, Wi-Fi. Web van thay IP that (can VPN neu muon US/KR). Random theo vung de ep tay.";
+        return @"Mac dinh theo IP public: quoc gia, nha mang, GPS, locale. Gia lap Wi-Fi/IP da tat. Web van thay IP that (can VPN neu muon US/KR). Random theo vung de ep tay.";
     }
     if (section == 1) {
         return @"Shopee: khong inject tweak (tranh captcha), chi wipe data. Facebook/TikTok van spoof.";
@@ -374,36 +366,25 @@ extern char **environ;
 }
 
 - (void)finishChangeInfo:(NSDictionary *)profile title:(NSString *)title silent:(BOOL)silent respring:(BOOL)respring {
-    ChengIOSApplyProfile(profile);
+    ChengIOSApplyProfileAsync(profile, ^{
+        [self didApplyChangeInfo:profile title:title silent:silent respring:respring];
+    });
+}
+
+- (void)didApplyChangeInfo:(NSDictionary *)profile title:(NSString *)title silent:(BOOL)silent respring:(BOOL)respring {
     [self reloadProfile];
     NSString *text = ChengIOSProfileSummary(profile);
     if (text.length > 0) {
         [UIPasteboard generalPasteboard].string = text;
     }
-    if (respring) {
-        if (!silent) {
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
-                                                                           message:@"Da copy ho so. Dang Respring..."
-                                                                    preferredStyle:UIAlertControllerStyleAlert];
-            [self presentViewController:alert animated:YES completion:^{
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.9 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                    [self respring];
-                });
-            }];
-        } else {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                [self respring];
-            });
-        }
-        return;
-    }
+    (void)respring; // Applying a profile never restarts SpringBoard.
     if (!silent) {
         [self showSummaryTitle:title profile:profile];
     }
 }
 
 - (void)runRandom:(BOOL)full silent:(BOOL)silent {
-    [self runRandom:full silent:silent respring:YES];
+    [self runRandom:full silent:silent respring:NO];
 }
 
 - (void)runRandom:(BOOL)full silent:(BOOL)silent respring:(BOOL)respring {
@@ -549,8 +530,14 @@ extern char **environ;
     if (modeAll || [self token:token hasAny:@[@"random-all", @"randomall", @"toan-bo", @"toanbo", @"full"]]) {
         NSString *region = [self queryValue:url name:@"region"] ?: [self queryValue:url name:@"iso"];
         if (region.length > 0) {
-            NSDictionary *profile = ChengIOSRandomFullProfileInRegion(region);
-            [self finishChangeInfo:profile title:[NSString stringWithFormat:@"Random %@", region.uppercaseString] silent:silent respring:!noRespring];
+            dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+                @autoreleasepool {
+                    NSDictionary *profile = ChengIOSRandomFullProfileInRegion(region);
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [self finishChangeInfo:profile title:[NSString stringWithFormat:@"Random %@", region.uppercaseString] silent:silent respring:!noRespring];
+                    });
+                }
+            });
         } else {
             [self runRandom:YES silent:silent respring:!noRespring];
         }
