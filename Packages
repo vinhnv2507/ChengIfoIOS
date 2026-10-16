@@ -1,0 +1,34 @@
+Package: com.vinhnv2507.chengios
+Version: 1.2.57
+Architecture: iphoneos-arm64
+Maintainer: vinhnv2507 <vinhnv2507@users.noreply.github.com>
+Installed-Size: 3364
+Depends: firmware (>= 12.0), mobilesubstrate, preferenceloader, com.opa334.altlist
+Recommends: ldid
+Filename: debs/com.vinhnv2507.chengios_1.2.57_iphoneos-arm64.deb
+Size: 501198
+MD5sum: 977969bf4838728b83fc98f6f1848f80
+SHA1: d792c38923cc273739493818d6a1648cde4b02bf
+SHA256: 5b4e34cdffdedc9448abccd068b657e926702d9db7a7df22537a71e4e1e224d4
+Section: Tweaks
+Description: Per-app device profiles with real network addresses, protected system credentials, and no automatic respring after profile changes.
+Author: vinhnv2507 <vinhnv2507@users.noreply.github.com>
+Name: ChengIOS
+
+Package: com.vinhnv2507.chengios
+Version: 1.2.57
+Architecture: iphoneos-arm
+Maintainer: vinhnv2507 <vinhnv2507@users.noreply.github.com>
+Installed-Size: 3364
+Depends: firmware (>= 12.0), mobilesubstrate, preferenceloader, com.opa334.altlist
+Recommends: ldid
+Filename: debs/com.vinhnv2507.chengios_1.2.57_iphoneos-arm.deb
+Size: 507672
+MD5sum: e67d4e2824c21be906b1273620de6101
+SHA1: 9309e9748655a8ad821f915d5c61b72c03d645cf
+SHA256: 3e958d10d0e13c4d011c8f412b0761afcc01aa772197868e7f0bc8c0da1076fd
+Section: Tweaks
+Description: Per-app device profiles with real network addresses, protected system credentials, and no automatic respring after profile changes.
+Author: vinhnv2507 <vinhnv2507@users.noreply.github.com>
+Name: ChengIOS
+
